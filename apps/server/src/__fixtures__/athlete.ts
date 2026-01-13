@@ -1,0 +1,116 @@
+export const detailedAthlete = {
+  id: 123456,
+  resource_state: 3,
+  username: "john_runner",
+  firstname: "John",
+  lastname: "Doe",
+  city: "London",
+  state: "England",
+  country: "United Kingdom",
+  sex: "M" as const,
+  premium: true,
+  summit: true,
+  created_at: "2020-01-15T10:00:00Z",
+  updated_at: "2026-01-15T08:00:00Z",
+  profile_medium: "https://example.com/avatar_medium.jpg",
+  profile: "https://example.com/avatar.jpg",
+  weight: 70.5,
+  measurement_preference: "meters" as const,
+};
+
+export const athleteWithNullFields = {
+  ...detailedAthlete,
+  id: 123457,
+  username: null,
+  city: null,
+  state: null,
+  country: null,
+  sex: null,
+  weight: null,
+  measurement_preference: null,
+};
+
+export const activityStats = {
+  biggest_ride_distance: 150000.0,
+  biggest_climb_elevation_gain: 2500.0,
+  recent_ride_totals: {
+    count: 5,
+    distance: 200000.0,
+    moving_time: 28800,
+    elapsed_time: 30000,
+    elevation_gain: 1500.0,
+    achievement_count: 10,
+  },
+  recent_run_totals: {
+    count: 10,
+    distance: 80000.0,
+    moving_time: 28800,
+    elapsed_time: 30000,
+    elevation_gain: 500.0,
+    achievement_count: 5,
+  },
+  recent_swim_totals: {
+    count: 2,
+    distance: 4000.0,
+    moving_time: 3600,
+    elapsed_time: 3800,
+    elevation_gain: 0,
+    achievement_count: 0,
+  },
+  ytd_ride_totals: {
+    count: 50,
+    distance: 2000000.0,
+    moving_time: 288000,
+    elapsed_time: 300000,
+    elevation_gain: 15000.0,
+  },
+  ytd_run_totals: {
+    count: 100,
+    distance: 800000.0,
+    moving_time: 288000,
+    elapsed_time: 300000,
+    elevation_gain: 5000.0,
+  },
+  ytd_swim_totals: {
+    count: 20,
+    distance: 40000.0,
+    moving_time: 36000,
+    elapsed_time: 38000,
+    elevation_gain: 0,
+  },
+  all_ride_totals: {
+    count: 500,
+    distance: 20000000.0,
+    moving_time: 2880000,
+    elapsed_time: 3000000,
+    elevation_gain: 150000.0,
+  },
+  all_run_totals: {
+    count: 1000,
+    distance: 8000000.0,
+    moving_time: 2880000,
+    elapsed_time: 3000000,
+    elevation_gain: 50000.0,
+  },
+  all_swim_totals: {
+    count: 200,
+    distance: 400000.0,
+    moving_time: 360000,
+    elapsed_time: 380000,
+    elevation_gain: 0,
+  },
+};
+
+export const activityStatsWithNulls = {
+  ...activityStats,
+  biggest_ride_distance: null,
+  biggest_climb_elevation_gain: null,
+};
+
+export const heartRateZones = [
+  { min: 0, max: 120 },
+  { min: 120, max: 140 },
+  { min: 140, max: 160 },
+  { min: 160, max: 180 },
+  { min: 180, max: -1 },
+];

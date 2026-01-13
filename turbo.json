@@ -1,0 +1,20 @@
+{
+  "$schema": "https://turborepo.dev/schema.v2.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "test": {
+      "dependsOn": ["^build"]
+    },
+    "//#lint": {
+      "outputs": []
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false,
+      "env": ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "PUBLIC_URL", "PORT"]
+    }
+  }
+}

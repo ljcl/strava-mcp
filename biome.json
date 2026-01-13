@@ -1,0 +1,102 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.3.11/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": false,
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!bun.lock",
+      "!.turbo",
+      "!**/*.schema.json"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 80
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": {
+        "recommended": true
+      },
+      "correctness": {
+        "recommended": true,
+        "useExhaustiveDependencies": "warn",
+        "noUnusedImports": {
+          "level": "error",
+          "fix": "safe"
+        }
+      },
+      "style": {
+        "recommended": true,
+        "noNonNullAssertion": "off",
+        "useImportType": {
+          "level": "error",
+          "options": {
+            "style": "inlineType"
+          }
+        }
+      },
+      "nursery": {
+        "recommended": true,
+        "noContinue": "error",
+        "noDeprecatedImports": "error",
+        "noImportCycles": "error",
+        "noIncrementDecrement": "error",
+        "noMisusedPromises": "error",
+        "noFloatingPromises": "warn",
+        "noParametersOnlyUsedInRecursion": "error",
+        "noShadow": "error",
+        "noUnknownAttribute": "error",
+        "noUnnecessaryConditions": "error",
+        "noUnusedExpressions": "error",
+        "noUselessCatchBinding": "error",
+        "noUselessUndefined": "error",
+        "useArraySortCompare": "error",
+        "useConsistentArrowReturn": "error",
+        "useExhaustiveSwitchCases": "error"
+      }
+    }
+  },
+  "javascript": {
+    "formatter": {
+      "enabled": true
+    }
+  },
+  "json": {
+    "formatter": {
+      "enabled": true,
+      "trailingCommas": "none",
+      "indentWidth": 2
+    }
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "recommended": true,
+        "organizeImports": {
+          "level": "on",
+          "options": {
+            "groups": [
+              {
+                "type": false
+              }
+            ]
+          }
+        },
+        "useSortedProperties": "on"
+      }
+    }
+  }
+}

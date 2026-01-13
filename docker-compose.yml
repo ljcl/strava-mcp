@@ -1,0 +1,41 @@
+services:
+  strava-mcp:
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    container_name: strava-mcp-server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - STRAVA_CLIENT_ID=${STRAVA_CLIENT_ID}
+      - STRAVA_CLIENT_SECRET=${STRAVA_CLIENT_SECRET}
+      - PUBLIC_URL=${PUBLIC_URL}
+      - TOKEN_DATA_DIR=/app/data
+      - ROUTE_EXPORT_PATH=/app/strava-exports
+      - PORT=3000
+      # Optional: Initial tokens (not needed if using web auth at /auth/start)
+      - STRAVA_ACCESS_TOKEN=${STRAVA_ACCESS_TOKEN:-}
+      - STRAVA_REFRESH_TOKEN=${STRAVA_REFRESH_TOKEN:-}
+    volumes:
+      # Persist token data for automatic refresh across restarts
+      - ./data:/app/data
+      # Optional: persist exported routes
+      - strava-exports:/app/strava-exports
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:3000/health",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  strava-exports:

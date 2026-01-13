@@ -1,0 +1,2 @@
+# Ignore token files - these contain secrets
+tokens.json

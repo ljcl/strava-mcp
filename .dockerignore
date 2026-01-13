@@ -1,0 +1,35 @@
+# Dependencies (installed inside container)
+**/node_modules/
+
+# Build artifacts (built inside container)
+dist/
+
+# Development files
+.git/
+.turbo/
+coverage/
+*.md
+!README.md
+.env
+.env.*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Docker files (not needed inside container)
+**/Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Storybook
+**/storybook-static/
