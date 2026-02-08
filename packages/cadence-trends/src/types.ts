@@ -46,3 +46,11 @@ export interface PaceZone {
 
 /** View identifiers */
 export type ViewId = "trend" | "scatter" | "zones" | "overlay";
+
+/** Palette for overlay comparison lines — distinct from metric colors */
+export const COMPARISON_COLORS = [
+  "#e11d48", // rose
+  "#2563eb", // blue
+  "#16a34a", // green
+  "#d97706", // amber
+];

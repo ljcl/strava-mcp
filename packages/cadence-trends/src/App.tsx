@@ -7,6 +7,7 @@ import { SummaryBar } from "./SummaryBar";
 import { ScatterView } from "./ScatterView";
 import { TrendView } from "./TrendView";
 import { ZonesView } from "./ZonesView";
+import { OverlayView } from "./OverlayView";
 import { computeSummaryStats, toOverlayPoints, smoothOverlayPoints } from "./normalize";
 import type { CadenceTrendData, OverlayPoint, OverlayStreamData, RunSummary, ViewId } from "./types";
 
@@ -92,9 +93,6 @@ export function App({ app, data }: AppProps) {
     [app, streamCache, loadingStreams, data.activities],
   );
 
-  // Will be wired to overlay view in Task 9
-  void fetchStreamForRun;
-
   const selectedRuns = data.activities.filter((a) => selectedRunIds.has(a.id));
 
   return (
@@ -137,7 +135,12 @@ export function App({ app, data }: AppProps) {
           <ZonesView activities={data.activities} />
         )}
         {activeView === "overlay" && (
-          <div>Overlay view — {selectedRuns.length} selected (placeholder)</div>
+          <OverlayView
+            selectedRunIds={selectedRunIds}
+            streamCache={streamCache}
+            loadingStreams={loadingStreams}
+            fetchStreamForRun={fetchStreamForRun}
+          />
         )}
       </div>
       {selectedRuns.length > 0 && (
