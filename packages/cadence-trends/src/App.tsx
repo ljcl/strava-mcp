@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { PillGroup, Pill } from "@strava-mcp/ui";
 import styles from "./App.module.css";
 import { SummaryBar } from "./SummaryBar";
+import { ScatterView } from "./ScatterView";
 import { TrendView } from "./TrendView";
 import { computeSummaryStats, toOverlayPoints, smoothOverlayPoints } from "./normalize";
 import type { CadenceTrendData, OverlayPoint, OverlayStreamData, RunSummary, ViewId } from "./types";
@@ -125,7 +126,11 @@ export function App({ app, data }: AppProps) {
           />
         )}
         {activeView === "scatter" && (
-          <div>Scatter view (placeholder)</div>
+          <ScatterView
+            activities={data.activities}
+            onRunClick={toggleRunSelection}
+            selectedRunIds={selectedRunIds}
+          />
         )}
         {activeView === "zones" && (
           <div>Zones view (placeholder)</div>
