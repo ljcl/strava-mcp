@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { PillGroup, Pill } from "@strava-mcp/ui";
 import styles from "./App.module.css";
 import { SummaryBar } from "./SummaryBar";
+import { TrendView } from "./TrendView";
 import { computeSummaryStats, toOverlayPoints, smoothOverlayPoints } from "./normalize";
 import type { CadenceTrendData, OverlayPoint, OverlayStreamData, RunSummary, ViewId } from "./types";
 
@@ -89,8 +90,7 @@ export function App({ app, data }: AppProps) {
     [app, streamCache, loadingStreams, data.activities],
   );
 
-  // Will be wired to chart views in Tasks 6-9
-  void toggleRunSelection;
+  // Will be wired to overlay view in Task 9
   void fetchStreamForRun;
 
   const selectedRuns = data.activities.filter((a) => selectedRunIds.has(a.id));
@@ -118,7 +118,11 @@ export function App({ app, data }: AppProps) {
       </div>
       <div className={styles.viewContainer}>
         {activeView === "trend" && (
-          <div>Trend view — {data.activities.length} runs (placeholder)</div>
+          <TrendView
+            activities={data.activities}
+            onRunClick={toggleRunSelection}
+            selectedRunIds={selectedRunIds}
+          />
         )}
         {activeView === "scatter" && (
           <div>Scatter view (placeholder)</div>
