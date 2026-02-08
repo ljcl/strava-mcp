@@ -13,6 +13,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 
 - `apps/server/` — MCP server (tools, auth, token management)
 - `packages/activity-chart/` — React + Recharts MCP App for interactive activity charts
+- `packages/cadence-trends/` — React + Recharts MCP App for cadence trend analysis
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend)
 - `packages/design-system/` — Shared design tokens and color constants
 - `packages/tsconfig/` — Shared TypeScript configurations
@@ -70,6 +71,8 @@ Remote MCP server for connecting AI tools to your Strava data.
 | ---- | ----------- |
 | `view-activity-chart` | Interactive chart with HR, power, pace, altitude overlays (MCP App) |
 | `get-activity-streams-raw` | Raw stream data for the activity chart UI (app-only) |
+| `view-cadence-trends` | Interactive cadence trends with timeline, scatter, zones, and overlay views (MCP App) |
+| `get-cadence-trend-data` | Summary cadence/pace data for the cadence trends UI (app-only) |
 
 ## Styling
 
@@ -90,6 +93,17 @@ The `view-activity-chart` tool renders an interactive Recharts chart in MCP-comp
 - Served as MCP resource at `ui://activity-chart/app.html`
 - Calls `get-activity-streams-raw` (app-only visibility) to fetch data after render
 - Supports heart rate, power, pace, altitude, cadence, and grade overlays
+
+## MCP App (Cadence Trends)
+
+The `view-cadence-trends` tool renders an interactive cadence analysis dashboard in MCP-compatible hosts.
+
+- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useApp`, `useHostStyles`)
+- Bundled as single HTML file via `vite-plugin-singlefile`
+- Served as MCP resource at `ui://cadence-trends/app.html`
+- Calls `get-cadence-trend-data` (app-only) to fetch summary data on mount
+- Calls `get-activity-streams-raw` (app-only) for per-second overlay data on demand
+- Four views: Trend timeline, Scatter plot, Pace Zones, Overlay comparison
 
 ## Commands
 
@@ -115,6 +129,9 @@ cd apps/storybook
 bun run storybook    # Storybook on port 6006
 
 cd packages/activity-chart
+INPUT=app.html bunx vite build  # Rebuild single-file HTML
+
+cd packages/cadence-trends
 INPUT=app.html bunx vite build  # Rebuild single-file HTML
 
 # Docker
