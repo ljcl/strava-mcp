@@ -6,6 +6,7 @@ import styles from "./App.module.css";
 import { SummaryBar } from "./SummaryBar";
 import { ScatterView } from "./ScatterView";
 import { TrendView } from "./TrendView";
+import { ZonesView } from "./ZonesView";
 import { computeSummaryStats, toOverlayPoints, smoothOverlayPoints } from "./normalize";
 import type { CadenceTrendData, OverlayPoint, OverlayStreamData, RunSummary, ViewId } from "./types";
 
@@ -133,7 +134,7 @@ export function App({ app, data }: AppProps) {
           />
         )}
         {activeView === "zones" && (
-          <div>Zones view (placeholder)</div>
+          <ZonesView activities={data.activities} />
         )}
         {activeView === "overlay" && (
           <div>Overlay view — {selectedRuns.length} selected (placeholder)</div>
