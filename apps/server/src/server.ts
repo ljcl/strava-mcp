@@ -10,7 +10,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { stravaApi } from "./fetchClient";
-import { getActivityById, getActivityLaps } from "./stravaClient";
+import { getActivityById, getActivityLaps, getAllActivities as getAllActivitiesFn } from "./stravaClient";
 import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
@@ -127,6 +127,47 @@ function buildToolDefs(): ToolDef[] {
     },
   });
 
+  defs.push({
+    name: "view-cadence-trends",
+    description:
+      "Renders an interactive cadence trends chart showing running cadence progression over time, " +
+      "cadence-pace correlation, pace zone analysis, and per-run overlay comparison.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        weeks: {
+          type: "number",
+          description: "Number of weeks of history to show (default: 6)",
+        },
+      },
+    },
+    _meta: {
+      ui: { resourceUri: "ui://cadence-trends/app.html" },
+    },
+  });
+
+  defs.push({
+    name: "get-cadence-trend-data",
+    description:
+      "Get summary cadence and pace data for recent running activities. " +
+      "Returns per-run averages for the cadence trends UI.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        weeks: {
+          type: "number",
+          description: "Number of weeks of history (default: 6)",
+        },
+      },
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://cadence-trends/app.html",
+        visibility: ["app"],
+      },
+    },
+  });
+
   return defs;
 }
 
@@ -233,6 +274,104 @@ async function handleGetActivityStreamsRaw(
   return { content: [{ type: "text", text: JSON.stringify(result) }] };
 }
 
+const RUNNING_TYPES = new Set(["Run", "VirtualRun", "TrailRun"]);
+
+async function handleGetCadenceTrendData(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const weeks = Number(args.weeks) || 6;
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return {
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
+  }
+
+  const after = Math.floor(
+    (Date.now() - weeks * 7 * 24 * 60 * 60 * 1000) / 1000,
+  );
+
+  const allActivities: Awaited<ReturnType<typeof getAllActivitiesFn>> = [];
+  let page = 1;
+  let hasMore = true;
+  while (hasMore && page <= 10) {
+    const pageActivities = await getAllActivitiesFn(token, {
+      page,
+      perPage: 200,
+      after,
+    });
+    if (pageActivities.length === 0) {
+      hasMore = false;
+    } else {
+      allActivities.push(...pageActivities);
+      hasMore = pageActivities.length === 200;
+      page += 1;
+    }
+  }
+
+  const runs = allActivities.filter(
+    (a) => a.type && RUNNING_TYPES.has(a.type),
+  );
+
+  const activities = runs.map((a) => {
+    const avgCadence = a.average_cadence ? a.average_cadence * 2 : 0;
+    const avgSpeed = a.average_speed ?? 0;
+    const avgPace = avgSpeed > 0 ? 1000 / avgSpeed / 60 : 0;
+    return {
+      id: a.id,
+      name: a.name,
+      date: a.start_date,
+      distance: Math.round((a.distance / 1000) * 100) / 100,
+      duration: a.moving_time ?? 0,
+      averageCadence: Math.round(avgCadence),
+      averagePace: Math.round(avgPace * 100) / 100,
+      type: a.type ?? "Run",
+    };
+  });
+
+  const result = { weeks, activities };
+  return { content: [{ type: "text", text: JSON.stringify(result) }] };
+}
+
+async function handleViewCadenceTrends(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const weeks = Number(args.weeks) || 6;
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return {
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
+  }
+
+  const after = Math.floor(
+    (Date.now() - weeks * 7 * 24 * 60 * 60 * 1000) / 1000,
+  );
+  const activities = await getAllActivitiesFn(token, {
+    page: 1,
+    perPage: 200,
+    after,
+  });
+  const runs = activities.filter((a) => a.type && RUNNING_TYPES.has(a.type));
+
+  const avgCadence =
+    runs.length > 0
+      ? Math.round(
+          (runs.reduce((sum, a) => sum + (a.average_cadence ?? 0) * 2, 0) /
+            runs.length),
+        )
+      : 0;
+
+  const lines = [
+    `Cadence Trends (last ${weeks} weeks)`,
+    `Runs: ${runs.length}`,
+    `Average cadence: ${avgCadence} spm`,
+    "",
+    "[Interactive cadence trends chart rendered above]",
+  ];
+  return { content: [{ type: "text", text: lines.join("\n") }] };
+}
+
 export function createServer(): Server {
   const server = new Server(
     { name: "Strava MCP Server", version: "1.0.0" },
@@ -271,6 +410,30 @@ export function createServer(): Server {
       }
     }
 
+    if (name === "view-cadence-trends") {
+      try {
+        return await handleViewCadenceTrends(args ?? {});
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Tool error: ${message}` }],
+        };
+      }
+    }
+
+    if (name === "get-cadence-trend-data") {
+      try {
+        return await handleGetCadenceTrendData(args ?? {});
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Tool error: ${message}` }],
+        };
+      }
+    }
+
     // Handle existing Strava tools
     const executor = TOOL_EXECUTORS.get(name);
     if (!executor) {
@@ -298,6 +461,11 @@ export function createServer(): Server {
         name: "Activity Chart",
         mimeType: "text/html;profile=mcp-app",
       },
+      {
+        uri: "ui://cadence-trends/app.html",
+        name: "Cadence Trends",
+        mimeType: "text/html;profile=mcp-app",
+      },
     ],
   }));
 
@@ -311,6 +479,21 @@ export function createServer(): Server {
         "..",
         "dist",
         "activity-chart",
+        "app.html",
+      );
+      const html = await fs.readFile(htmlPath, "utf-8");
+      return {
+        contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html }],
+      };
+    }
+    if (uri === "ui://cadence-trends/app.html") {
+      const htmlPath = path.join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "..",
+        "dist",
+        "cadence-trends",
         "app.html",
       );
       const html = await fs.readFile(htmlPath, "utf-8");
