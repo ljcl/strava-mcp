@@ -7,7 +7,12 @@ interface SummaryBarProps {
   weeks: number;
 }
 
-export function SummaryBar({ currentAvg, delta, runCount, weeks }: SummaryBarProps) {
+export function SummaryBar({
+  currentAvg,
+  delta,
+  runCount,
+  weeks,
+}: SummaryBarProps) {
   const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
   const sign = delta > 0 ? "+" : "";
 

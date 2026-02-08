@@ -1,19 +1,20 @@
 import { useMemo } from "react";
 import {
-  ResponsiveContainer,
+  CartesianGrid,
+  // biome-ignore lint/nursery/noDeprecatedImports: Cell replacement (shape prop) requires Recharts 4.0 migration
+  Cell,
   ComposedChart,
-  Scatter,
   Line,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
+  Scatter,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  Cell,
 } from "recharts";
 import { dotSize, rollingAverage } from "./normalize";
 import { SharedTooltip } from "./SharedTooltip";
-import type { RunSummary } from "./types";
 import styles from "./TrendView.module.css";
+import { type RunSummary } from "./types";
 
 interface TrendViewProps {
   activities: RunSummary[];
@@ -21,7 +22,11 @@ interface TrendViewProps {
   selectedRunIds: Set<number>;
 }
 
-export function TrendView({ activities, onRunClick, selectedRunIds }: TrendViewProps) {
+export function TrendView({
+  activities,
+  onRunClick,
+  selectedRunIds,
+}: TrendViewProps) {
   const sorted = useMemo(
     () =>
       [...activities]
@@ -53,14 +58,24 @@ export function TrendView({ activities, onRunClick, selectedRunIds }: TrendViewP
   );
 
   if (chartData.length === 0) {
-    return <div className={styles.container}>No runs with cadence data in this period.</div>;
+    return (
+      <div className={styles.container}>
+        No runs with cadence data in this period.
+      </div>
+    );
   }
 
   return (
     <div className={styles.container}>
       <ResponsiveContainer width="100%" height="100%">
-        <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" />
+        <ComposedChart
+          data={chartData}
+          margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="var(--color-border-tertiary)"
+          />
           <XAxis
             dataKey="dateFormatted"
             tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
@@ -116,7 +131,11 @@ export function TrendView({ activities, onRunClick, selectedRunIds }: TrendViewP
                 key={entry.id}
                 cursor="pointer"
                 r={entry.size / 2}
-                stroke={selectedRunIds.has(entry.id) ? "var(--color-text-primary)" : "none"}
+                stroke={
+                  selectedRunIds.has(entry.id)
+                    ? "var(--color-text-primary)"
+                    : "none"
+                }
                 strokeWidth={selectedRunIds.has(entry.id) ? 2 : 0}
                 onClick={() => onRunClick(entry.id)}
               />

@@ -6,7 +6,9 @@
   margin: 0;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   width: 100%;
   font-family: var(--font-sans);
   font-size: var(--font-text-sm-size);

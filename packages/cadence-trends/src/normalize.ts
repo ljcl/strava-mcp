@@ -1,4 +1,9 @@
-import type { OverlayPoint, OverlayStreamData, PaceZone, RunSummary } from "./types";
+import {
+  type OverlayPoint,
+  type OverlayStreamData,
+  type PaceZone,
+  type RunSummary,
+} from "./types";
 
 /** Pace zones in min/km. Lower number = faster pace. */
 export const PACE_ZONES: PaceZone[] = [
@@ -38,10 +43,10 @@ export function rollingAverage(
     const hi = Math.min(sorted.length - 1, i + Math.floor(window / 2));
     let sum = 0;
     let count = 0;
-    for (let j = lo; j <= hi; j++) {
+    for (let j = lo; j <= hi; j += 1) {
       if (sorted[j]!.averageCadence > 0) {
         sum += sorted[j]!.averageCadence;
-        count++;
+        count += 1;
       }
     }
     return {
@@ -55,15 +60,22 @@ export function rollingAverage(
 export function computeSummaryStats(
   activities: RunSummary[],
   weeks: number,
-): { currentAvg: number; previousAvg: number; delta: number; runCount: number } {
+): {
+  currentAvg: number;
+  previousAvg: number;
+  delta: number;
+  runCount: number;
+} {
   const now = Date.now();
   const halfWindow = (weeks / 2) * 7 * 24 * 60 * 60 * 1000;
 
   const recent = activities.filter(
-    (a) => now - new Date(a.date).getTime() < halfWindow && a.averageCadence > 0,
+    (a) =>
+      now - new Date(a.date).getTime() < halfWindow && a.averageCadence > 0,
   );
   const older = activities.filter(
-    (a) => now - new Date(a.date).getTime() >= halfWindow && a.averageCadence > 0,
+    (a) =>
+      now - new Date(a.date).getTime() >= halfWindow && a.averageCadence > 0,
   );
 
   const avg = (arr: RunSummary[]) =>
@@ -87,9 +99,7 @@ export function getPaceZone(pace: number): PaceZone | undefined {
 }
 
 /** Group activities by pace zone and compute per-zone stats */
-export function computeZoneStats(
-  activities: RunSummary[],
-): Array<{
+export function computeZoneStats(activities: RunSummary[]): Array<{
   zone: PaceZone;
   mean: number;
   min: number;
@@ -97,9 +107,12 @@ export function computeZoneStats(
   count: number;
 }> {
   return PACE_ZONES.map((zone) => {
-    const inZone = activities.filter((a) => {
-      return a.averagePace >= zone.minPace && a.averagePace < zone.maxPace && a.averageCadence > 0;
-    });
+    const inZone = activities.filter(
+      (a) =>
+        a.averagePace >= zone.minPace &&
+        a.averagePace < zone.maxPace &&
+        a.averageCadence > 0,
+    );
     if (inZone.length === 0) {
       return { zone, mean: 0, min: 0, max: 0, count: 0 };
     }
@@ -138,19 +151,19 @@ export function linearRegression(
 }
 
 /** Convert raw stream data to overlay points for a single run */
-export function toOverlayPoints(
-  data: OverlayStreamData,
-): OverlayPoint[] {
+export function toOverlayPoints(data: OverlayStreamData): OverlayPoint[] {
   const { streams } = data;
   const timeArr = streams.time ?? [];
   const distArr = streams.distance ?? [];
   const cadenceArr = streams.cadence ?? [];
   const velocityArr = streams.velocity_smooth ?? [];
   const len = timeArr.length;
-  const isRunning = ["Run", "VirtualRun", "TrailRun"].includes(data.activityType);
+  const isRunning = ["Run", "VirtualRun", "TrailRun"].includes(
+    data.activityType,
+  );
   const points: OverlayPoint[] = [];
 
-  for (let i = 0; i < len; i++) {
+  for (let i = 0; i < len; i += 1) {
     const point: OverlayPoint = {
       distance: (distArr[i] ?? 0) / 1000,
       time: (timeArr[i] ?? 0) / 60,
@@ -183,14 +196,14 @@ export function smoothOverlayPoints(
     let cadCount = 0;
     let paceSum = 0;
     let paceCount = 0;
-    for (let j = lo; j <= hi; j++) {
+    for (let j = lo; j <= hi; j += 1) {
       if (points[j]!.cadence !== undefined) {
         cadSum += points[j]!.cadence!;
-        cadCount++;
+        cadCount += 1;
       }
       if (points[j]!.pace !== undefined) {
         paceSum += points[j]!.pace!;
-        paceCount++;
+        paceCount += 1;
       }
     }
     return {

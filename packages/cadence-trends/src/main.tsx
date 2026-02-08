@@ -4,7 +4,7 @@ import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
-import type { CadenceTrendData } from "./types";
+import { type CadenceTrendData } from "./types";
 import "./global.css";
 
 interface ToolArgs {

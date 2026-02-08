@@ -1,17 +1,18 @@
 import { useMemo } from "react";
 import {
-  ResponsiveContainer,
-  BarChart,
   Bar,
-  XAxis,
-  YAxis,
+  BarChart,
   CartesianGrid,
+  // biome-ignore lint/nursery/noDeprecatedImports: Cell replacement (shape prop) requires Recharts 4.0 migration
   Cell,
   ErrorBar,
   LabelList,
+  ResponsiveContainer,
+  XAxis,
+  YAxis,
 } from "recharts";
 import { computeZoneStats } from "./normalize";
-import type { RunSummary } from "./types";
+import { type RunSummary } from "./types";
 
 interface ZonesViewProps {
   activities: RunSummary[];
@@ -39,14 +40,25 @@ export function ZonesView({ activities }: ZonesViewProps) {
   );
 
   if (chartData.length === 0) {
-    return <div style={{ height: 320 }}>No runs with cadence data in this period.</div>;
+    return (
+      <div style={{ height: 320 }}>
+        No runs with cadence data in this period.
+      </div>
+    );
   }
 
   return (
     <div style={{ width: "100%", height: 320 }}>
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={chartData} margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" vertical={false} />
+        <BarChart
+          data={chartData}
+          margin={{ top: 16, right: 16, bottom: 8, left: 0 }}
+        >
+          <CartesianGrid
+            strokeDasharray="3 3"
+            stroke="var(--color-border-tertiary)"
+            vertical={false}
+          />
           <XAxis
             dataKey="zone"
             tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
@@ -83,7 +95,9 @@ export function ZonesView({ activities }: ZonesViewProps) {
             <LabelList
               dataKey="count"
               position="top"
-              formatter={(v: string | number | boolean | null | undefined) => `n=${v}`}
+              formatter={(v: string | number | boolean | null | undefined) =>
+                `n=${v}`
+              }
               style={{ fontSize: 10, fill: "var(--color-text-tertiary)" }}
             />
           </Bar>

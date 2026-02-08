@@ -10,7 +10,11 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { stravaApi } from "./fetchClient";
-import { getActivityById, getActivityLaps, getAllActivities as getAllActivitiesFn } from "./stravaClient";
+import {
+  getActivityById,
+  getActivityLaps,
+  getAllActivities as getAllActivitiesFn,
+} from "./stravaClient";
 import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
@@ -309,9 +313,7 @@ async function handleGetCadenceTrendData(
     }
   }
 
-  const runs = allActivities.filter(
-    (a) => a.type && RUNNING_TYPES.has(a.type),
-  );
+  const runs = allActivities.filter((a) => a.type && RUNNING_TYPES.has(a.type));
 
   const activities = runs.map((a) => {
     const avgCadence = a.average_cadence ? a.average_cadence * 2 : 0;
@@ -357,8 +359,8 @@ async function handleViewCadenceTrends(
   const avgCadence =
     runs.length > 0
       ? Math.round(
-          (runs.reduce((sum, a) => sum + (a.average_cadence ?? 0) * 2, 0) /
-            runs.length),
+          runs.reduce((sum, a) => sum + (a.average_cadence ?? 0) * 2, 0) /
+            runs.length,
         )
       : 0;
 

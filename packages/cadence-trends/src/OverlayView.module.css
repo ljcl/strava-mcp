@@ -8,12 +8,12 @@
   align-items: center;
   justify-content: center;
   height: 320px;
-  color: var(--color-text-tertiary);
   font-size: var(--font-text-sm-size);
+  color: var(--color-text-tertiary);
 }
 
 .loading {
-  color: var(--color-text-secondary);
-  font-size: var(--font-text-xs-size);
   padding: 4px 0;
+  font-size: var(--font-text-xs-size);
+  color: var(--color-text-secondary);
 }

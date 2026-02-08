@@ -1,15 +1,25 @@
-import type { useApp } from "@modelcontextprotocol/ext-apps/react";
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { type useApp } from "@modelcontextprotocol/ext-apps/react";
+import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { Pill, PillGroup } from "@strava-mcp/ui";
 import { useCallback, useMemo, useState } from "react";
-import { PillGroup, Pill } from "@strava-mcp/ui";
 import styles from "./App.module.css";
-import { SummaryBar } from "./SummaryBar";
-import { ScatterView } from "./ScatterView";
-import { TrendView } from "./TrendView";
-import { ZonesView } from "./ZonesView";
+import {
+  computeSummaryStats,
+  smoothOverlayPoints,
+  toOverlayPoints,
+} from "./normalize";
 import { OverlayView } from "./OverlayView";
-import { computeSummaryStats, toOverlayPoints, smoothOverlayPoints } from "./normalize";
-import type { CadenceTrendData, OverlayPoint, OverlayStreamData, RunSummary, ViewId } from "./types";
+import { ScatterView } from "./ScatterView";
+import { SummaryBar } from "./SummaryBar";
+import { TrendView } from "./TrendView";
+import {
+  type CadenceTrendData,
+  type OverlayPoint,
+  type OverlayStreamData,
+  type RunSummary,
+  type ViewId,
+} from "./types";
+import { ZonesView } from "./ZonesView";
 
 const VIEWS: Array<{ id: ViewId; label: string }> = [
   { id: "trend", label: "Trend" },
@@ -31,7 +41,9 @@ interface CachedStream {
 export function App({ app, data }: AppProps) {
   const [activeView, setActiveView] = useState<ViewId>("trend");
   const [selectedRunIds, setSelectedRunIds] = useState<Set<number>>(new Set());
-  const [streamCache, setStreamCache] = useState<Map<number, CachedStream>>(new Map());
+  const [streamCache, setStreamCache] = useState<Map<number, CachedStream>>(
+    new Map(),
+  );
   const [loadingStreams, setLoadingStreams] = useState<Set<number>>(new Set());
 
   const stats = useMemo(
@@ -39,20 +51,17 @@ export function App({ app, data }: AppProps) {
     [data],
   );
 
-  const toggleRunSelection = useCallback(
-    (runId: number) => {
-      setSelectedRunIds((prev) => {
-        const next = new Set(prev);
-        if (next.has(runId)) {
-          next.delete(runId);
-        } else if (next.size < 4) {
-          next.add(runId);
-        }
-        return next;
-      });
-    },
-    [],
-  );
+  const toggleRunSelection = useCallback((runId: number) => {
+    setSelectedRunIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(runId)) {
+        next.delete(runId);
+      } else if (next.size < 4) {
+        next.add(runId);
+      }
+      return next;
+    });
+  }, []);
 
   const removeRun = useCallback((runId: number) => {
     setSelectedRunIds((prev) => {
@@ -131,9 +140,7 @@ export function App({ app, data }: AppProps) {
             selectedRunIds={selectedRunIds}
           />
         )}
-        {activeView === "zones" && (
-          <ZonesView activities={data.activities} />
-        )}
+        {activeView === "zones" && <ZonesView activities={data.activities} />}
         {activeView === "overlay" && (
           <OverlayView
             selectedRunIds={selectedRunIds}
@@ -147,8 +154,12 @@ export function App({ app, data }: AppProps) {
         <div className={styles.selectionBar}>
           {selectedRuns.map((run) => (
             <div key={run.id} className={styles.selectedRun}>
-              <span>{run.name} · {new Date(run.date).toLocaleDateString()}</span>
-              <button type="button" onClick={() => removeRun(run.id)}>×</button>
+              <span>
+                {run.name} · {new Date(run.date).toLocaleDateString()}
+              </span>
+              <button type="button" onClick={() => removeRun(run.id)}>
+                ×
+              </button>
             </div>
           ))}
         </div>

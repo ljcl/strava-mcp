@@ -1,17 +1,16 @@
+import { Legend, LegendItem } from "@strava-mcp/ui";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ResponsiveContainer,
+  CartesianGrid,
   ComposedChart,
   Line,
+  Tooltip as RechartsTooltip,
+  ResponsiveContainer,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
 } from "recharts";
-import { Legend, LegendItem } from "@strava-mcp/ui";
-import type { OverlayPoint, RunSummary } from "./types";
-import { COMPARISON_COLORS } from "./types";
 import styles from "./OverlayView.module.css";
+import { COMPARISON_COLORS, type OverlayPoint, type RunSummary } from "./types";
 
 interface CachedStream {
   run: RunSummary;
@@ -51,8 +50,11 @@ export function OverlayView({
     for (const id of selectedRunIds) {
       const cached = streamCache.get(id);
       if (cached) {
-        entries.push({ ...cached, color: COMPARISON_COLORS[colorIdx % COMPARISON_COLORS.length]! });
-        colorIdx++;
+        entries.push({
+          ...cached,
+          color: COMPARISON_COLORS[colorIdx % COMPARISON_COLORS.length]!,
+        });
+        colorIdx += 1;
       }
     }
     return entries;
@@ -73,7 +75,7 @@ export function OverlayView({
     const merged: Array<Record<string, number | undefined>> = [];
     for (let i = 0; i < maxLen; i += step) {
       const row: Record<string, number | undefined> = {};
-      for (let r = 0; r < runs.length; r++) {
+      for (let r = 0; r < runs.length; r += 1) {
         const pts = allPoints[r]!;
         const pt = pts[Math.min(i, pts.length - 1)];
         if (pt) {
@@ -102,7 +104,14 @@ export function OverlayView({
       {isLoading && (
         <div className={styles.loading}>Loading stream data...</div>
       )}
-      <div style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          marginBottom: 8,
+          alignItems: "center",
+        }}
+      >
         <Legend>
           {runs.map((r) => (
             <LegendItem
@@ -140,8 +149,14 @@ export function OverlayView({
       </div>
       <div className={styles.container}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData} margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border-tertiary)" />
+          <ComposedChart
+            data={chartData}
+            margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="var(--color-border-tertiary)"
+            />
             <XAxis
               dataKey="x"
               type="number"
@@ -171,7 +186,9 @@ export function OverlayView({
             <RechartsTooltip
               labelFormatter={(v) => {
                 const n = Number(v);
-                return xMode === "distance" ? `${n.toFixed(1)} km` : `${n.toFixed(0)} min`;
+                return xMode === "distance"
+                  ? `${n.toFixed(1)} km`
+                  : `${n.toFixed(0)} min`;
               }}
             />
             {runs.map((r, i) => (
