@@ -1,0 +1,4 @@
+{
+  "extends": "@strava-mcp/tsconfig/react.json",
+  "include": [".storybook/*"]
+}

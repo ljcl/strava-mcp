@@ -256,7 +256,7 @@ export const getActivityStreamsTool = {
       const isRunning = isRunningActivity(activityType);
 
       // Build query parameters
-      const params: Record<string, string | number | boolean> = {};
+      const params: Record<string, string> = {};
       if (resolution) params.resolution = resolution;
       if (series_type) params.series_type = series_type;
 
@@ -385,8 +385,8 @@ export const getActivityStreamsTool = {
             ...Array.from({ length: numChunks }, (_, i) => {
               const chunkStart = i * CHUNK_SIZE;
               const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalPoints);
-              const streamData: Record<string, Record<string, unknown>> = {
-                streams: {},
+              const streamData = {
+                streams: {} as Record<string, unknown>,
               };
 
               // Process each stream for this chunk

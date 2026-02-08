@@ -8,6 +8,7 @@
     "test": {
       "dependsOn": ["^build"]
     },
+    "typecheck": {},
     "//#lint": {
       "outputs": []
     },
@@ -15,6 +16,10 @@
       "persistent": true,
       "cache": false,
       "env": ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "PUBLIC_URL", "PORT"]
+    },
+    "storybook": {
+      "persistent": true,
+      "cache": false
     }
   }
 }

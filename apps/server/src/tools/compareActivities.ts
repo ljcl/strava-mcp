@@ -77,8 +77,9 @@ function extractActivitySummary(
     id: activity.id,
     name: activity.name,
     date:
-      activity.start_date_local?.split("T")[0] ||
-      activity.start_date?.split("T")[0],
+      activity.start_date_local?.split("T")[0] ??
+      activity.start_date?.split("T")[0] ??
+      "",
     type: activity.sport_type || activity.type,
     distance_km: Math.round((activity.distance || 0) / 10) / 100,
     time_formatted: formatDuration(activity.moving_time),

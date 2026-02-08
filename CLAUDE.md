@@ -13,9 +13,9 @@ Remote MCP server for connecting AI tools to your Strava data.
 
 - `apps/server/` — MCP server (tools, auth, token management)
 - `packages/activity-chart/` — React + Recharts MCP App for interactive activity charts
+- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend)
 - `packages/design-system/` — Shared design tokens and color constants
 - `packages/tsconfig/` — Shared TypeScript configurations
-- `scripts/setup-auth.ts` — Local OAuth setup script (localhost-based)
 - `docs/plans/` — Design docs and implementation plans
 
 ## MCP Tools
@@ -71,6 +71,14 @@ Remote MCP server for connecting AI tools to your Strava data.
 | `view-activity-chart` | Interactive chart with HR, power, pace, altitude overlays (MCP App) |
 | `get-activity-streams-raw` | Raw stream data for the activity chart UI (app-only) |
 
+## Styling
+
+- Use CSS Modules (`*.module.css`) for all React component styling — no inline `style={}` for static styles
+- Use `data-*` attributes for state-driven variants (e.g. `data-active`, `data-hidden`)
+- Keep inline `style` only for truly dynamic values computed at runtime (e.g. per-entry colors from props)
+- Recharts component props (`stroke`, `fill`, `strokeWidth`, etc.) are library API and stay as props
+- Design tokens come from `packages/design-system` via CSS custom properties (`var(--color-*)`, `var(--font-*)`)
+
 ## MCP App (Activity Chart)
 
 https://modelcontextprotocol.io/docs/extensions/apps
@@ -89,6 +97,7 @@ The `view-activity-chart` tool renders an interactive Recharts chart in MCP-comp
 bun install          # Install all deps (workspace-aware)
 bun run build        # Build all packages (via Turborepo)
 bun run test         # Run all tests (via Turborepo)
+bun run typecheck     # Typecheck all packages (via Turborepo)
 bun run lint         # Lint all packages (Biome)
 bun run lint:fix     # Auto-fix lint issues
 bun run dev          # Dev mode (via Turborepo)
@@ -99,10 +108,13 @@ bun run start        # Start server
 bun run dev          # Watch mode
 bun run test         # Run server tests (Vitest)
 bun run test:watch   # Watch mode
+bun run setup-auth   # Interactive localhost OAuth setup (dev only)
 
 # UI development
-cd packages/activity-chart
+cd apps/storybook
 bun run storybook    # Storybook on port 6006
+
+cd packages/activity-chart
 INPUT=app.html bunx vite build  # Rebuild single-file HTML
 
 # Docker
@@ -131,10 +143,10 @@ curl -X POST http://localhost:3000/mcp \
 | `STRAVA_CLIENT_ID` | Yes | Strava Application Client ID |
 | `STRAVA_CLIENT_SECRET` | Yes | Strava Application Client Secret |
 | `PUBLIC_URL` | Yes* | Public URL for OAuth callback (required for web auth) |
-| `STRAVA_ACCESS_TOKEN` | No | Initial access token (from setup-auth.ts) |
-| `STRAVA_REFRESH_TOKEN` | No | Initial refresh token (from setup-auth.ts) |
+| `STRAVA_ACCESS_TOKEN` | No | Initial access token (from `bun run setup-auth`) |
+| `STRAVA_REFRESH_TOKEN` | No | Initial refresh token (from `bun run setup-auth`) |
 | `ROUTE_EXPORT_PATH` | No | Absolute path for saving exported route files |
 | `TOKEN_DATA_DIR` | No | Override token storage directory (default: `./data`) |
 | `PORT` | No | Server port (default: `3000`) |
 
-*Required for Docker/web-based OAuth. Not needed when using `setup-auth.ts` locally.
+*Required for Docker/web-based OAuth. Not needed when using `bun run setup-auth` locally.

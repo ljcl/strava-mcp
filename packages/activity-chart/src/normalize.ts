@@ -2,6 +2,7 @@ import {
   type ActivityMeta,
   type ActivityStreamData,
   type ChartDataPoint,
+  type MetricKey,
 } from "./types";
 
 const RUNNING_TYPES = new Set([
@@ -216,20 +217,22 @@ export function smoothData(
     if (pt.distance !== undefined) smoothed.distance = pt.distance;
 
     for (const key of SMOOTH_KEYS) {
-      if (pt[key] === undefined) {
+      const val = pt[key as keyof ChartDataPoint] as number | undefined;
+      if (val === undefined) {
         // biome-ignore lint/nursery/noContinue: guard clause in tight loop
         continue;
       }
       let sum = 0;
       let count = 0;
       for (let j = lo; j <= hi; j += 1) {
-        const v = points[j]![key];
+        const v = points[j]![key as keyof ChartDataPoint] as number | undefined;
         if (v !== undefined) {
           sum += v;
           count += 1;
         }
       }
-      smoothed[key] = count > 0 ? sum / count : pt[key];
+      // biome-ignore lint/suspicious/noExplicitAny: metric keys are a known-safe subset
+      (smoothed as any)[key] = count > 0 ? sum / count : val;
     }
     return smoothed;
   });

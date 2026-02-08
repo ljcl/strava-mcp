@@ -1,5 +1,4 @@
-import { type Meta, type StoryObj } from "@storybook/react";
-import "../src/tokens.css";
+import preview from "@strava-mcp/storybook/preview";
 
 const textSamples = [
   {
@@ -169,17 +168,14 @@ function TypographyShowcase() {
   );
 }
 
-const meta: Meta = {
+const meta = preview.meta({
   title: "Design System/Typography",
   component: TypographyShowcase,
-};
+});
 
-export default meta;
-type Story = StoryObj;
+export const Light = meta.story();
 
-export const Light: Story = {};
-
-export const Dark: Story = {
+export const Dark = meta.story({
   decorators: [
     (StoryFn) => (
       <div
@@ -194,4 +190,4 @@ export const Dark: Story = {
       </div>
     ),
   ],
-};
+});

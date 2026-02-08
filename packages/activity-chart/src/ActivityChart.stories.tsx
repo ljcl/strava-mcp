@@ -1,33 +1,31 @@
-import { type Meta, type StoryObj } from "@storybook/react";
+import preview from "@strava-mcp/storybook/preview";
 import { poolSwim } from "./__fixtures__/pool-swim";
 import { tempoRun } from "./__fixtures__/tempo-run";
 import { ActivityChart } from "./ActivityChart";
 import { extractMeta, toChartData, toLapData } from "./normalize";
 
-const meta: Meta<typeof ActivityChart> = {
-  component: ActivityChart,
-};
+const meta = preview.meta({ component: ActivityChart });
 
-export default meta;
-type Story = StoryObj<typeof ActivityChart>;
-
-export const TempoRun: Story = {
+export const TempoRun = meta.story({
   args: {
     data: toChartData(tempoRun),
     meta: extractMeta(tempoRun),
     laps: toLapData(tempoRun),
   },
-};
+});
 
-export const PoolSwim: Story = {
+export const PoolSwim = meta.story({
   args: {
     data: toChartData(poolSwim),
     meta: extractMeta(poolSwim),
     laps: toLapData(poolSwim),
   },
-};
+});
 
-export const DarkTempoRun: Story = {
+export const DarkTempoRun = meta.story({
+  globals: {
+    backgrounds: { value: "dark" },
+  },
   args: {
     data: toChartData(tempoRun),
     meta: extractMeta(tempoRun),
@@ -35,21 +33,14 @@ export const DarkTempoRun: Story = {
   },
   decorators: [
     (StoryFn) => (
-      <div
-        className="dark"
-        style={{
-          background: "var(--color-background-primary)",
-          padding: "24px",
-          borderRadius: "var(--border-radius-md)",
-        }}
-      >
+      <div data-theme="dark">
         <StoryFn />
       </div>
     ),
   ],
-};
+});
 
-export const CyclingRide: Story = {
+export const CyclingRide = meta.story({
   args: {
     data: toChartData(tempoRun),
     meta: {
@@ -60,26 +51,15 @@ export const CyclingRide: Story = {
     },
     laps: toLapData(tempoRun),
   },
-};
+});
 
-export const DarkPoolSwim: Story = {
+export const DarkPoolSwim = meta.story({
+  globals: {
+    backgrounds: { value: "dark" },
+  },
   args: {
     data: toChartData(poolSwim),
     meta: extractMeta(poolSwim),
     laps: toLapData(poolSwim),
   },
-  decorators: [
-    (StoryFn) => (
-      <div
-        className="dark"
-        style={{
-          background: "var(--color-background-primary)",
-          padding: "24px",
-          borderRadius: "var(--border-radius-md)",
-        }}
-      >
-        <StoryFn />
-      </div>
-    ),
-  ],
-};
+});

@@ -5,53 +5,6 @@ import {
   type StravaSummaryActivity,
 } from "../stravaClient";
 
-// Common activity types
-export const ACTIVITY_TYPES = {
-  // Core types
-  RIDE: "Ride",
-  RUN: "Run",
-  SWIM: "Swim",
-
-  // Common types
-  WALK: "Walk",
-  HIKE: "Hike",
-  VIRTUAL_RIDE: "VirtualRide",
-  VIRTUAL_RUN: "VirtualRun",
-  WORKOUT: "Workout",
-  WEIGHT_TRAINING: "WeightTraining",
-  YOGA: "Yoga",
-
-  // Winter sports
-  ALPINE_SKI: "AlpineSki",
-  BACKCOUNTRY_SKI: "BackcountrySki",
-  NORDIC_SKI: "NordicSki",
-  SNOWBOARD: "Snowboard",
-  ICE_SKATE: "IceSkate",
-
-  // Water sports
-  KAYAKING: "Kayaking",
-  ROWING: "Rowing",
-  STAND_UP_PADDLING: "StandUpPaddling",
-  SURFING: "Surfing",
-
-  // Other
-  GOLF: "Golf",
-  ROCK_CLIMBING: "RockClimbing",
-  SOCCER: "Soccer",
-  ELLIPTICAL: "Elliptical",
-  STAIR_STEPPER: "StairStepper",
-} as const;
-
-// Common sport types (more granular)
-export const SPORT_TYPES = {
-  MOUNTAIN_BIKE_RIDE: "MountainBikeRide",
-  GRAVEL_RIDE: "GravelRide",
-  E_BIKE_RIDE: "EBikeRide",
-  TRAIL_RUN: "TrailRun",
-  VIRTUAL_RIDE: "VirtualRide",
-  VIRTUAL_RUN: "VirtualRun",
-} as const;
-
 const GetAllActivitiesInputSchema = z.object({
   startDate: z
     .string()
@@ -116,7 +69,7 @@ function formatActivitySummary(activity: StravaSummaryActivity): string {
     ? formatDurationHuman(activity.moving_time)
     : "N/A";
   const type = activity.sport_type || activity.type || "Unknown";
-  const activityId = activity.id ?? "N/A";
+  const activityId: number | string = activity.id ?? "N/A";
 
   let emoji = "🏃";
   if (
@@ -135,7 +88,7 @@ function formatActivitySummary(activity: StravaSummaryActivity): string {
   else if (type.toLowerCase().includes("weight")) emoji = "💪";
 
   const stravaUrl =
-    activityId !== "N/A"
+    String(activityId) !== "N/A"
       ? `https://www.strava.com/activities/${activityId}`
       : "";
   return `${emoji} ${activity.name} (ID: ${activityId}) - ${type} - ${distance} in ${duration} on ${date}${stravaUrl ? `\n   URL: ${stravaUrl}` : ""}`;

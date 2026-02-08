@@ -14,10 +14,12 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
     "check": "biome check . && turbo run test",
     "knip": "knip"
   },
   "devDependencies": {
+    "@strava-mcp/storybook": "workspace:*",
     "@biomejs/biome": "^2.3.11",
     "knip": "^5.81.0",
     "turbo": "^2"

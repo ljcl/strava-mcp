@@ -1,5 +1,4 @@
-import { type Meta, type StoryObj } from "@storybook/react";
-import "../src/tokens.css";
+import preview from "@strava-mcp/storybook/preview";
 
 const colorTokens = {
   Background: [
@@ -105,17 +104,14 @@ function ColorGrid() {
   );
 }
 
-const meta: Meta = {
+const meta = preview.meta({
   title: "Design System/Colors",
   component: ColorGrid,
-};
+});
 
-export default meta;
-type Story = StoryObj;
+export const Light = meta.story({});
 
-export const Light: Story = {};
-
-export const Dark: Story = {
+export const Dark = meta.story({
   decorators: [
     (StoryFn) => (
       <div
@@ -130,4 +126,4 @@ export const Dark: Story = {
       </div>
     ),
   ],
-};
+});

@@ -1,0 +1,37 @@
+/* ── Chart layout ─────────────────────────────── */
+.activityChart {
+  font-family: var(--font-sans);
+}
+
+.header {
+  padding: 0 8px;
+  margin-bottom: 8px;
+  font-family: var(--font-sans);
+}
+
+.title {
+  font-size: var(--font-heading-sm-size);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--font-text-sm-size);
+  color: var(--color-text-secondary);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  margin-top: 8px;
+}
+
+.footerControls {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

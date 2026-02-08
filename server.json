@@ -1,10 +1,10 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
-  "name": "io.github.r-huijts/strava-mcp",
+  "name": "ljcl/strava-mcp",
   "description": "MCP server for accessing Strava API",
   "status": "active",
   "repository": {
-    "url": "https://github.com/r-huijts/strava-mcp",
+    "url": "https://github.com/ljcl/strava-mcp",
     "source": "github"
   },
   "version": "1.0.0",

@@ -1,0 +1,27 @@
+{
+  "name": "@strava-mcp/storybook",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./preview": "./.storybook/preview.tsx"
+  },
+  "scripts": {
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@strava-mcp/design-system": "workspace:*"
+  },
+  "devDependencies": {
+    "@strava-mcp/tsconfig": "workspace:*",
+    "@storybook/react-vite": "^10.2.6",
+    "@types/react": "^19.2.11",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "storybook": "^10.2.6",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}

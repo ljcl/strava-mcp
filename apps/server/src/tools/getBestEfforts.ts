@@ -114,7 +114,9 @@ export const getBestEffortsTool = {
       // Filter to running activities
       const runningActivities = allActivities
         .filter((a) =>
-          ["Run", "TrailRun", "VirtualRun"].includes(a.type || a.sport_type),
+          ["Run", "TrailRun", "VirtualRun"].includes(
+            a.type ?? a.sport_type ?? "",
+          ),
         )
         .slice(0, maxActivities);
 

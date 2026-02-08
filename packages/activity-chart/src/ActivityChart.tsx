@@ -1,3 +1,11 @@
+import {
+  Legend,
+  LegendItem,
+  Pill,
+  PillGroup,
+  TooltipEntry,
+  Tooltip as UiTooltip,
+} from "@strava-mcp/ui";
 import { useMemo, useState } from "react";
 import {
   Area,
@@ -10,6 +18,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import styles from "./ActivityChart.module.css";
 import {
   type ChartLap,
   formatDistance,
@@ -145,39 +154,6 @@ function seriesOpacity(key: string, hoveredKey: string | null): number {
   return 0.15;
 }
 
-/* ── Pill-group button ─────────────────────────────────────────── */
-
-const PILL_BASE: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  borderRadius: "999px",
-  color: "var(--color-text-tertiary)",
-  cursor: "pointer",
-  font: "inherit",
-  fontFamily: "var(--font-sans)",
-  fontSize: "var(--font-text-xs-size)",
-  fontWeight: "var(--font-weight-medium)" as unknown as number,
-  lineHeight: 1,
-  padding: "6px 14px",
-  userSelect: "none" as const,
-  whiteSpace: "nowrap" as const,
-};
-
-const PILL_ACTIVE: React.CSSProperties = {
-  background: "var(--color-background-primary)",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.04)",
-  color: "var(--color-text-primary)",
-  fontWeight: "var(--font-weight-semibold)" as unknown as number,
-};
-
-const PILL_GROUP: React.CSSProperties = {
-  background: "var(--color-background-secondary)",
-  borderRadius: "999px",
-  display: "inline-flex",
-  gap: "2px",
-  padding: "3px",
-};
-
 /* ── PresetSelector component ─────────────────────────────────── */
 
 interface PresetSelectorProps {
@@ -193,30 +169,23 @@ function PresetSelector({
 }: PresetSelectorProps) {
   if (presets.length <= 1) return null;
   return (
-    <div style={PILL_GROUP}>
-      {presets.map((preset) => {
-        const isActive = preset.id === activePresetId;
-        return (
-          <button
-            key={preset.id}
-            type="button"
-            onClick={() => onSelect(preset)}
-            style={{
-              ...PILL_BASE,
-              ...(isActive ? PILL_ACTIVE : undefined),
-            }}
-          >
-            {preset.label}
-          </button>
-        );
-      })}
-    </div>
+    <PillGroup>
+      {presets.map((preset) => (
+        <Pill
+          key={preset.id}
+          active={preset.id === activePresetId}
+          onClick={() => onSelect(preset)}
+        >
+          {preset.label}
+        </Pill>
+      ))}
+    </PillGroup>
   );
 }
 
 /* ── Tooltip ──────────────────────────────────────────────────── */
 
-interface CustomTooltipProps {
+interface ChartTooltipProps {
   active?: boolean;
   payload?: Array<{ name: string; value: number; color: string }>;
   label?: number;
@@ -224,13 +193,13 @@ interface CustomTooltipProps {
   xIsDistance?: boolean;
 }
 
-function CustomTooltip({
+function ChartTooltip({
   active,
   payload,
   label,
   meta,
   xIsDistance,
-}: CustomTooltipProps) {
+}: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
   const filtered = payload.filter(
     (e) => !e.name.includes("Area") && e.value !== 0,
@@ -252,137 +221,35 @@ function CustomTooltip({
     Power: "W",
   };
 
+  const timestamp = xIsDistance
+    ? formatDistance(label ?? 0)
+    : formatTime(label ?? 0);
+
   return (
-    <div
-      style={{
-        background: "var(--color-background-primary)",
-        border: "1px solid var(--color-border-tertiary)",
-        borderRadius: "var(--border-radius-md)",
-        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-        fontSize: "var(--font-text-sm-size)",
-        minWidth: 120,
-        padding: "10px 14px",
-      }}
-    >
+    <UiTooltip timestamp={timestamp}>
       {filtered.map((entry) => (
-        <div
+        <TooltipEntry
           key={entry.name}
-          style={{
-            alignItems: "center",
-            display: "flex",
-            gap: "8px",
-            lineHeight: 1.8,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: entry.color,
-              borderRadius: 2,
-              flexShrink: 0,
-              height: 3,
-              width: 16,
-            }}
-          />
-          <span style={{ color: "var(--color-text-primary)" }}>
-            <span style={{ fontWeight: "var(--font-weight-semibold)" }}>
-              {entry.name === "Pace" && (meta.isRunning || meta.isSwimming)
-                ? formatPace(entry.value)
-                : entry.value.toFixed(1)}
-            </span>{" "}
-            <span style={{ color: "var(--color-text-tertiary)" }}>
-              {unitMap[entry.name] ?? ""} {entry.name}
-            </span>
-          </span>
-        </div>
+          color={entry.color}
+          label={entry.name}
+          value={
+            entry.name === "Pace" && (meta.isRunning || meta.isSwimming)
+              ? formatPace(entry.value)
+              : entry.value.toFixed(1)
+          }
+          unit={unitMap[entry.name]}
+        />
       ))}
-      <div
-        style={{
-          color: "var(--color-text-tertiary)",
-          fontSize: "var(--font-text-xs-size)",
-          marginTop: "4px",
-        }}
-      >
-        {xIsDistance ? formatDistance(label ?? 0) : formatTime(label ?? 0)}
-      </div>
-    </div>
+    </UiTooltip>
   );
 }
 
-/* ── Legend ────────────────────────────────────────────────────── */
+/* ── Legend items ─────────────────────────────────────────────── */
 
-interface LegendItem {
+interface LegendEntry {
   key: string;
   color: string;
   label: string;
-}
-
-interface CustomLegendProps {
-  items: LegendItem[];
-  hidden: Set<string>;
-  onToggle: (key: string) => void;
-  onHover: (key: string) => void;
-  onHoverEnd: () => void;
-}
-
-function CustomLegend({
-  items,
-  hidden,
-  onToggle,
-  onHover,
-  onHoverEnd,
-}: CustomLegendProps) {
-  return (
-    <div
-      style={{
-        alignItems: "center",
-        color: "var(--color-text-secondary)",
-        display: "flex",
-        flexWrap: "wrap",
-        fontFamily: "var(--font-sans)",
-        fontSize: "var(--font-text-xs-size)",
-        gap: "14px",
-      }}
-    >
-      {items.map(({ key, color, label }) => {
-        const isHidden = hidden.has(key);
-        return (
-          <button
-            key={key}
-            type="button"
-            onClick={() => onToggle(key)}
-            onMouseEnter={() => onHover(key)}
-            onMouseLeave={onHoverEnd}
-            style={{
-              alignItems: "center",
-              background: "none",
-              border: "none",
-              color: "inherit",
-              cursor: "pointer",
-              display: "flex",
-              font: "inherit",
-              gap: "4px",
-              opacity: isHidden ? 0.3 : 1,
-              padding: 0,
-              textDecoration: isHidden ? "line-through" : "none",
-              userSelect: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            <div
-              style={{
-                backgroundColor: color,
-                borderRadius: 2,
-                flexShrink: 0,
-                height: 3,
-                width: 16,
-              }}
-            />
-            <span>{label}</span>
-          </button>
-        );
-      })}
-    </div>
-  );
 }
 
 /* ── Main chart ───────────────────────────────────────────────── */
@@ -463,7 +330,7 @@ export function ActivityChart({ data, meta, laps }: ActivityChartProps) {
 
   const show = (key: string) => !hidden.has(key);
 
-  const legendItems: LegendItem[] = [];
+  const legendItems: LegendEntry[] = [];
   if (hasHeartrate)
     legendItems.push({
       key: "heartrate",
@@ -494,31 +361,10 @@ export function ActivityChart({ data, meta, laps }: ActivityChartProps) {
     legendItems.push({ key: "grade", color: COLORS.grade, label: "Grade" });
 
   return (
-    <div style={{ padding: "0" }}>
-      <div
-        style={{
-          fontFamily: "var(--font-sans)",
-          marginBottom: "8px",
-          padding: "0 8px",
-        }}
-      >
-        <div
-          style={{
-            color: "var(--color-text-primary)",
-            fontSize: "var(--font-heading-sm-size)",
-            fontWeight: "var(--font-weight-semibold)",
-          }}
-        >
-          {meta.name}
-        </div>
-        <div
-          style={{
-            color: "var(--color-text-secondary)",
-            fontSize: "var(--font-text-sm-size)",
-          }}
-        >
-          {meta.activityType}
-        </div>
+    <div className={styles.activityChart}>
+      <div className={styles.header}>
+        <div className={styles.title}>{meta.name}</div>
+        <div className={styles.subtitle}>{meta.activityType}</div>
       </div>
 
       <ResponsiveContainer width="100%" aspect={1.8}>
@@ -581,9 +427,7 @@ export function ActivityChart({ data, meta, laps }: ActivityChartProps) {
             reversed={meta.isRunning || meta.isSwimming}
           />
           <Tooltip
-            content={
-              <CustomTooltip meta={meta} xIsDistance={meta.isSwimming} />
-            }
+            content={<ChartTooltip meta={meta} xIsDistance={meta.isSwimming} />}
             isAnimationActive={false}
             allowEscapeViewBox={{ x: false, y: false }}
             wrapperStyle={{ pointerEvents: "none", zIndex: 10 }}
@@ -731,43 +575,32 @@ export function ActivityChart({ data, meta, laps }: ActivityChartProps) {
       </ResponsiveContainer>
 
       {/* Footer: presets + smooth (left) | legend (right) */}
-      <div
-        style={{
-          alignItems: "center",
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "12px",
-          justifyContent: "space-between",
-          marginTop: "8px",
-          padding: "0 8px",
-        }}
-      >
-        <div style={{ alignItems: "center", display: "flex", gap: "8px" }}>
+      <div className={styles.footer}>
+        <div className={styles.footerControls}>
           <PresetSelector
             presets={presets}
             activePresetId={activePresetId}
             onSelect={handlePresetSelect}
           />
-          <div style={PILL_GROUP}>
-            <button
-              type="button"
-              onClick={() => setSmooth((s) => !s)}
-              style={{
-                ...PILL_BASE,
-                ...(smooth ? PILL_ACTIVE : undefined),
-              }}
-            >
+          <PillGroup>
+            <Pill active={smooth} onClick={() => setSmooth((s) => !s)}>
               Smooth
-            </button>
-          </div>
+            </Pill>
+          </PillGroup>
         </div>
-        <CustomLegend
-          items={legendItems}
-          hidden={hidden}
-          onToggle={toggle}
-          onHover={setHoveredLegendKey}
-          onHoverEnd={() => setHoveredLegendKey(null)}
-        />
+        <Legend>
+          {legendItems.map(({ key, color, label }) => (
+            <LegendItem
+              key={key}
+              color={color}
+              label={label}
+              hidden={hidden.has(key)}
+              onClick={() => toggle(key)}
+              onMouseEnter={() => setHoveredLegendKey(key)}
+              onMouseLeave={() => setHoveredLegendKey(null)}
+            />
+          ))}
+        </Legend>
       </div>
     </div>
   );

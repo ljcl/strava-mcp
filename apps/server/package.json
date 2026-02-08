@@ -9,7 +9,9 @@
     "start": "bun run src/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "typecheck": "tsc --noEmit",
+    "test:coverage": "vitest run --coverage",
+    "setup-auth": "bun run scripts/setup-auth.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.2",

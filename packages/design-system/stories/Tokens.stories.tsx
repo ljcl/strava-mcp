@@ -1,5 +1,4 @@
-import { type Meta, type StoryObj } from "@storybook/react";
-import "../src/tokens.css";
+import preview from "@strava-mcp/storybook/preview";
 
 const allTokens = [
   {
@@ -191,12 +190,9 @@ function TokenTable() {
   );
 }
 
-const meta: Meta = {
+const meta = preview.meta({
   title: "Design System/Token Reference",
   component: TokenTable,
-};
+});
 
-export default meta;
-type Story = StoryObj;
-
-export const AllTokens: Story = {};
+export const AllTokens = meta.story({});

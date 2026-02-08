@@ -137,7 +137,7 @@ export const getTrainingLoadTool = {
 
       // Filter to requested activity types
       const activities = allActivities.filter((a) =>
-        activityTypes.includes(a.type || a.sport_type),
+        activityTypes.includes(a.type ?? a.sport_type ?? ""),
       );
 
       // Group by week
@@ -167,9 +167,9 @@ export const getTrainingLoadTool = {
         week.activities.push({
           id: activity.id,
           name: activity.name,
-          date: (activity.start_date_local || activity.start_date).split(
-            "T",
-          )[0],
+          date:
+            (activity.start_date_local ?? activity.start_date).split("T")[0] ??
+            "",
           distance_km: Math.round((activity.distance || 0) / 10) / 100,
         });
       }

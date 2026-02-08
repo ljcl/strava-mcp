@@ -117,6 +117,7 @@ For running without Docker or Tailscale Funnel:
 bun install
 
 # Run the setup script for localhost-based OAuth
+cd apps/server
 bun run setup-auth
 
 # Start the development server
@@ -145,13 +146,13 @@ The setup script will guide you through the OAuth flow using `localhost` as the 
 | `STRAVA_CLIENT_ID`     | Yes      | Your Strava Application Client ID                          |
 | `STRAVA_CLIENT_SECRET` | Yes      | Your Strava Application Client Secret                      |
 | `PUBLIC_URL`           | Yes*     | Public URL for OAuth callback (required for web auth)      |
-| `STRAVA_ACCESS_TOKEN`  | No       | Initial access token (from setup-auth.ts)                  |
-| `STRAVA_REFRESH_TOKEN` | No       | Initial refresh token (from setup-auth.ts)                 |
+| `STRAVA_ACCESS_TOKEN`  | No       | Initial access token (from `bun run setup-auth`)                  |
+| `STRAVA_REFRESH_TOKEN` | No       | Initial refresh token (from `bun run setup-auth`)                 |
 | `ROUTE_EXPORT_PATH`    | No       | Absolute path for saving exported route files              |
 | `TOKEN_DATA_DIR`       | No       | Override token storage directory (default: `./data`)       |
 | `PORT`                 | No       | Server port (default: `3000`)                              |
 
-*Required for Docker/web-based OAuth. Not needed when using `setup-auth.ts` locally.
+*Required for Docker/web-based OAuth. Not needed when using `bun run setup-auth` locally.
 
 ## Token Handling
 
