@@ -1,4 +1,4 @@
-import { Legend, LegendItem } from "@strava-mcp/ui";
+import { Legend, LegendItem, Pill, PillGroup } from "@strava-mcp/ui";
 import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -104,49 +104,6 @@ export function OverlayView({
       {isLoading && (
         <div className={styles.loading}>Loading stream data...</div>
       )}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 8,
-          alignItems: "center",
-        }}
-      >
-        <Legend>
-          {runs.map((r) => (
-            <LegendItem
-              key={r.run.id}
-              color={r.color}
-              label={`${r.run.name} · ${new Date(r.run.date).toLocaleDateString()}`}
-              hidden={hiddenRuns.has(r.run.id)}
-              onClick={() => {
-                setHiddenRuns((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(r.run.id)) next.delete(r.run.id);
-                  else next.add(r.run.id);
-                  return next;
-                });
-              }}
-            />
-          ))}
-        </Legend>
-        <button
-          type="button"
-          onClick={() => setXMode(xMode === "distance" ? "time" : "distance")}
-          style={{
-            border: "1px solid var(--color-border-secondary)",
-            background: "var(--color-background-secondary)",
-            borderRadius: "var(--border-radius-sm)",
-            padding: "2px 8px",
-            fontSize: "var(--font-text-xs-size)",
-            color: "var(--color-text-secondary)",
-            cursor: "pointer",
-            marginLeft: "auto",
-          }}
-        >
-          {xMode === "distance" ? "km" : "min"}
-        </button>
-      </div>
       <div className={styles.container}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
@@ -206,6 +163,37 @@ export function OverlayView({
             ))}
           </ComposedChart>
         </ResponsiveContainer>
+      </div>
+      <div className={styles.footer}>
+        <PillGroup>
+          <Pill
+            active={xMode === "distance"}
+            onClick={() => setXMode("distance")}
+          >
+            km
+          </Pill>
+          <Pill active={xMode === "time"} onClick={() => setXMode("time")}>
+            min
+          </Pill>
+        </PillGroup>
+        <Legend>
+          {runs.map((r) => (
+            <LegendItem
+              key={r.run.id}
+              color={r.color}
+              label={`${r.run.name} · ${new Date(r.run.date).toLocaleDateString()}`}
+              hidden={hiddenRuns.has(r.run.id)}
+              onClick={() => {
+                setHiddenRuns((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(r.run.id)) next.delete(r.run.id);
+                  else next.add(r.run.id);
+                  return next;
+                });
+              }}
+            />
+          ))}
+        </Legend>
       </div>
     </div>
   );

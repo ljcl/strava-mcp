@@ -1,16 +1,3 @@
-import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
-import { viteSingleFile } from "vite-plugin-singlefile";
+import { mcpAppConfig } from "@strava-mcp/vite-config/mcp-app";
 
-const INPUT = process.env.INPUT;
-
-export default defineConfig({
-  plugins: [react(), ...(INPUT ? [viteSingleFile()] : [])],
-  build: INPUT
-    ? {
-        rollupOptions: { input: INPUT },
-        outDir: "../../dist/cadence-trends",
-        emptyOutDir: false,
-      }
-    : {},
-});
+export default mcpAppConfig("cadence-trends");

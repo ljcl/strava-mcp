@@ -9,14 +9,24 @@
   align-items: center;
   justify-content: center;
   height: 320px;
+  font-family: var(--font-sans);
   font-size: var(--font-text-sm-size);
   color: var(--color-text-tertiary);
-  font-family: var(--font-sans);
 }
 
 .loading {
   padding: 4px 0;
+  font-family: var(--font-sans);
   font-size: var(--font-text-xs-size);
   color: var(--color-text-secondary);
-  font-family: var(--font-sans);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  margin-top: 8px;
 }
