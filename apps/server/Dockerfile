@@ -1,24 +1,33 @@
 FROM oven/bun:1-alpine AS base
 WORKDIR /app
 
-# Build UI (install packages needed for activity-chart build)
+# Build UI (install packages needed for MCP App builds)
 FROM base AS ui-builder
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
+COPY apps/storybook/package.json apps/storybook/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/activity-chart/package.json packages/activity-chart/
+COPY packages/cadence-trends/package.json packages/cadence-trends/
 COPY packages/design-system/package.json packages/design-system/
+COPY packages/ui/package.json packages/ui/
+COPY packages/vite-config/package.json packages/vite-config/
 RUN bun install --frozen-lockfile --ignore-scripts
 COPY packages/ packages/
 RUN cd packages/activity-chart && INPUT=app.html bunx vite build
+RUN cd packages/cadence-trends && INPUT=app.html bunx vite build
 
 # Install server production deps only
 FROM base AS server-deps
 COPY package.json bun.lock ./
 COPY apps/server/package.json apps/server/
+COPY apps/storybook/package.json apps/storybook/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/activity-chart/package.json packages/activity-chart/
+COPY packages/cadence-trends/package.json packages/cadence-trends/
 COPY packages/design-system/package.json packages/design-system/
+COPY packages/ui/package.json packages/ui/
+COPY packages/vite-config/package.json packages/vite-config/
 RUN cd apps/server && bun install --production --frozen-lockfile --ignore-scripts
 
 # Runner
