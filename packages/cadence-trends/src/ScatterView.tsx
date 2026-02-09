@@ -14,6 +14,7 @@ import {
 import { dotSize, formatPace, linearRegression } from "./normalize";
 import { SharedTooltip } from "./SharedTooltip";
 import { type RunSummary } from "./types";
+import styles from "./ScatterView.module.css";
 
 interface ScatterViewProps {
   activities: RunSummary[];
@@ -76,7 +77,7 @@ export function ScatterView({
   ];
 
   return (
-    <div style={{ width: "100%", height: 320 }}>
+    <div className={styles.container}>
       <ResponsiveContainer width="100%" height="100%">
         <ScatterChart margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
           <CartesianGrid

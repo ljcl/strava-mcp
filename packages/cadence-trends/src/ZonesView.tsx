@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { computeZoneStats } from "./normalize";
 import { type RunSummary } from "./types";
+import styles from "./ScatterView.module.css";
 
 interface ZonesViewProps {
   activities: RunSummary[];
@@ -48,7 +49,7 @@ export function ZonesView({ activities }: ZonesViewProps) {
   }
 
   return (
-    <div style={{ width: "100%", height: 320 }}>
+    <div className={styles.container}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}

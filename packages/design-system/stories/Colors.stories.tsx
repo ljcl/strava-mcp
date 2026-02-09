@@ -112,18 +112,7 @@ const meta = preview.meta({
 export const Light = meta.story({});
 
 export const Dark = meta.story({
-  decorators: [
-    (StoryFn) => (
-      <div
-        className="dark"
-        style={{
-          background: "var(--color-background-primary)",
-          padding: "24px",
-          borderRadius: "8px",
-        }}
-      >
-        <StoryFn />
-      </div>
-    ),
-  ],
+  globals: {
+    backgrounds: { value: "dark" },
+  },
 });

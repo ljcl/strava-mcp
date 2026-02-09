@@ -3,8 +3,17 @@ import { defineMain } from "@storybook/react-vite/node";
 export default defineMain({
   framework: "@storybook/react-vite",
   stories: [
-    "../../../packages/activity-chart/src/**/*.stories.@(ts|tsx)",
-    "../../../packages/design-system/stories/**/*.stories.@(ts|tsx)",
-    "../../../packages/ui/src/**/*.stories.@(ts|tsx)",
+    {
+      titlePrefix: "Activity Chart",
+      directory: "../../../packages/activity-chart/src/",
+    },
+    {
+      titlePrefix: "Cadence Trends",
+      directory: "../../../packages/cadence-trends/src/",
+    },
+    {
+      directory: "../../../packages/design-system/stories/",
+    },
+    { titlePrefix: "UI", directory: "../../../packages/ui/src/" },
   ],
 });
