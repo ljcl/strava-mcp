@@ -1,3 +1,4 @@
+import { formatPace } from "@strava-mcp/data";
 import { useMemo } from "react";
 import {
   CartesianGrid,
@@ -11,10 +12,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { dotSize, formatPace, linearRegression } from "./normalize";
+import { dotSize, linearRegression } from "./normalize";
+import styles from "./ScatterView.module.css";
 import { SharedTooltip } from "./SharedTooltip";
 import { type RunSummary } from "./types";
-import styles from "./ScatterView.module.css";
 
 interface ScatterViewProps {
   activities: RunSummary[];

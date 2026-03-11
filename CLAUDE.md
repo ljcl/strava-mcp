@@ -14,6 +14,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `apps/server/` — MCP server (tools, auth, token management)
 - `packages/activity-chart/` — React + Recharts MCP App for interactive activity charts
 - `packages/cadence-trends/` — React + Recharts MCP App for cadence trend analysis
+- `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend)
 - `packages/design-system/` — Shared design tokens and color constants
 - `packages/tsconfig/` — Shared TypeScript configurations
@@ -139,6 +140,10 @@ docker compose build
 docker compose up -d
 docker compose logs -f
 ```
+
+## Docker
+
+When adding a new workspace package, its `package.json` must be added to both the `ui-builder` and `server-deps` stages in `apps/server/Dockerfile` so that `bun install --frozen-lockfile` can resolve workspace references.
 
 ## Testing the MCP endpoint
 

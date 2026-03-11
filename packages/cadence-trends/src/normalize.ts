@@ -1,3 +1,4 @@
+import { isRunning, smooth } from "@strava-mcp/data";
 import {
   type OverlayPoint,
   type OverlayStreamData,
@@ -12,14 +13,6 @@ export const PACE_ZONES: PaceZone[] = [
   { label: "Moderate", minPace: 4.5, maxPace: 5.5 },
   { label: "Easy", minPace: 5.5, maxPace: 20 },
 ];
-
-/** Format min/km as M'SS" */
-export function formatPace(minPerKm: number): string {
-  const mins = Math.floor(minPerKm);
-  const secs = Math.round((minPerKm - mins) * 60);
-  if (secs === 60) return `${mins + 1}'00"`;
-  return `${mins}'${String(secs).padStart(2, "0")}"`;
-}
 
 /** Format seconds as Mm or HhMm */
 export function formatDuration(seconds: number): string {
@@ -158,9 +151,7 @@ export function toOverlayPoints(data: OverlayStreamData): OverlayPoint[] {
   const cadenceArr = streams.cadence ?? [];
   const velocityArr = streams.velocity_smooth ?? [];
   const len = timeArr.length;
-  const isRunning = ["Run", "VirtualRun", "TrailRun"].includes(
-    data.activityType,
-  );
+  const running = isRunning(data.activityType);
   const points: OverlayPoint[] = [];
 
   for (let i = 0; i < len; i += 1) {
@@ -169,7 +160,7 @@ export function toOverlayPoints(data: OverlayStreamData): OverlayPoint[] {
       time: (timeArr[i] ?? 0) / 60,
     };
     if (cadenceArr[i] !== undefined) {
-      point.cadence = isRunning ? cadenceArr[i]! * 2 : cadenceArr[i];
+      point.cadence = running ? cadenceArr[i]! * 2 : cadenceArr[i];
     }
     if (velocityArr[i] !== undefined) {
       const mps = velocityArr[i]!;
@@ -185,34 +176,7 @@ export function smoothOverlayPoints(
   points: OverlayPoint[],
   windowSize = 30,
 ): OverlayPoint[] {
-  const len = points.length;
-  if (len < 3) return points;
-  const half = Math.floor(windowSize / 2);
-
-  return points.map((pt, i) => {
-    const lo = Math.max(0, i - half);
-    const hi = Math.min(len - 1, i + half);
-    let cadSum = 0;
-    let cadCount = 0;
-    let paceSum = 0;
-    let paceCount = 0;
-    for (let j = lo; j <= hi; j += 1) {
-      if (points[j]!.cadence !== undefined) {
-        cadSum += points[j]!.cadence!;
-        cadCount += 1;
-      }
-      if (points[j]!.pace !== undefined) {
-        paceSum += points[j]!.pace!;
-        paceCount += 1;
-      }
-    }
-    return {
-      distance: pt.distance,
-      time: pt.time,
-      cadence: cadCount > 0 ? cadSum / cadCount : pt.cadence,
-      pace: paceCount > 0 ? paceSum / paceCount : pt.pace,
-    };
-  });
+  return smooth(points, ["cadence", "pace"], windowSize);
 }
 
 /** Dot size based on distance: min 4px, max 12px, scaled linearly */

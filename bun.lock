@@ -50,6 +50,7 @@
       "dependencies": {
         "@modelcontextprotocol/ext-apps": "^1.0.1",
         "@modelcontextprotocol/sdk": "^1.26.0",
+        "@strava-mcp/data": "workspace:*",
         "@strava-mcp/design-system": "workspace:*",
         "@strava-mcp/ui": "workspace:*",
         "react": "^19.2.4",
@@ -71,6 +72,7 @@
       "dependencies": {
         "@modelcontextprotocol/ext-apps": "^1.0.1",
         "@modelcontextprotocol/sdk": "^1.26.0",
+        "@strava-mcp/data": "workspace:*",
         "@strava-mcp/design-system": "workspace:*",
         "@strava-mcp/ui": "workspace:*",
         "react": "^19.2.4",
@@ -84,6 +86,13 @@
         "@types/react-dom": "^19.2.3",
         "typescript": "^5.9.3",
         "vite": "^7.3.1",
+      },
+    },
+    "packages/data": {
+      "name": "@strava-mcp/data",
+      "devDependencies": {
+        "@strava-mcp/tsconfig": "workspace:*",
+        "typescript": "^5.9.3",
       },
     },
     "packages/design-system": {
@@ -415,6 +424,8 @@
     "@strava-mcp/activity-chart": ["@strava-mcp/activity-chart@workspace:packages/activity-chart"],
 
     "@strava-mcp/cadence-trends": ["@strava-mcp/cadence-trends@workspace:packages/cadence-trends"],
+
+    "@strava-mcp/data": ["@strava-mcp/data@workspace:packages/data"],
 
     "@strava-mcp/design-system": ["@strava-mcp/design-system@workspace:packages/design-system"],
 

@@ -1,3 +1,4 @@
+import { formatDistance, formatPace, formatTime } from "@strava-mcp/data";
 import {
   Legend,
   LegendItem,
@@ -19,13 +20,7 @@ import {
   YAxis,
 } from "recharts";
 import styles from "./ActivityChart.module.css";
-import {
-  type ChartLap,
-  formatDistance,
-  formatPace,
-  formatTime,
-  smoothData,
-} from "./normalize";
+import { type ChartLap, smoothData } from "./normalize";
 import {
   type ActivityMeta,
   type ChartDataPoint,

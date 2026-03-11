@@ -9,6 +9,7 @@ COPY apps/storybook/package.json apps/storybook/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/activity-chart/package.json packages/activity-chart/
 COPY packages/cadence-trends/package.json packages/cadence-trends/
+COPY packages/data/package.json packages/data/
 COPY packages/design-system/package.json packages/design-system/
 COPY packages/ui/package.json packages/ui/
 COPY packages/vite-config/package.json packages/vite-config/
@@ -25,6 +26,7 @@ COPY apps/storybook/package.json apps/storybook/
 COPY packages/tsconfig/package.json packages/tsconfig/
 COPY packages/activity-chart/package.json packages/activity-chart/
 COPY packages/cadence-trends/package.json packages/cadence-trends/
+COPY packages/data/package.json packages/data/
 COPY packages/design-system/package.json packages/design-system/
 COPY packages/ui/package.json packages/ui/
 COPY packages/vite-config/package.json packages/vite-config/

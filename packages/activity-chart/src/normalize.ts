@@ -1,3 +1,4 @@
+import { formatTime, isRunning, isSwimming, smooth } from "@strava-mcp/data";
 import {
   type ActivityMeta,
   type ActivityStreamData,
@@ -5,44 +6,7 @@ import {
   type MetricKey,
 } from "./types";
 
-const RUNNING_TYPES = new Set([
-  "Run",
-  "VirtualRun",
-  "TrailRun",
-  "Walk",
-  "Hike",
-]);
-
-const SWIMMING_TYPES = new Set(["Swim"]);
-
-export function isRunning(activityType: string): boolean {
-  return RUNNING_TYPES.has(activityType);
-}
-
-export function isSwimming(activityType: string): boolean {
-  return SWIMMING_TYPES.has(activityType);
-}
-
-export function formatTime(seconds: number): string {
-  const hrs = Math.floor(seconds / 3600);
-  const mins = Math.floor((seconds % 3600) / 60);
-  const secs = Math.floor(seconds % 60);
-  if (hrs > 0) {
-    return `${String(hrs)}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-  }
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
-
-export function formatDistance(metres: number): string {
-  return `${Math.round(metres)}m`;
-}
-
-export function formatPace(minPerUnit: number): string {
-  const mins = Math.floor(minPerUnit);
-  const secs = Math.round((minPerUnit - mins) * 60);
-  if (secs === 60) return `${mins + 1}'00"`;
-  return `${mins}'${String(secs).padStart(2, "0")}"`;
-}
+export { isRunning, isSwimming };
 
 export interface ChartLap {
   name: string;
@@ -205,35 +169,5 @@ export function smoothData(
     effectiveWindow = 10;
   }
 
-  const half = Math.floor(effectiveWindow / 2);
-
-  return points.map((pt, i) => {
-    const lo = Math.max(0, i - half);
-    const hi = Math.min(len - 1, i + half);
-    const smoothed: ChartDataPoint = {
-      time: pt.time,
-      timeFormatted: pt.timeFormatted,
-    };
-    if (pt.distance !== undefined) smoothed.distance = pt.distance;
-
-    for (const key of SMOOTH_KEYS) {
-      const val = pt[key as keyof ChartDataPoint] as number | undefined;
-      if (val === undefined) {
-        // biome-ignore lint/nursery/noContinue: guard clause in tight loop
-        continue;
-      }
-      let sum = 0;
-      let count = 0;
-      for (let j = lo; j <= hi; j += 1) {
-        const v = points[j]![key as keyof ChartDataPoint] as number | undefined;
-        if (v !== undefined) {
-          sum += v;
-          count += 1;
-        }
-      }
-      // biome-ignore lint/suspicious/noExplicitAny: metric keys are a known-safe subset
-      (smoothed as any)[key] = count > 0 ? sum / count : val;
-    }
-    return smoothed;
-  });
+  return smooth(points, SMOOTH_KEYS, effectiveWindow);
 }

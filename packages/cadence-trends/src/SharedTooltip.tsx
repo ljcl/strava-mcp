@@ -1,5 +1,6 @@
+import { formatPace } from "@strava-mcp/data";
 import { Tooltip, TooltipEntry } from "@strava-mcp/ui";
-import { formatDuration, formatPace } from "./normalize";
+import { formatDuration } from "./normalize";
 
 interface RunTooltipPayloadItem {
   name?: string;
