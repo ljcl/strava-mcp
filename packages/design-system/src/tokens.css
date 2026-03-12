@@ -55,6 +55,10 @@
   --border-radius-lg: 12px;
   --border-width-regular: 1px;
 
+  /* Shadows */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+
   /* Chart colors (Strava activity metrics) */
   --chart-heartrate: #ef4444;
   --chart-power: #8b5cf6;
@@ -92,6 +96,11 @@
   --chart-altitude: #8c7a66;
   --chart-cadence: #fb923c;
   --chart-grade: #9ca3af;
+
+  /* Shadows */
+  --shadow-sm:
+    0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -121,5 +130,10 @@
     --chart-altitude: #8c7a66;
     --chart-cadence: #fb923c;
     --chart-grade: #9ca3af;
+
+    /* Shadows */
+    --shadow-sm:
+      0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
   }
 }
