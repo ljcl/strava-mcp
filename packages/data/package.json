@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
+    "@modelcontextprotocol/ext-apps": "^1.2.2",
     "@strava-mcp/tsconfig": "workspace:*",
     "typescript": "^5.9.3"
   }

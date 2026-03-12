@@ -1,8 +1,13 @@
 .container {
+  --chart-height: 320px;
   display: flex;
   flex-direction: column;
   width: 100%;
   font-family: var(--font-sans);
+}
+
+.container[data-compact] {
+  --chart-height: 240px;
 }
 
 .nav {

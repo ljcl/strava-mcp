@@ -1,5 +1,6 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { type HostLayout } from "@strava-mcp/data";
 import { Pill, PillGroup } from "@strava-mcp/ui";
 import { useCallback, useMemo, useState } from "react";
 import styles from "./App.module.css";
@@ -31,6 +32,7 @@ const VIEWS: Array<{ id: ViewId; label: string }> = [
 interface AppProps {
   app: ReturnType<typeof useApp>["app"];
   data: CadenceTrendData;
+  layout?: HostLayout;
 }
 
 interface CachedStream {
@@ -38,7 +40,7 @@ interface CachedStream {
   points: OverlayPoint[];
 }
 
-export function App({ app, data }: AppProps) {
+export function App({ app, data, layout }: AppProps) {
   const [activeView, setActiveView] = useState<ViewId>("trend");
   const [selectedRunIds, setSelectedRunIds] = useState<Set<number>>(new Set());
   const [streamCache, setStreamCache] = useState<Map<number, CachedStream>>(
@@ -105,7 +107,10 @@ export function App({ app, data }: AppProps) {
   const selectedRuns = data.activities.filter((a) => selectedRunIds.has(a.id));
 
   return (
-    <div className={styles.container}>
+    <div
+      className={styles.container}
+      data-compact={layout?.mode === "compact" || undefined}
+    >
       <SummaryBar
         currentAvg={stats.currentAvg}
         delta={stats.delta}

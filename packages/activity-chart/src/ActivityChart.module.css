@@ -35,3 +35,21 @@
   gap: 8px;
   align-items: center;
 }
+
+/* Compact mode: stack footer vertically */
+.activityChart[data-compact] .footer {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.activityChart[data-compact] .header {
+  padding: 0 4px;
+}
+
+.activityChart[data-compact] .title {
+  font-size: var(--font-text-sm-size);
+}
+
+.activityChart[data-compact] .subtitle {
+  font-size: var(--font-text-xs-size);
+}

@@ -1,4 +1,9 @@
-import { formatDistance, formatPace, formatTime } from "@strava-mcp/data";
+import {
+  formatDistance,
+  formatPace,
+  formatTime,
+  type HostLayout,
+} from "@strava-mcp/data";
 import {
   Legend,
   LegendItem,
@@ -253,9 +258,17 @@ interface ActivityChartProps {
   data: ChartDataPoint[];
   meta: ActivityMeta;
   laps?: ChartLap[];
+  layout?: HostLayout;
 }
 
-export function ActivityChart({ data, meta, laps }: ActivityChartProps) {
+export function ActivityChart({
+  data,
+  meta,
+  laps,
+  layout,
+}: ActivityChartProps) {
+  const aspect = layout?.chartAspect ?? 1.8;
+  const isCompact = layout?.mode === "compact";
   // Determine which series have data
   const hasHeartrate = data.some((d) => d.heartrate !== undefined);
   const hasPower = data.some((d) => d.power !== undefined);
@@ -356,13 +369,13 @@ export function ActivityChart({ data, meta, laps }: ActivityChartProps) {
     legendItems.push({ key: "grade", color: COLORS.grade, label: "Grade" });
 
   return (
-    <div className={styles.activityChart}>
+    <div className={styles.activityChart} data-compact={isCompact || undefined}>
       <div className={styles.header}>
         <div className={styles.title}>{meta.name}</div>
         <div className={styles.subtitle}>{meta.activityType}</div>
       </div>
 
-      <ResponsiveContainer width="100%" aspect={1.8}>
+      <ResponsiveContainer width="100%" aspect={aspect}>
         <ComposedChart
           data={displayData}
           margin={{ bottom: 5, left: -30, right: -30, top: 5 }}

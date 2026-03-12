@@ -63,3 +63,26 @@ export const DarkPoolSwim = meta.story({
     laps: toLapData(poolSwim),
   },
 });
+
+export const CompactMobile = meta.story({
+  args: {
+    data: toChartData(tempoRun),
+    meta: extractMeta(tempoRun),
+    laps: toLapData(tempoRun),
+    layout: {
+      mode: "compact",
+      width: 375,
+      height: null,
+      isTouch: true,
+      chartAspect: 1.2,
+      chartHeight: 240,
+    },
+  },
+  decorators: [
+    (StoryFn) => (
+      <div style={{ maxWidth: 375 }}>
+        <StoryFn />
+      </div>
+    ),
+  ],
+});

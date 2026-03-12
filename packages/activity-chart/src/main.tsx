@@ -1,6 +1,7 @@
 import { type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { getHostLayout } from "@strava-mcp/data";
 import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ActivityChart } from "./ActivityChart";
@@ -31,9 +32,16 @@ interface AppContentProps {
   app: ReturnType<typeof useApp>["app"];
   toolArgs: ToolArgs;
   safeAreaInsets?: McpUiHostContext["safeAreaInsets"];
+  hostContext?: McpUiHostContext;
 }
 
-function AppContent({ app, toolArgs, safeAreaInsets }: AppContentProps) {
+function AppContent({
+  app,
+  toolArgs,
+  safeAreaInsets,
+  hostContext,
+}: AppContentProps) {
+  const layout = getHostLayout(hostContext);
   const [data, setData] = useState<ChartDataPoint[] | null>(null);
   const [meta, setMeta] = useState<ReturnType<typeof extractMeta> | null>(null);
   const [laps, setLaps] = useState<ChartLap[]>([]);
@@ -93,7 +101,7 @@ function AppContent({ app, toolArgs, safeAreaInsets }: AppContentProps) {
         paddingTop: safeAreaInsets?.top,
       }}
     >
-      <ActivityChart data={data} meta={meta} laps={laps} />
+      <ActivityChart data={data} meta={meta} laps={laps} layout={layout} />
     </div>
   );
 }
@@ -102,6 +110,9 @@ function Root() {
   const [toolArgs, setToolArgs] = useState<ToolArgs | null>(null);
   const [safeAreaInsets, setSafeAreaInsets] =
     useState<McpUiHostContext["safeAreaInsets"]>();
+  const [hostContext, setHostContext] = useState<
+    McpUiHostContext | undefined
+  >();
 
   const { app, error: connectError } = useApp({
     appInfo: { name: "Activity Chart", version: "1.0.0" },
@@ -117,12 +128,18 @@ function Root() {
         if (ctx.safeAreaInsets) {
           setSafeAreaInsets(ctx.safeAreaInsets);
         }
+        setHostContext((prev) => ({ ...prev, ...ctx }));
       };
       createdApp.onerror = console.error;
     },
   });
 
   useHostStyles(app, app?.getHostContext());
+
+  useEffect(() => {
+    const ctx = app?.getHostContext();
+    if (ctx) setHostContext(ctx);
+  }, [app]);
 
   if (connectError)
     return (
@@ -135,7 +152,12 @@ function Root() {
     return <div style={{ padding: "24px" }}>Waiting for activity data...</div>;
 
   return (
-    <AppContent app={app} toolArgs={toolArgs} safeAreaInsets={safeAreaInsets} />
+    <AppContent
+      app={app}
+      toolArgs={toolArgs}
+      safeAreaInsets={safeAreaInsets}
+      hostContext={hostContext}
+    />
   );
 }
 
