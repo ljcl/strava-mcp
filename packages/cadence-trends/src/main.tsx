@@ -106,7 +106,9 @@ function Root() {
 
   const { app, error: connectError } = useApp({
     appInfo: { name: "Cadence Trends", version: "1.0.0" },
-    capabilities: {},
+    capabilities: {
+      availableDisplayModes: ["inline", "fullscreen"],
+    },
     onAppCreated: (createdApp) => {
       createdApp.ontoolinput = (input) => {
         const args = input.arguments as ToolArgs | undefined;
