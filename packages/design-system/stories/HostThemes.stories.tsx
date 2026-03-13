@@ -120,23 +120,23 @@ const meta = preview.meta({
 export const Default = meta.story({});
 
 export const Claude = meta.story({
-  globals: { hostTheme: { value: "claude" } },
+  globals: { hostTheme: "claude" },
 });
 
 export const ClaudeDark = meta.story({
   globals: {
-    hostTheme: { value: "claude" },
+    hostTheme: "claude",
     backgrounds: { value: "dark" },
   },
 });
 
 export const ChatGPT = meta.story({
-  globals: { hostTheme: { value: "chatgpt" } },
+  globals: { hostTheme: "chatgpt" },
 });
 
 export const ChatGPTDark = meta.story({
   globals: {
-    hostTheme: { value: "chatgpt" },
+    hostTheme: "chatgpt",
     backgrounds: { value: "dark" },
   },
 });

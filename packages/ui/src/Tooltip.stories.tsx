@@ -29,7 +29,3 @@ function TooltipDemo() {
 const meta = preview.meta({ component: TooltipDemo });
 
 export const Default = meta.story({});
-
-export const Dark = meta.story({
-  globals: { backgrounds: { value: "dark" } },
-});

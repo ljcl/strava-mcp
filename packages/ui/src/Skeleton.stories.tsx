@@ -14,8 +14,3 @@ export const Bar = meta.story({
 export const Pills = meta.story({
   args: { variant: "pills" },
 });
-
-export const DarkChart = meta.story({
-  globals: { backgrounds: { value: "dark" } },
-  args: { variant: "chart" },
-});

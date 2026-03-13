@@ -4,11 +4,6 @@ import { ZonesView } from "./ZonesView";
 
 const meta = preview.meta({ component: ZonesView });
 
-export const Light = meta.story({
-  args: { activities: mockRuns },
-});
-
-export const Dark = meta.story({
-  globals: { backgrounds: { value: "dark" } },
+export const Default = meta.story({
   args: { activities: mockRuns },
 });

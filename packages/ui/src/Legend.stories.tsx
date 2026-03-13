@@ -15,7 +15,3 @@ function LegendDemo() {
 const meta = preview.meta({ component: LegendDemo });
 
 export const Default = meta.story({});
-
-export const Dark = meta.story({
-  globals: { backgrounds: { value: "dark" } },
-});

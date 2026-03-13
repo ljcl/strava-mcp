@@ -109,10 +109,4 @@ const meta = preview.meta({
   component: ColorGrid,
 });
 
-export const Light = meta.story({});
-
-export const Dark = meta.story({
-  globals: {
-    backgrounds: { value: "dark" },
-  },
-});
+export const Default = meta.story({});

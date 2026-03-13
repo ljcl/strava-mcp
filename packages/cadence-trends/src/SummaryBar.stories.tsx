@@ -14,8 +14,3 @@ export const Declining = meta.story({
 export const Flat = meta.story({
   args: { currentAvg: 170, delta: 0, runCount: 10, weeks: 6 },
 });
-
-export const Dark = meta.story({
-  globals: { backgrounds: { value: "dark" } },
-  args: { currentAvg: 174, delta: 3, runCount: 15, weeks: 6 },
-});
