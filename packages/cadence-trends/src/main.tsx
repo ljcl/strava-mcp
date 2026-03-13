@@ -2,6 +2,7 @@ import { type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getHostLayout } from "@strava-mcp/data";
+import { Skeleton } from "@strava-mcp/ui";
 import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -68,9 +69,11 @@ function AppContent({
 
   if (loading) {
     return (
-      <div style={{ color: "var(--color-text-secondary)", padding: "24px" }}>
-        Loading cadence data...
-      </div>
+      <>
+        <Skeleton variant="bar" />
+        <Skeleton variant="pills" />
+        <Skeleton variant="chart" />
+      </>
     );
   }
 
@@ -137,9 +140,22 @@ function Root() {
         Connection error: {connectError.message}
       </div>
     );
-  if (!app) return <div style={{ padding: "24px" }}>Connecting...</div>;
+  if (!app)
+    return (
+      <>
+        <Skeleton variant="bar" />
+        <Skeleton variant="pills" />
+        <Skeleton variant="chart" />
+      </>
+    );
   if (!toolArgs)
-    return <div style={{ padding: "24px" }}>Waiting for data...</div>;
+    return (
+      <>
+        <Skeleton variant="bar" />
+        <Skeleton variant="pills" />
+        <Skeleton variant="chart" />
+      </>
+    );
 
   return (
     <AppContent
