@@ -10,6 +10,11 @@
   color: var(--color-text-secondary);
 }
 
+.legend[data-size="touch"] {
+  gap: 6px;
+  font-size: var(--font-text-sm-size);
+}
+
 .legendButton {
   display: flex;
   gap: 4px;
@@ -24,9 +29,22 @@
   border: none;
 }
 
+.legend[data-size="touch"] .legendButton {
+  gap: 5px;
+  padding: 8px 1px;
+}
+
 .legendButton[data-hidden] {
   text-decoration: line-through;
   opacity: 0.3;
+}
+
+.legendButton[data-faded] {
+  opacity: 0.5;
+}
+
+.legendButton[data-hidden][data-faded] {
+  opacity: 0.25;
 }
 
 .swatch {
