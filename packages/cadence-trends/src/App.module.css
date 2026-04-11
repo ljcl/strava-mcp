@@ -7,25 +7,43 @@
 }
 
 .container[data-compact] {
-  --chart-height: 240px;
+  --chart-height: 260px;
 }
 
 .nav {
-  padding: 12px 16px 0;
+  padding: 12px 0 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav::-webkit-scrollbar {
+  display: none;
+}
+
+.container[data-compact] .nav {
+  padding-top: 8px;
 }
 
 .viewContainer {
   flex: 1;
-  padding: 16px;
+  padding: 16px 0 0;
+}
+
+.container[data-compact] .viewContainer {
+  padding: 10px 0 0;
 }
 
 .selectionBar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 8px 16px;
+  padding: 8px 0;
   font-size: var(--font-text-xs-size);
   border-top: 1px solid var(--color-border-secondary);
+}
+
+.container[data-compact] .selectionBar {
+  padding: 6px 0;
 }
 
 .selectedRun {

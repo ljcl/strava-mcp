@@ -22,6 +22,7 @@ interface OverlayViewProps {
   streamCache: Map<number, CachedStream>;
   loadingStreams: Set<number>;
   fetchStreamForRun: (runId: number) => void;
+  mode?: "mobile" | "desktop";
 }
 
 type XMode = "distance" | "time";
@@ -31,7 +32,16 @@ export function OverlayView({
   streamCache,
   loadingStreams,
   fetchStreamForRun,
+  mode = "desktop",
 }: OverlayViewProps) {
+  const isMobile = mode === "mobile";
+  const tokens = {
+    axisFont: 11,
+    marginRight: isMobile ? 8 : 16,
+    marginLeft: isMobile ? -8 : 0,
+    strokeWidth: isMobile ? 1.75 : 1.5,
+  };
+
   const [xMode, setXMode] = useState<XMode>("distance");
   const [hiddenRuns, setHiddenRuns] = useState<Set<number>>(new Set());
 
@@ -108,7 +118,12 @@ export function OverlayView({
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
             data={chartData}
-            margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
+            margin={{
+              top: 8,
+              right: tokens.marginRight,
+              bottom: 8,
+              left: tokens.marginLeft,
+            }}
           >
             <CartesianGrid
               strokeDasharray="3 3"
@@ -118,27 +133,44 @@ export function OverlayView({
               dataKey="x"
               type="number"
               domain={["auto", "auto"]}
-              tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+              tick={{
+                fontSize: tokens.axisFont,
+                fill: "var(--color-text-tertiary)",
+              }}
               tickLine={false}
               axisLine={{ stroke: "var(--color-border-secondary)" }}
               label={{
                 value: xMode === "distance" ? "km" : "min",
                 position: "insideBottomRight",
                 offset: -4,
-                style: { fontSize: 11, fill: "var(--color-text-tertiary)" },
+                style: {
+                  fontSize: tokens.axisFont,
+                  fill: "var(--color-text-tertiary)",
+                },
               }}
             />
             <YAxis
               domain={["auto", "auto"]}
-              tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+              tick={{
+                fontSize: tokens.axisFont,
+                fill: "var(--color-text-tertiary)",
+              }}
               tickLine={false}
               axisLine={false}
-              label={{
-                value: "spm",
-                angle: -90,
-                position: "insideLeft",
-                style: { fontSize: 11, fill: "var(--color-text-tertiary)" },
-              }}
+              width={isMobile ? 34 : 40}
+              label={
+                isMobile
+                  ? undefined
+                  : {
+                      value: "spm",
+                      angle: -90,
+                      position: "insideLeft",
+                      style: {
+                        fontSize: 11,
+                        fill: "var(--color-text-tertiary)",
+                      },
+                    }
+              }
             />
             <RechartsTooltip
               labelFormatter={(v) => {
@@ -154,7 +186,7 @@ export function OverlayView({
                 type="monotone"
                 dataKey={runKeys[i]}
                 stroke={r.color}
-                strokeWidth={1.5}
+                strokeWidth={tokens.strokeWidth}
                 dot={false}
                 connectNulls
                 hide={hiddenRuns.has(r.run.id)}
@@ -176,23 +208,28 @@ export function OverlayView({
             min
           </Pill>
         </PillGroup>
-        <Legend>
-          {runs.map((r) => (
-            <LegendItem
-              key={r.run.id}
-              color={r.color}
-              label={`${r.run.name} · ${new Date(r.run.date).toLocaleDateString()}`}
-              hidden={hiddenRuns.has(r.run.id)}
-              onClick={() => {
-                setHiddenRuns((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(r.run.id)) next.delete(r.run.id);
-                  else next.add(r.run.id);
-                  return next;
-                });
-              }}
-            />
-          ))}
+        <Legend size={isMobile ? "touch" : "default"}>
+          {runs.map((r) => {
+            const label = isMobile
+              ? r.run.name
+              : `${r.run.name} · ${new Date(r.run.date).toLocaleDateString()}`;
+            return (
+              <LegendItem
+                key={r.run.id}
+                color={r.color}
+                label={label}
+                hidden={hiddenRuns.has(r.run.id)}
+                onClick={() => {
+                  setHiddenRuns((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(r.run.id)) next.delete(r.run.id);
+                    else next.add(r.run.id);
+                    return next;
+                  });
+                }}
+              />
+            );
+          })}
         </Legend>
       </div>
     </div>

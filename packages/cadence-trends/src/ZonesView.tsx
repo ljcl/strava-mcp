@@ -16,11 +16,22 @@ import { type RunSummary } from "./types";
 
 interface ZonesViewProps {
   activities: RunSummary[];
+  mode?: "mobile" | "desktop";
 }
 
 const ZONE_OPACITIES = [1, 0.8, 0.6, 0.4];
 
-export function ZonesView({ activities }: ZonesViewProps) {
+export function ZonesView({ activities, mode = "desktop" }: ZonesViewProps) {
+  const isMobile = mode === "mobile";
+  const tokens = {
+    axisFont: 11,
+    marginRight: isMobile ? 8 : 16,
+    marginLeft: isMobile ? -8 : 0,
+    marginTop: isMobile ? 20 : 16,
+    errorBarWidth: isMobile ? 6 : 8,
+    labelFontSize: isMobile ? 9 : 10,
+  };
+
   const zoneStats = useMemo(() => computeZoneStats(activities), [activities]);
 
   const chartData = useMemo(
@@ -52,7 +63,12 @@ export function ZonesView({ activities }: ZonesViewProps) {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
           data={chartData}
-          margin={{ top: 16, right: 16, bottom: 8, left: 0 }}
+          margin={{
+            top: tokens.marginTop,
+            right: tokens.marginRight,
+            bottom: 8,
+            left: tokens.marginLeft,
+          }}
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -61,21 +77,35 @@ export function ZonesView({ activities }: ZonesViewProps) {
           />
           <XAxis
             dataKey="zone"
-            tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+            tick={{
+              fontSize: tokens.axisFont,
+              fill: "var(--color-text-tertiary)",
+            }}
             tickLine={false}
             axisLine={{ stroke: "var(--color-border-secondary)" }}
           />
           <YAxis
             domain={["auto", "auto"]}
-            tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+            tick={{
+              fontSize: tokens.axisFont,
+              fill: "var(--color-text-tertiary)",
+            }}
             tickLine={false}
             axisLine={false}
-            label={{
-              value: "spm",
-              angle: -90,
-              position: "insideLeft",
-              style: { fontSize: 11, fill: "var(--color-text-tertiary)" },
-            }}
+            width={isMobile ? 34 : 40}
+            label={
+              isMobile
+                ? undefined
+                : {
+                    value: "spm",
+                    angle: -90,
+                    position: "insideLeft",
+                    style: {
+                      fontSize: 11,
+                      fill: "var(--color-text-tertiary)",
+                    },
+                  }
+            }
           />
           <Bar dataKey="mean" radius={[4, 4, 0, 0]}>
             {chartData.map((_, i) => (
@@ -88,7 +118,7 @@ export function ZonesView({ activities }: ZonesViewProps) {
             <ErrorBar
               dataKey="errorHigh"
               direction="y"
-              width={8}
+              width={tokens.errorBarWidth}
               stroke="var(--color-text-tertiary)"
               strokeWidth={1.5}
             />
@@ -98,7 +128,10 @@ export function ZonesView({ activities }: ZonesViewProps) {
               formatter={(v: string | number | boolean | null | undefined) =>
                 `n=${v}`
               }
-              style={{ fontSize: 10, fill: "var(--color-text-tertiary)" }}
+              style={{
+                fontSize: tokens.labelFontSize,
+                fill: "var(--color-text-tertiary)",
+              }}
             />
           </Bar>
         </BarChart>

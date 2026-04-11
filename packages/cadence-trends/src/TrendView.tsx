@@ -19,13 +19,24 @@ interface TrendViewProps {
   activities: RunSummary[];
   onRunClick: (runId: number) => void;
   selectedRunIds: Set<number>;
+  mode?: "mobile" | "desktop";
 }
 
 export function TrendView({
   activities,
   onRunClick,
   selectedRunIds,
+  mode = "desktop",
 }: TrendViewProps) {
+  const isMobile = mode === "mobile";
+  const tokens = {
+    axisFont: isMobile ? 11 : 11,
+    marginRight: isMobile ? 8 : 16,
+    marginLeft: isMobile ? -8 : 0,
+    trendStrokeWidth: isMobile ? 2.25 : 2,
+    dotScale: isMobile ? 0.75 : 1,
+  };
+
   const sorted = useMemo(
     () =>
       [...activities]
@@ -51,9 +62,9 @@ export function TrendView({
         }),
         dateTs: new Date(a.date).getTime(),
         trendCadence: trend[i]?.cadence ?? null,
-        size: dotSize(a.distance, maxDistance),
+        size: dotSize(a.distance, maxDistance) * tokens.dotScale,
       })),
-    [sorted, trend, maxDistance],
+    [sorted, trend, maxDistance, tokens.dotScale],
   );
 
   if (chartData.length === 0) {
@@ -69,7 +80,12 @@ export function TrendView({
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
           data={chartData}
-          margin={{ top: 8, right: 16, bottom: 8, left: 0 }}
+          margin={{
+            top: 8,
+            right: tokens.marginRight,
+            bottom: 8,
+            left: tokens.marginLeft,
+          }}
         >
           <CartesianGrid
             strokeDasharray="3 3"
@@ -77,37 +93,64 @@ export function TrendView({
           />
           <XAxis
             dataKey="dateFormatted"
-            tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+            tick={{
+              fontSize: tokens.axisFont,
+              fill: "var(--color-text-tertiary)",
+            }}
             tickLine={false}
             axisLine={{ stroke: "var(--color-border-secondary)" }}
+            interval={isMobile ? "preserveStartEnd" : "preserveEnd"}
+            minTickGap={isMobile ? 32 : 20}
           />
           <YAxis
             yAxisId="cadence"
             domain={["auto", "auto"]}
-            tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+            tick={{
+              fontSize: tokens.axisFont,
+              fill: "var(--color-text-tertiary)",
+            }}
             tickLine={false}
             axisLine={false}
-            label={{
-              value: "spm",
-              angle: -90,
-              position: "insideLeft",
-              style: { fontSize: 11, fill: "var(--color-text-tertiary)" },
-            }}
+            width={isMobile ? 34 : 40}
+            label={
+              isMobile
+                ? undefined
+                : {
+                    value: "spm",
+                    angle: -90,
+                    position: "insideLeft",
+                    style: {
+                      fontSize: 11,
+                      fill: "var(--color-text-tertiary)",
+                    },
+                  }
+            }
           />
           <YAxis
             yAxisId="pace"
             orientation="right"
             reversed
             domain={["auto", "auto"]}
-            tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+            tick={{
+              fontSize: tokens.axisFont,
+              fill: "var(--color-text-tertiary)",
+            }}
             tickLine={false}
             axisLine={false}
-            label={{
-              value: "min/km",
-              angle: 90,
-              position: "insideRight",
-              style: { fontSize: 11, fill: "var(--color-text-tertiary)" },
-            }}
+            width={isMobile ? 34 : 44}
+            label={
+              isMobile
+                ? undefined
+                : {
+                    value: "min/km",
+                    angle: 90,
+                    position: "insideRight",
+                    style: {
+                      fontSize: 11,
+                      fill: "var(--color-text-tertiary)",
+                    },
+                  }
+            }
           />
           <RechartsTooltip content={<SharedTooltip />} />
           <Line
@@ -115,7 +158,7 @@ export function TrendView({
             type="monotone"
             dataKey="trendCadence"
             stroke="var(--chart-cadence)"
-            strokeWidth={2}
+            strokeWidth={tokens.trendStrokeWidth}
             dot={false}
             connectNulls
             strokeOpacity={0.5}

@@ -20,13 +20,23 @@ interface ScatterViewProps {
   activities: RunSummary[];
   onRunClick: (runId: number) => void;
   selectedRunIds: Set<number>;
+  mode?: "mobile" | "desktop";
 }
 
 export function ScatterView({
   activities,
   onRunClick,
   selectedRunIds,
+  mode = "desktop",
 }: ScatterViewProps) {
+  const isMobile = mode === "mobile";
+  const tokens = {
+    axisFont: 11,
+    marginRight: isMobile ? 8 : 16,
+    marginLeft: isMobile ? -8 : 0,
+    dotScale: isMobile ? 0.75 : 1,
+  };
+
   const runs = useMemo(
     () => activities.filter((a) => a.averageCadence > 0 && a.averagePace > 0),
     [activities],
@@ -52,10 +62,10 @@ export function ScatterView({
         return {
           ...a,
           opacity: 0.3 + recency * 0.7,
-          size: dotSize(a.distance, maxDistance),
+          size: dotSize(a.distance, maxDistance) * tokens.dotScale,
         };
       }),
-    [runs, maxDistance, now, timeRange],
+    [runs, maxDistance, now, timeRange, tokens.dotScale],
   );
 
   const regression = useMemo(() => {
@@ -79,7 +89,14 @@ export function ScatterView({
   return (
     <div className={styles.container}>
       <ResponsiveContainer width="100%" height="100%">
-        <ScatterChart margin={{ top: 8, right: 16, bottom: 8, left: 0 }}>
+        <ScatterChart
+          margin={{
+            top: 8,
+            right: tokens.marginRight,
+            bottom: 8,
+            left: tokens.marginLeft,
+          }}
+        >
           <CartesianGrid
             strokeDasharray="3 3"
             stroke="var(--color-border-tertiary)"
@@ -90,29 +107,50 @@ export function ScatterView({
             reversed
             domain={["auto", "auto"]}
             tickFormatter={(v: number) => formatPace(v)}
-            tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+            tick={{
+              fontSize: tokens.axisFont,
+              fill: "var(--color-text-tertiary)",
+            }}
             tickLine={false}
             axisLine={{ stroke: "var(--color-border-secondary)" }}
-            label={{
-              value: "Pace (min/km) \u2192 faster",
-              position: "insideBottom",
-              offset: -4,
-              style: { fontSize: 11, fill: "var(--color-text-tertiary)" },
-            }}
+            label={
+              isMobile
+                ? undefined
+                : {
+                    value: "Pace (min/km) \u2192 faster",
+                    position: "insideBottom",
+                    offset: -4,
+                    style: {
+                      fontSize: 11,
+                      fill: "var(--color-text-tertiary)",
+                    },
+                  }
+            }
           />
           <YAxis
             dataKey="averageCadence"
             type="number"
             domain={["auto", "auto"]}
-            tick={{ fontSize: 11, fill: "var(--color-text-tertiary)" }}
+            tick={{
+              fontSize: tokens.axisFont,
+              fill: "var(--color-text-tertiary)",
+            }}
             tickLine={false}
             axisLine={false}
-            label={{
-              value: "spm",
-              angle: -90,
-              position: "insideLeft",
-              style: { fontSize: 11, fill: "var(--color-text-tertiary)" },
-            }}
+            width={isMobile ? 34 : 40}
+            label={
+              isMobile
+                ? undefined
+                : {
+                    value: "spm",
+                    angle: -90,
+                    position: "insideLeft",
+                    style: {
+                      fontSize: 11,
+                      fill: "var(--color-text-tertiary)",
+                    },
+                  }
+            }
           />
           <RechartsTooltip content={<SharedTooltip />} />
           {regression && (

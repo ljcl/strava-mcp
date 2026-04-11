@@ -1,5 +1,6 @@
 import preview from "@strava-mcp/storybook/preview";
 import { mockStreamCache } from "./__fixtures__/overlay-streams";
+import { MobileCardShell } from "./_storyHelpers";
 import { OverlayView } from "./OverlayView";
 
 const noop = () => {};
@@ -31,4 +32,27 @@ export const Loading = meta.story({
     loadingStreams: new Set([10013]),
     fetchStreamForRun: noop,
   },
+});
+
+export const Mobile = meta.story({
+  args: {
+    selectedRunIds: new Set([10003, 10013]),
+    streamCache: mockStreamCache,
+    loadingStreams: new Set<number>(),
+    fetchStreamForRun: noop,
+    mode: "mobile",
+  },
+  globals: {
+    viewport: { value: "claudeIosCard" },
+  },
+  parameters: { layout: "fullscreen" },
+  decorators: [
+    (StoryFn) => (
+      <MobileCardShell>
+        <div style={{ height: 260 }}>
+          <StoryFn />
+        </div>
+      </MobileCardShell>
+    ),
+  ],
 });

@@ -33,6 +33,7 @@ interface AppProps {
   app: ReturnType<typeof useApp>["app"];
   data: CadenceTrendData;
   layout?: HostLayout;
+  mode?: "mobile" | "desktop";
 }
 
 interface CachedStream {
@@ -40,7 +41,8 @@ interface CachedStream {
   points: OverlayPoint[];
 }
 
-export function App({ app, data, layout }: AppProps) {
+export function App({ app, data, layout, mode = "desktop" }: AppProps) {
+  const isMobile = mode === "mobile" || layout?.mode === "mobile";
   const [activeView, setActiveView] = useState<ViewId>("trend");
   const [selectedRunIds, setSelectedRunIds] = useState<Set<number>>(new Set());
   const [streamCache, setStreamCache] = useState<Map<number, CachedStream>>(
@@ -107,15 +109,13 @@ export function App({ app, data, layout }: AppProps) {
   const selectedRuns = data.activities.filter((a) => selectedRunIds.has(a.id));
 
   return (
-    <div
-      className={styles.container}
-      data-compact={layout?.mode === "compact" || undefined}
-    >
+    <div className={styles.container} data-compact={isMobile || undefined}>
       <SummaryBar
         currentAvg={stats.currentAvg}
         delta={stats.delta}
         runCount={stats.runCount}
         weeks={data.weeks}
+        compact={isMobile}
       />
       <div className={styles.nav}>
         <PillGroup>
@@ -136,6 +136,7 @@ export function App({ app, data, layout }: AppProps) {
             activities={data.activities}
             onRunClick={toggleRunSelection}
             selectedRunIds={selectedRunIds}
+            mode={mode}
           />
         )}
         {activeView === "scatter" && (
@@ -143,15 +144,19 @@ export function App({ app, data, layout }: AppProps) {
             activities={data.activities}
             onRunClick={toggleRunSelection}
             selectedRunIds={selectedRunIds}
+            mode={mode}
           />
         )}
-        {activeView === "zones" && <ZonesView activities={data.activities} />}
+        {activeView === "zones" && (
+          <ZonesView activities={data.activities} mode={mode} />
+        )}
         {activeView === "overlay" && (
           <OverlayView
             selectedRunIds={selectedRunIds}
             streamCache={streamCache}
             loadingStreams={loadingStreams}
             fetchStreamForRun={fetchStreamForRun}
+            mode={mode}
           />
         )}
       </div>

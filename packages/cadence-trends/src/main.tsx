@@ -2,7 +2,7 @@ import { type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getHostLayout } from "@strava-mcp/data";
-import { Skeleton } from "@strava-mcp/ui";
+import { type HostCtx, Skeleton, useMobileMode } from "@strava-mcp/ui";
 import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
@@ -26,17 +26,12 @@ function parseTrendData(result: CallToolResult): CadenceTrendData | null {
 interface AppContentProps {
   app: ReturnType<typeof useApp>["app"];
   toolArgs: ToolArgs;
-  safeAreaInsets?: McpUiHostContext["safeAreaInsets"];
-  hostContext?: McpUiHostContext;
+  hostCtx: HostCtx;
+  mode: "mobile" | "desktop";
 }
 
-function AppContent({
-  app,
-  toolArgs,
-  safeAreaInsets,
-  hostContext,
-}: AppContentProps) {
-  const layout = getHostLayout(hostContext);
+function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
+  const layout = getHostLayout(hostCtx, mode === "mobile");
   const [data, setData] = useState<CadenceTrendData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -67,45 +62,51 @@ function AppContent({
     void fetchData();
   }, [fetchData]);
 
+  const safeAreaInsets = hostCtx.safeAreaInsets;
+  const basePad = mode === "mobile" ? { y: 16, x: 14 } : { y: 24, x: 20 };
+  const outerMargin = mode === "mobile" ? 3 : 0;
+
+  const cardStyle: React.CSSProperties = {
+    margin: outerMargin,
+    background: "var(--color-background-primary)",
+    border: "1px solid var(--color-border-tertiary)",
+    borderRadius: "var(--border-radius-lg)",
+    paddingBottom: `calc(${basePad.y}px + ${safeAreaInsets?.bottom ?? 0}px)`,
+    paddingLeft: `calc(${basePad.x}px + ${safeAreaInsets?.left ?? 0}px)`,
+    paddingRight: `calc(${basePad.x}px + ${safeAreaInsets?.right ?? 0}px)`,
+    paddingTop: `calc(${basePad.y}px + ${safeAreaInsets?.top ?? 0}px)`,
+  };
+
   if (loading) {
     return (
-      <>
+      <div style={cardStyle}>
         <Skeleton variant="bar" />
         <Skeleton variant="pills" />
         <Skeleton variant="chart" />
-      </>
+      </div>
     );
   }
 
   if (error || !data) {
     return (
-      <div style={{ color: "var(--color-text-danger, #c00)", padding: "24px" }}>
-        {error ?? "No cadence data available"}
+      <div style={cardStyle}>
+        <div style={{ color: "var(--color-text-danger, #c00)" }}>
+          {error ?? "No cadence data available"}
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      style={{
-        paddingBottom: safeAreaInsets?.bottom,
-        paddingLeft: safeAreaInsets?.left,
-        paddingRight: safeAreaInsets?.right,
-        paddingTop: safeAreaInsets?.top,
-      }}
-    >
-      <App app={app} data={data} layout={layout} />
+    <div style={cardStyle}>
+      <App app={app} data={data} layout={layout} mode={mode} />
     </div>
   );
 }
 
 function Root() {
   const [toolArgs, setToolArgs] = useState<ToolArgs | null>(null);
-  const [safeAreaInsets, setSafeAreaInsets] =
-    useState<McpUiHostContext["safeAreaInsets"]>();
-  const [hostContext, setHostContext] = useState<
-    McpUiHostContext | undefined
-  >();
+  const [hostCtx, setHostCtx] = useState<HostCtx>({});
 
   const { app, error: connectError } = useApp({
     appInfo: { name: "Cadence Trends", version: "1.0.0" },
@@ -117,11 +118,14 @@ function Root() {
         const args = input.arguments as ToolArgs | undefined;
         setToolArgs(args ?? {});
       };
-      createdApp.onhostcontextchanged = (ctx) => {
-        if (ctx.safeAreaInsets) {
-          setSafeAreaInsets(ctx.safeAreaInsets);
-        }
-        setHostContext((prev) => ({ ...prev, ...ctx }));
+      createdApp.onhostcontextchanged = (ctx: McpUiHostContext) => {
+        setHostCtx({
+          platform: ctx.platform,
+          containerDimensions: ctx.containerDimensions,
+          safeAreaInsets: ctx.safeAreaInsets,
+          deviceCapabilities: ctx.deviceCapabilities,
+          userAgent: ctx.userAgent,
+        });
       };
       createdApp.onerror = console.error;
     },
@@ -131,8 +135,19 @@ function Root() {
 
   useEffect(() => {
     const ctx = app?.getHostContext();
-    if (ctx) setHostContext(ctx);
+    if (ctx) {
+      setHostCtx({
+        platform: ctx.platform,
+        containerDimensions: ctx.containerDimensions,
+        safeAreaInsets: ctx.safeAreaInsets,
+        deviceCapabilities: ctx.deviceCapabilities,
+        userAgent: ctx.userAgent,
+      });
+    }
   }, [app]);
+
+  const isMobile = useMobileMode(hostCtx);
+  const mode: "mobile" | "desktop" = isMobile ? "mobile" : "desktop";
 
   if (connectError)
     return (
@@ -140,7 +155,7 @@ function Root() {
         Connection error: {connectError.message}
       </div>
     );
-  if (!app)
+  if (!app || !toolArgs) {
     return (
       <>
         <Skeleton variant="bar" />
@@ -148,22 +163,10 @@ function Root() {
         <Skeleton variant="chart" />
       </>
     );
-  if (!toolArgs)
-    return (
-      <>
-        <Skeleton variant="bar" />
-        <Skeleton variant="pills" />
-        <Skeleton variant="chart" />
-      </>
-    );
+  }
 
   return (
-    <AppContent
-      app={app}
-      toolArgs={toolArgs}
-      safeAreaInsets={safeAreaInsets}
-      hostContext={hostContext}
-    />
+    <AppContent app={app} toolArgs={toolArgs} hostCtx={hostCtx} mode={mode} />
   );
 }
 

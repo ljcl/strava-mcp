@@ -1,17 +1,27 @@
 .bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 24px;
-  padding: 12px 16px;
+  padding: 12px 0;
   font-family: var(--font-sans);
   font-size: var(--font-text-xs-size);
   color: var(--color-text-secondary);
   border-bottom: 1px solid var(--color-border-secondary);
 }
 
+.bar[data-compact] {
+  gap: 14px;
+  padding: 4px 0 10px;
+}
+
 .stat {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+
+.bar[data-compact] .stat {
+  gap: 1px;
 }
 
 .label {
@@ -21,14 +31,27 @@
   letter-spacing: 0.05em;
 }
 
+.bar[data-compact] .label {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
 .value {
   font-size: var(--font-text-md-size);
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
 }
 
+.bar[data-compact] .value {
+  font-size: var(--font-text-sm-size);
+}
+
 .delta {
   font-weight: var(--font-weight-medium);
+}
+
+.bar[data-compact] .delta {
+  font-size: var(--font-text-sm-size);
 }
 
 .delta[data-direction="up"] {

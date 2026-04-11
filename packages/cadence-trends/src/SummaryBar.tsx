@@ -5,6 +5,8 @@ interface SummaryBarProps {
   delta: number;
   runCount: number;
   weeks: number;
+  /** Tightens spacing and padding for mobile */
+  compact?: boolean;
 }
 
 export function SummaryBar({
@@ -12,12 +14,13 @@ export function SummaryBar({
   delta,
   runCount,
   weeks,
+  compact,
 }: SummaryBarProps) {
   const direction = delta > 0 ? "up" : delta < 0 ? "down" : "flat";
   const sign = delta > 0 ? "+" : "";
 
   return (
-    <div className={styles.bar}>
+    <div className={styles.bar} data-compact={compact || undefined}>
       <div className={styles.stat}>
         <span className={styles.label}>Avg Cadence</span>
         <span className={styles.value}>
