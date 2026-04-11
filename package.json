@@ -16,12 +16,13 @@
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
     "check": "biome check . && turbo run test",
-    "knip": "knip"
+    "knip": "knip",
+    "storybook": "turbo run storybook --filter=@strava-mcp/storybook",
+    "build-storybook": "turbo run build-storybook --filter=@strava-mcp/storybook"
   },
   "devDependencies": {
-    "@strava-mcp/storybook": "workspace:*",
-    "@biomejs/biome": "^2.3.11",
-    "knip": "^5.81.0",
-    "turbo": "^2"
+    "@biomejs/biome": "2.4.11",
+    "knip": "6.3.1",
+    "turbo": "2.9.6"
   }
 }

@@ -389,12 +389,12 @@ const StravaRoutesResponseSchema = z.array(RouteSchema);
 
 // --- Schema Exports for Testing ---
 export {
-  DetailedAthleteSchema,
   ActivityStatsSchema,
-  SummarySegmentSchema,
+  DetailedAthleteSchema,
   DetailedSegmentSchema,
   ExtendedDetailedActivitySchema as DetailedActivitySchema,
   RouteSchema,
+  SummarySegmentSchema,
 };
 
 // --- Token Refresh Functionality ---

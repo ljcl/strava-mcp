@@ -2,7 +2,6 @@ import { formatPace } from "@strava-mcp/data";
 import { useMemo } from "react";
 import {
   CartesianGrid,
-  // biome-ignore lint/nursery/noDeprecatedImports: Cell replacement (shape prop) requires Recharts 4.0 migration
   Cell,
   Tooltip as RechartsTooltip,
   ReferenceLine,

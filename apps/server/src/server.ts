@@ -1,6 +1,5 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-// biome-ignore lint/nursery/noDeprecatedImports: Low-level Server API required for _meta.ui support on tools
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,

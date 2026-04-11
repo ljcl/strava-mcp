@@ -232,7 +232,7 @@ export async function ensureValidToken(): Promise<void> {
 export async function getTokenStatus(): Promise<TokenStatus> {
   const tokens = await loadTokens();
 
-  if (!tokens || !tokens.access_token) {
+  if (!tokens?.access_token) {
     return {
       authenticated: false,
       auth_url: "/auth/start",

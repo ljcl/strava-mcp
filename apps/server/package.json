@@ -14,15 +14,17 @@
     "setup-auth": "bun run scripts/setup-auth.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.2",
-    "dotenv": "^17.2.3",
-    "zod": "^4.3.5"
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@strava-mcp/activity-chart": "workspace:*",
+    "@strava-mcp/cadence-trends": "workspace:*",
+    "dotenv": "17.2.3",
+    "zod": "4.3.6"
   },
   "devDependencies": {
     "@strava-mcp/tsconfig": "workspace:*",
-    "@types/bun": "^1.2.15",
-    "@vitest/coverage-v8": "^4.0.17",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.17"
+    "@types/bun": "1.3.12",
+    "@vitest/coverage-v8": "4.1.4",
+    "typescript": "6.0.2",
+    "vitest": "4.1.4"
   }
 }

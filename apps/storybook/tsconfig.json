@@ -1,4 +1,4 @@
 {
   "extends": "@strava-mcp/tsconfig/react.json",
-  "include": [".storybook/*"]
+  "include": [".storybook/**/*", "vite-env.d.ts"]
 }

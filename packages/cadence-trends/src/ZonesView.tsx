@@ -3,7 +3,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  // biome-ignore lint/nursery/noDeprecatedImports: Cell replacement (shape prop) requires Recharts 4.0 migration
   Cell,
   ErrorBar,
   LabelList,

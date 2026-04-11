@@ -11,17 +11,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@strava-mcp/design-system": "workspace:*"
+    "@strava-mcp/activity-chart": "workspace:*",
+    "@strava-mcp/cadence-trends": "workspace:*",
+    "@strava-mcp/design-system": "workspace:*",
+    "@strava-mcp/ui": "workspace:*"
   },
   "devDependencies": {
+    "@storybook/addon-mcp": "0.5.0",
+    "@storybook/react-vite": "10.3.5",
     "@strava-mcp/tsconfig": "workspace:*",
-    "@storybook/react-vite": "^10.2.6",
-    "@types/react": "^19.2.11",
-    "@types/react-dom": "^19.2.3",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "storybook": "^10.2.6",
-    "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
+    "storybook": "10.3.5",
+    "typescript": "6.0.2",
+    "vite": "8.0.8"
   }
 }

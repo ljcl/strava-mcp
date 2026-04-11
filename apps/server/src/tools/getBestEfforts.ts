@@ -133,7 +133,6 @@ export const getBestEffortsTool = {
           const activity = await getActivityById(token, activitySummary.id);
 
           if (!activity.best_efforts || activity.best_efforts.length === 0) {
-            // biome-ignore lint/nursery/noContinue: clearer than deeply nesting the rest of the loop
             continue;
           }
 
@@ -144,7 +143,6 @@ export const getBestEffortsTool = {
 
             // Filter if distance specified
             if (distance && distanceName !== distance) {
-              // biome-ignore lint/nursery/noContinue: clearer than deeply nesting the rest of the loop
               continue;
             }
 
@@ -230,7 +228,6 @@ export const getBestEffortsTool = {
           output += `**${distanceName}**\n`;
           for (let i = 0; i < efforts.length; i += 1) {
             const effort = efforts[i];
-            // biome-ignore lint/nursery/noContinue: guard clause
             if (!effort) continue;
             const rank = i + 1;
             const prLabel =

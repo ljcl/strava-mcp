@@ -20,7 +20,6 @@ export function smooth<T extends object>(
     for (const key of numericKeys) {
       const val = pt[key] as number | undefined;
       if (val === undefined) {
-        // biome-ignore lint/nursery/noContinue: guard clause in tight loop
         continue;
       }
       let sum = 0;
