@@ -1,6 +1,7 @@
 import { defineMain } from "@storybook/react-vite/node";
 
 export default defineMain({
+  addons: ["@storybook/addon-mcp"],
   framework: "@storybook/react-vite",
   stories: [
     {

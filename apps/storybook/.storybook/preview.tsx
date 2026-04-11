@@ -14,6 +14,22 @@ const ALL_HOST_KEYS = new Set(
 
 export default definePreview({
   addons: [],
+  parameters: {
+    viewport: {
+      options: {
+        iphone16pro: {
+          name: "iPhone 16 Pro",
+          styles: { width: "402px", height: "874px" },
+          type: "mobile",
+        },
+        claudeIosCard: {
+          name: "Claude iOS Card",
+          styles: { width: "360px", height: "780px" },
+          type: "mobile",
+        },
+      },
+    },
+  },
   globalTypes: {
     hostTheme: {
       description: "Simulate MCP host CSS variable overrides",
