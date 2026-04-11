@@ -39,6 +39,7 @@ export function OverlayView({
     axisFont: 11,
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
+    marginBottom: 24,
     strokeWidth: isMobile ? 1.75 : 1.5,
   };
 
@@ -121,7 +122,7 @@ export function OverlayView({
             margin={{
               top: 8,
               right: tokens.marginRight,
-              bottom: 8,
+              bottom: tokens.marginBottom,
               left: tokens.marginLeft,
             }}
           >

@@ -28,6 +28,7 @@ export function ZonesView({ activities, mode = "desktop" }: ZonesViewProps) {
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
     marginTop: isMobile ? 20 : 16,
+    marginBottom: 24,
     errorBarWidth: isMobile ? 6 : 8,
     labelFontSize: isMobile ? 9 : 10,
   };
@@ -66,7 +67,7 @@ export function ZonesView({ activities, mode = "desktop" }: ZonesViewProps) {
           margin={{
             top: tokens.marginTop,
             right: tokens.marginRight,
-            bottom: 8,
+            bottom: tokens.marginBottom,
             left: tokens.marginLeft,
           }}
         >

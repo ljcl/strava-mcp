@@ -34,6 +34,7 @@ export function ScatterView({
     axisFont: 11,
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
+    marginBottom: 24,
     dotScale: isMobile ? 0.75 : 1,
   };
 
@@ -93,7 +94,7 @@ export function ScatterView({
           margin={{
             top: 8,
             right: tokens.marginRight,
-            bottom: 8,
+            bottom: tokens.marginBottom,
             left: tokens.marginLeft,
           }}
         >

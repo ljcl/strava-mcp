@@ -68,7 +68,14 @@
   --chart-grade: #6b7280;
 }
 
-/* Dark theme overrides — shared by all dark selectors */
+/* Dark theme overrides — applied explicitly via `.dark` class or
+ * `data-theme="dark"` attribute. We intentionally do NOT wire up
+ * `@media (prefers-color-scheme: dark)` because in an MCP App context
+ * the host (e.g. Claude) injects its own theme vars via useHostStyles(),
+ * and a media query on :root would fight partial host overrides (some
+ * vars injected by the host, others falling through to the OS preference
+ * and mixing light/dark tokens). Storybook simulates dark via the
+ * `data-theme="dark"` attribute on its decorator. */
 .dark,
 [data-theme="dark"] {
   --color-background-primary: #30302e;
@@ -101,39 +108,4 @@
   --shadow-sm:
     0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background-primary: #30302e;
-    --color-background-secondary: #262624;
-    --color-background-tertiary: #141413;
-    --color-background-inverse: #faf9f5;
-
-    --color-text-primary: #faf9f5;
-    --color-text-secondary: #c2c0b6;
-    --color-text-tertiary: #9c9a92;
-    --color-text-inverse: #141413;
-
-    --color-text-danger: #ee8884;
-    --color-text-success: #7ab948;
-    --color-text-info: #80aadd;
-
-    --color-border-primary: rgba(222, 220, 209, 0.4);
-    --color-border-secondary: rgba(222, 220, 209, 0.3);
-    --color-border-tertiary: rgba(222, 220, 209, 0.15);
-
-    /* Chart colors — brighter for dark backgrounds */
-    --chart-heartrate: #f87171;
-    --chart-power: #a78bfa;
-    --chart-pace: #60a5fa;
-    --chart-altitude: #8c7a66;
-    --chart-cadence: #fb923c;
-    --chart-grade: #9ca3af;
-
-    /* Shadows */
-    --shadow-sm:
-      0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
-    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
 }

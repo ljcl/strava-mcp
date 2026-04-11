@@ -30,9 +30,13 @@ export function TrendView({
 }: TrendViewProps) {
   const isMobile = mode === "mobile";
   const tokens = {
-    axisFont: isMobile ? 11 : 11,
+    axisFont: 11,
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
+    // bottom margin must comfortably fit an 11px tick label plus its
+    // descender — too small and the labels overflow the chart SVG and
+    // get clipped by the card's border-radius / overflow: hidden.
+    marginBottom: 24,
     trendStrokeWidth: isMobile ? 2.25 : 2,
     dotScale: isMobile ? 0.75 : 1,
   };
@@ -83,7 +87,7 @@ export function TrendView({
           margin={{
             top: 8,
             right: tokens.marginRight,
-            bottom: 8,
+            bottom: tokens.marginBottom,
             left: tokens.marginLeft,
           }}
         >
