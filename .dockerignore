@@ -2,16 +2,29 @@
 **/node_modules/
 
 # Build artifacts (built inside container)
-dist/
+**/dist/
+**/.turbo/
 
-# Development files
+# Git
 .git/
-.turbo/
+.gitignore
+
+# Worktrees
+.worktrees/
+
+# Coverage
 coverage/
-*.md
-!README.md
+.coverage
+
+# Environment
 .env
 .env.*
+!.env.example
+
+# Docs
+docs/
+*.md
+!README.md
 
 # IDE
 .vscode
@@ -26,10 +39,16 @@ Thumbs.db
 # Logs
 *.log
 
-# Docker files (not needed inside container)
+# Docker
 **/Dockerfile
 docker-compose.yml
 .dockerignore
 
-# Storybook
+# Storybook build output
 **/storybook-static/
+
+# Python venv
+.venv/
+
+# Pytest
+.pytest_cache/

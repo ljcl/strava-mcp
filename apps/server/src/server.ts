@@ -1,5 +1,5 @@
 import fs from "node:fs/promises";
-import path from "node:path";
+import { createRequire } from "node:module";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
@@ -40,6 +40,18 @@ import { listStarredSegments } from "./tools/listStarredSegments";
 import { starSegment } from "./tools/starSegment";
 
 const EMPTY_SCHEMA = { type: "object", properties: {}, required: [] } as const;
+
+/**
+ * MCP App HTML paths resolved once at startup via each package's `./app.html`
+ * export. Works in dev (workspace symlink) and in the Docker runner (pruned
+ * workspace tree with built dist/ copied in).
+ */
+const ACTIVITY_CHART_HTML_PATH = createRequire(import.meta.url).resolve(
+  "@strava-mcp/activity-chart/app.html",
+);
+const CADENCE_TRENDS_HTML_PATH = createRequire(import.meta.url).resolve(
+  "@strava-mcp/cadence-trends/app.html",
+);
 
 interface ToolDef {
   name: string;
@@ -473,31 +485,13 @@ export function createServer(): Server {
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
     if (uri === "ui://activity-chart/app.html") {
-      const htmlPath = path.join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "..",
-        "dist",
-        "activity-chart",
-        "app.html",
-      );
-      const html = await fs.readFile(htmlPath, "utf-8");
+      const html = await fs.readFile(ACTIVITY_CHART_HTML_PATH, "utf-8");
       return {
         contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html }],
       };
     }
     if (uri === "ui://cadence-trends/app.html") {
-      const htmlPath = path.join(
-        import.meta.dirname,
-        "..",
-        "..",
-        "..",
-        "dist",
-        "cadence-trends",
-        "app.html",
-      );
-      const html = await fs.readFile(htmlPath, "utf-8");
+      const html = await fs.readFile(CADENCE_TRENDS_HTML_PATH, "utf-8");
       return {
         contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html }],
       };

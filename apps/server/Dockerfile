@@ -1,44 +1,36 @@
-FROM oven/bun:1-alpine AS base
+FROM oven/bun:1.3.6 AS base
 WORKDIR /app
+RUN bun add -g turbo@2.9.6
 
-# Build UI (install packages needed for MCP App builds)
-FROM base AS ui-builder
-COPY package.json bun.lock ./
-COPY apps/server/package.json apps/server/
-COPY apps/storybook/package.json apps/storybook/
-COPY packages/tsconfig/package.json packages/tsconfig/
-COPY packages/activity-chart/package.json packages/activity-chart/
-COPY packages/cadence-trends/package.json packages/cadence-trends/
-COPY packages/data/package.json packages/data/
-COPY packages/design-system/package.json packages/design-system/
-COPY packages/ui/package.json packages/ui/
-COPY packages/vite-config/package.json packages/vite-config/
-RUN bun install --frozen-lockfile --ignore-scripts
-COPY packages/ packages/
-RUN cd packages/activity-chart && INPUT=app.html bunx vite build
-RUN cd packages/cadence-trends && INPUT=app.html bunx vite build
+# 1) Prune the monorepo to the subset @strava-mcp/server needs.
+#    Produces /app/out/json (package.json files only), /app/out/full (sources),
+#    and /app/out/bun.lock (subset lockfile).
+FROM base AS pruner
+COPY . .
+RUN turbo prune @strava-mcp/server --docker
 
-# Install server production deps only
-FROM base AS server-deps
-COPY package.json bun.lock ./
-COPY apps/server/package.json apps/server/
-COPY apps/storybook/package.json apps/storybook/
-COPY packages/tsconfig/package.json packages/tsconfig/
-COPY packages/activity-chart/package.json packages/activity-chart/
-COPY packages/cadence-trends/package.json packages/cadence-trends/
-COPY packages/data/package.json packages/data/
-COPY packages/design-system/package.json packages/design-system/
-COPY packages/ui/package.json packages/ui/
-COPY packages/vite-config/package.json packages/vite-config/
-RUN cd apps/server && bun install --production --frozen-lockfile --ignore-scripts
+# 2) Build: install full deps (dev + prod) then run turbo build.
+#    Because server depends on activity-chart and cadence-trends, turbo ^build
+#    runs their vite builds first, producing packages/*/dist/app.html.
+FROM base AS builder
+COPY --from=pruner /app/out/json/ ./
+COPY --from=pruner /app/out/bun.lock ./bun.lock
+RUN bun install --frozen-lockfile
+COPY --from=pruner /app/out/full/ ./
+RUN turbo run build --filter=@strava-mcp/server
 
-# Runner
+# 3) Runner: lean image with prod-only deps plus built app.html resources.
+#    Prod install links workspace deps by symlink; we fill in the built
+#    dist/ from the builder stage so createRequire(...).resolve(...) works
+#    at runtime.
 FROM base AS runner
-COPY --from=server-deps /app/node_modules ./node_modules
-COPY --from=server-deps /app/apps/server/node_modules ./apps/server/node_modules
-COPY apps/server/src ./apps/server/src
-COPY apps/server/package.json ./apps/server/
-COPY --from=ui-builder /app/dist ./dist
+COPY --from=pruner /app/out/json/ ./
+COPY --from=pruner /app/out/bun.lock ./bun.lock
+RUN bun install --frozen-lockfile --production
+COPY --from=builder /app/apps/server/src ./apps/server/src
+COPY --from=builder /app/apps/server/scripts ./apps/server/scripts
+COPY --from=builder /app/packages/activity-chart/dist ./packages/activity-chart/dist
+COPY --from=builder /app/packages/cadence-trends/dist ./packages/cadence-trends/dist
 
 RUN mkdir -p /app/data && chown -R bun:bun /app
 USER bun

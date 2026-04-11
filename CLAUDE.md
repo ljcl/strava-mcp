@@ -143,7 +143,7 @@ docker compose logs -f
 
 ## Docker
 
-When adding a new workspace package, its `package.json` must be added to both the `ui-builder` and `server-deps` stages in `apps/server/Dockerfile` so that `bun install --frozen-lockfile` can resolve workspace references.
+Built via `turbo prune @strava-mcp/server --docker`. Adding a new workspace package does not require editing the Dockerfile; turbo prune derives the package set from the workspace graph. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/activity-chart/app.html")` so each app package must declare an `./app.html` export and a `dist/` build output.
 
 ## Testing the MCP endpoint
 
