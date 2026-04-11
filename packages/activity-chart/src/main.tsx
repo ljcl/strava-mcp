@@ -80,6 +80,11 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
   const outerMargin = mode === "mobile" ? 3 : 0;
 
   const cardStyle: React.CSSProperties = {
+    boxSizing: "border-box",
+    // Always fill the iframe minus the outer margin so nothing inside
+    // can force the card wider than the host viewport (the cause of
+    // the horizontal scroll we saw on Claude iOS).
+    width: `calc(100% - ${outerMargin * 2}px)`,
     margin: outerMargin,
     background: "var(--color-background-primary)",
     border: "1px solid var(--color-border-tertiary)",
@@ -88,6 +93,7 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
     paddingLeft: `calc(${basePad.x}px + ${safeAreaInsets?.left ?? 0}px)`,
     paddingRight: `calc(${basePad.x}px + ${safeAreaInsets?.right ?? 0}px)`,
     paddingTop: `calc(${basePad.y}px + ${safeAreaInsets?.top ?? 0}px)`,
+    overflow: "hidden",
   };
 
   if (loading) {

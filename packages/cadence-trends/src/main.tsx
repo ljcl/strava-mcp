@@ -67,6 +67,8 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
   const outerMargin = mode === "mobile" ? 3 : 0;
 
   const cardStyle: React.CSSProperties = {
+    boxSizing: "border-box",
+    width: `calc(100% - ${outerMargin * 2}px)`,
     margin: outerMargin,
     background: "var(--color-background-primary)",
     border: "1px solid var(--color-border-tertiary)",
@@ -75,6 +77,7 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
     paddingLeft: `calc(${basePad.x}px + ${safeAreaInsets?.left ?? 0}px)`,
     paddingRight: `calc(${basePad.x}px + ${safeAreaInsets?.right ?? 0}px)`,
     paddingTop: `calc(${basePad.y}px + ${safeAreaInsets?.top ?? 0}px)`,
+    overflow: "hidden",
   };
 
   if (loading) {

@@ -315,7 +315,9 @@ export function ActivityChart({
   });
 
   const [hoveredLegendKey, setHoveredLegendKey] = useState<string | null>(null);
-  const [smooth, setSmooth] = useState(false);
+  // Mobile defaults to smoothed because the Smooth toggle is hidden there —
+  // the raw traces are too noisy to read at small sizes anyway.
+  const [smooth, setSmooth] = useState(isMobile);
 
   const displayData = useMemo(
     () => (smooth ? smoothData(data) : data),
@@ -609,11 +611,15 @@ export function ActivityChart({
             activePresetId={activePresetId}
             onSelect={handlePresetSelect}
           />
-          <PillGroup>
-            <Pill active={smooth} onClick={() => setSmooth((s) => !s)}>
-              Smooth
-            </Pill>
-          </PillGroup>
+          {/* Smooth toggle only on desktop — mobile defaults to smoothed
+              and hides the control to save footer width */}
+          {!isMobile && (
+            <PillGroup>
+              <Pill active={smooth} onClick={() => setSmooth((s) => !s)}>
+                Smooth
+              </Pill>
+            </PillGroup>
+          )}
         </div>
         <Legend size={tokens.legendSize}>
           {legendItems.map(({ key, color, label }) => (
