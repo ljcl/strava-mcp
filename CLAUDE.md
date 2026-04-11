@@ -106,6 +106,84 @@ The `view-cadence-trends` tool renders an interactive cadence analysis dashboard
 - Calls `get-activity-streams-raw` (app-only) for per-second overlay data on demand
 - Four views: Trend timeline, Scatter plot, Pace Zones, Overlay comparison
 
+## Targeting Mobile for MCP Apps
+
+These patterns are used in both MCP App packages. Replicate them when adding a new MCP App.
+
+### Detecting mobile
+
+Use `useMobileMode(hostCtx)` from `@strava-mcp/ui`. Do not roll your own detection.
+
+Five signals at a 640px breakpoint, any one triggers mobile:
+
+1. `host.platform === "mobile"` (strongest, rarely populated)
+2. `deviceCapabilities.touch && !deviceCapabilities.hover`
+3. `containerDimensions.width` or `maxWidth` under the breakpoint
+4. Live `window.innerWidth` via `useSyncExternalStore` (the reliable fallback on Claude iOS where the first three are empty)
+5. UA sniff for iPhone, iPad, Android
+
+640px covers iPhone Pro Max, rotated iPad split view, and narrow desktop side panels.
+
+Bias toward mobile. False-positive mobile on desktop is cosmetic. False-negative on mobile makes charts unreadable.
+
+### Card chrome
+
+MCP Apps own their outer chrome, not the host:
+
+1. Server emits `_meta: { ui: { prefersBorder: false } }` on BOTH the resource descriptor AND the content response. Two places to update per resource.
+2. App wraps content in a card with background, border, border-radius, responsive padding:
+   - Mobile `{ y: 16, x: 14 }`, desktop `{ y: 24, x: 20 }`, each plus `safeAreaInsets.*` via `calc()`
+3. Mobile adds `margin: 3` on the outer card. Claude iOS gives the iframe zero surrounding padding, so without the margin the card's border gets clipped at the iframe edge.
+
+### Card width constraint
+
+```js
+{
+  boxSizing: "border-box",
+  width: `calc(100% - ${outerMargin * 2}px)`,
+  overflow: "hidden",
+}
+```
+
+Without this, a too-wide child forces the card wider than the iframe and causes horizontal scroll plus a clipped header. Observed root cause: footer pills exceeding 360px.
+
+Footer rows use `flex-wrap: wrap` and `align-items: stretch` on compact so the legend drops below controls and wraps into multiple rows.
+
+### Theming via host
+
+`packages/design-system/src/tokens.css` intentionally has no `@media (prefers-color-scheme: dark)` rule. The host injects theme vars through `useHostStyles()`, and a media query on `:root` fights partial host overrides (some vars from the host, others from the OS, mixing light and dark tokens).
+
+Dark mode on Claude iOS flows entirely from the host. When Claude is dark, it sends dark vars. When Claude is light, the app stays light regardless of the OS.
+
+Storybook simulates dark via the `[data-theme="dark"]` selector on its decorator, which is still wired up.
+
+### Recharts tick label margins
+
+Default `bottom: 24` in the chart margin. Recharts renders tick labels inside `margin.bottom` (4px tickMargin plus 11px font plus descender), and anything under ~16px clips label descenders. Under the card's `overflow: hidden` plus border-radius, clipped descenders are very visible.
+
+### Mobile token patterns
+
+Views take a `mode: "mobile" | "desktop"` prop and derive tokens:
+
+- Axis font 14 mobile, 13 desktop
+- Stroke widths 2.25 mobile, 2 desktop
+- Narrower chart aspect on mobile (0.95 vs 1.8 for activity-chart)
+- Tighter chart margins, tighter YAxis width (34 vs 40px)
+- Drop YAxis `label` titles on mobile
+- Drop dense overlays that crowd small screens (e.g. grade on the altitude axis)
+- Hide secondary controls that cost footer width (e.g. the Smooth toggle, defaulted on)
+- `Legend` takes `size="touch"` for tappable vertical padding
+
+### Storybook mobile previews
+
+Every view gets a mobile story using:
+
+- `globals: { viewport: { value: "claudeIosCard" } }` for the 360x780 iframe
+- `parameters: { layout: "fullscreen" }` to remove Storybook's outer padding
+- A `MobileCardShell` decorator wrapping the story in the same 3px margin plus 16/14 card chrome the app ships with
+
+This matches what renders inside the host iframe, not Storybook's default padded canvas.
+
 ## Commands
 
 ```bash
