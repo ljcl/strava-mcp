@@ -473,11 +473,13 @@ export function createServer(): Server {
         uri: "ui://activity-chart/app.html",
         name: "Activity Chart",
         mimeType: "text/html;profile=mcp-app",
+        _meta: { ui: { prefersBorder: false } },
       },
       {
         uri: "ui://cadence-trends/app.html",
         name: "Cadence Trends",
         mimeType: "text/html;profile=mcp-app",
+        _meta: { ui: { prefersBorder: false } },
       },
     ],
   }));
@@ -487,13 +489,27 @@ export function createServer(): Server {
     if (uri === "ui://activity-chart/app.html") {
       const html = await fs.readFile(ACTIVITY_CHART_HTML_PATH, "utf-8");
       return {
-        contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html }],
+        contents: [
+          {
+            uri,
+            mimeType: "text/html;profile=mcp-app",
+            text: html,
+            _meta: { ui: { prefersBorder: false } },
+          },
+        ],
       };
     }
     if (uri === "ui://cadence-trends/app.html") {
       const html = await fs.readFile(CADENCE_TRENDS_HTML_PATH, "utf-8");
       return {
-        contents: [{ uri, mimeType: "text/html;profile=mcp-app", text: html }],
+        contents: [
+          {
+            uri,
+            mimeType: "text/html;profile=mcp-app",
+            text: html,
+            _meta: { ui: { prefersBorder: false } },
+          },
+        ],
       };
     }
     throw new Error(`Unknown resource: ${uri}`);

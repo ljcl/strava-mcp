@@ -3,10 +3,10 @@ export { Pill, PillGroup } from "./Pill";
 export { Skeleton } from "./Skeleton";
 export { Tooltip, TooltipEntry } from "./Tooltip";
 export {
-  MOBILE_BREAKPOINT_PX,
   detectMobile,
+  type HostCtx,
+  MOBILE_BREAKPOINT_PX,
   useMobileMode,
   useViewportWidth,
   widthFromHost,
-  type HostCtx,
 } from "./useMobileMode";

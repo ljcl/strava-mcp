@@ -1,8 +1,10 @@
 import { type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
 
 export interface HostLayout {
-  /** "compact" when container < 400px wide or platform is "mobile" */
-  mode: "compact" | "normal";
+  /** "mobile" renders compact layouts; callers pass this in explicitly
+   * because reliable detection needs live window.innerWidth, which is a
+   * React hook concern, not a pure function concern. */
+  mode: "mobile" | "desktop";
   /** Available width in pixels, or null if unbounded */
   width: number | null;
   /** Available height in pixels, or null if unbounded */
@@ -15,14 +17,19 @@ export interface HostLayout {
   chartHeight: number;
 }
 
+/**
+ * Derive layout tokens from the host context plus an explicit mobile flag.
+ * The mobile flag should come from `useMobileMode()` in `@strava-mcp/ui`,
+ * which combines container dimensions, device capabilities, live viewport
+ * width, and UA sniffing into a single reliable signal.
+ */
 export function getHostLayout(
   hostContext: McpUiHostContext | undefined | null,
+  isMobile: boolean,
 ): HostLayout {
   const dims = hostContext?.containerDimensions;
-  const platform = hostContext?.platform;
   const touch = hostContext?.deviceCapabilities?.touch ?? false;
 
-  // Extract width (fixed or max)
   const width = dims
     ? "width" in dims
       ? dims.width
@@ -31,7 +38,6 @@ export function getHostLayout(
         : null
     : null;
 
-  // Extract height (fixed or max)
   const height = dims
     ? "height" in dims
       ? dims.height
@@ -40,13 +46,11 @@ export function getHostLayout(
         : null
     : null;
 
-  const isCompact = platform === "mobile" || (width !== null && width < 400);
-
-  const chartAspect = isCompact ? 1.2 : 1.8;
-  const chartHeight = isCompact ? 240 : 320;
+  const chartAspect = isMobile ? 0.95 : 1.8;
+  const chartHeight = isMobile ? 260 : 320;
 
   return {
-    mode: isCompact ? "compact" : "normal",
+    mode: isMobile ? "mobile" : "desktop",
     width,
     height,
     isTouch: touch,

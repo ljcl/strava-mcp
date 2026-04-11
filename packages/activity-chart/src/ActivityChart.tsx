@@ -259,6 +259,7 @@ interface ActivityChartProps {
   meta: ActivityMeta;
   laps?: ChartLap[];
   layout?: HostLayout;
+  mode?: "mobile" | "desktop";
 }
 
 export function ActivityChart({
@@ -266,9 +267,21 @@ export function ActivityChart({
   meta,
   laps,
   layout,
+  mode = "desktop",
 }: ActivityChartProps) {
-  const aspect = layout?.chartAspect ?? 1.8;
-  const isCompact = layout?.mode === "compact";
+  const aspect = layout?.chartAspect ?? (mode === "mobile" ? 0.95 : 1.8);
+  const isMobile = mode === "mobile";
+  // Legacy compact flag still used by the CSS module for header/footer
+  // spacing; any mobile render counts as compact.
+  const isCompact = isMobile || layout?.mode === "mobile";
+  const tokens = {
+    axisFont: isMobile ? 14 : 13,
+    strokeWidth: isMobile ? 2.25 : 2,
+    cadenceStrokeWidth: isMobile ? 1.75 : 1.5,
+    chartMarginX: isMobile ? -20 : -30,
+    chartMarginTop: isMobile ? 8 : 5,
+    legendSize: (isMobile ? "touch" : "default") as "default" | "touch",
+  };
   // Determine which series have data
   const hasHeartrate = data.some((d) => d.heartrate !== undefined);
   const hasPower = data.some((d) => d.power !== undefined);
@@ -365,7 +378,7 @@ export function ActivityChart({
       color: COLORS.cadence,
       label: "Cadence",
     });
-  if (hasGrade)
+  if (hasGrade && !isMobile)
     legendItems.push({ key: "grade", color: COLORS.grade, label: "Grade" });
 
   return (
@@ -378,7 +391,12 @@ export function ActivityChart({
       <ResponsiveContainer width="100%" aspect={aspect}>
         <ComposedChart
           data={displayData}
-          margin={{ bottom: 5, left: -30, right: -30, top: 5 }}
+          margin={{
+            bottom: 5,
+            left: tokens.chartMarginX,
+            right: tokens.chartMarginX,
+            top: tokens.chartMarginTop,
+          }}
         >
           <defs>
             <linearGradient id="gradAltitude" x1="0" y1="0" x2="0" y2="1">
@@ -400,7 +418,7 @@ export function ActivityChart({
             dataKey={meta.isSwimming ? "distance" : "time"}
             tickFormatter={meta.isSwimming ? formatDistance : formatTime}
             stroke="var(--color-text-tertiary)"
-            fontSize={13}
+            fontSize={tokens.axisFont}
             interval="preserveStartEnd"
             minTickGap={40}
             axisLine={false}
@@ -411,8 +429,8 @@ export function ActivityChart({
             yAxisId="left"
             domain={["auto", "auto"]}
             stroke="var(--color-text-tertiary)"
-            fontSize={13}
-            tickCount={5}
+            fontSize={tokens.axisFont}
+            tickCount={isMobile ? 4 : 5}
             axisLine={false}
             tickLine={false}
           />
@@ -422,8 +440,8 @@ export function ActivityChart({
             orientation="right"
             domain={[0, "auto"]}
             stroke="var(--color-text-tertiary)"
-            fontSize={13}
-            tickCount={5}
+            fontSize={tokens.axisFont}
+            tickCount={isMobile ? 4 : 5}
             axisLine={false}
             tickLine={false}
           />
@@ -514,7 +532,7 @@ export function ActivityChart({
               name="Heart Rate"
               stroke={COLORS.heartrate}
               dot={false}
-              strokeWidth={2}
+              strokeWidth={tokens.strokeWidth}
               connectNulls
               strokeOpacity={seriesOpacity("heartrate", hoveredLegendKey)}
             />
@@ -529,7 +547,7 @@ export function ActivityChart({
               name="Power"
               stroke={COLORS.power}
               dot={false}
-              strokeWidth={2}
+              strokeWidth={tokens.strokeWidth}
               connectNulls
               strokeOpacity={seriesOpacity("power", hoveredLegendKey)}
             />
@@ -544,7 +562,7 @@ export function ActivityChart({
               name="Pace"
               stroke={COLORS.pace}
               dot={false}
-              strokeWidth={2}
+              strokeWidth={tokens.strokeWidth}
               connectNulls
               strokeOpacity={seriesOpacity("pace", hoveredLegendKey)}
             />
@@ -559,14 +577,15 @@ export function ActivityChart({
               name="Cadence"
               stroke={COLORS.cadence}
               dot={false}
-              strokeWidth={1.5}
+              strokeWidth={tokens.cadenceStrokeWidth}
               connectNulls
               strokeOpacity={seriesOpacity("cadence", hoveredLegendKey)}
             />
           )}
 
-          {/* Grade */}
-          {hasGrade && show("grade") && (
+          {/* Grade — hidden on mobile because it crowds the altitude
+              axis and its info value is low at a glance */}
+          {!isMobile && hasGrade && show("grade") && (
             <Line
               yAxisId="left"
               type="monotone"
@@ -596,7 +615,7 @@ export function ActivityChart({
             </Pill>
           </PillGroup>
         </div>
-        <Legend>
+        <Legend size={tokens.legendSize}>
           {legendItems.map(({ key, color, label }) => (
             <LegendItem
               key={key}

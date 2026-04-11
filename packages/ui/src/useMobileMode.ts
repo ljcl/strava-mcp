@@ -1,4 +1,4 @@
-import type { McpUiHostContext } from "@modelcontextprotocol/ext-apps";
+import { type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
 import { useSyncExternalStore } from "react";
 
 /**
