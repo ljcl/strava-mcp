@@ -1,14 +1,16 @@
 import { type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
+import { MOBILE_BREAKPOINT_PX } from "@strava-mcp/design-system";
 import { useSyncExternalStore } from "react";
 
 /**
- * Width (in px) below which we render the mobile layout.
+ * Width (in px) below which we render the mobile layout. Re-exported from
+ * design-system so existing `@strava-mcp/ui` consumers keep working.
  *
- * Chosen to comfortably cover iPhone Pro Max (~430 CSS px), rotated iPads
- * in split view, and narrow desktop side panels where the desktop layout
- * would wrap and collide.
+ * Design-system owns the source of truth. See
+ * `packages/design-system/src/chart-tokens.ts` for the value and the
+ * detection heuristic is in this file.
  */
-export const MOBILE_BREAKPOINT_PX = 640;
+export { MOBILE_BREAKPOINT_PX };
 
 export type HostCtx = Pick<
   McpUiHostContext,
