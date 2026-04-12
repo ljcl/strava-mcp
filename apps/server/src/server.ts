@@ -254,7 +254,7 @@ async function handleGetActivityStreamsRaw(
 
   const activity = await getActivityById(token, Number(activityId));
 
-  const endpoint = `/activities/${activityId}/streams/${RAW_STREAM_TYPES.join(",")}?series_type=time`;
+  const endpoint = `/activities/${activityId}/streams/${RAW_STREAM_TYPES.join(",")}?series_type=time&resolution=medium`;
   const [response, stravaLaps] = await Promise.all([
     stravaApi.get<Array<{ type: string; data: unknown[] }>>(endpoint, {
       headers: { Authorization: `Bearer ${token}` },
