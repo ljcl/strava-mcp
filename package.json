@@ -16,6 +16,9 @@
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
     "check": "turbo run lint test typecheck build",
+    "check:affected": "turbo run lint test typecheck build --affected",
+    "build:affected": "turbo run build --affected",
+    "typecheck:affected": "turbo run typecheck --affected",
     "knip": "knip",
     "storybook": "turbo run storybook --filter=@strava-mcp/storybook",
     "build-storybook": "turbo run build:storybook --filter=@strava-mcp/storybook"
