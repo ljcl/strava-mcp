@@ -44,6 +44,14 @@
   --font-text-sm-line-height: 1.5;
   --font-text-md-line-height: 1.5;
 
+  /* Typography — Line-height variants (for non-body contexts) */
+  --line-height-tight: 1;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.8;
+
+  /* Typography — Letter spacing */
+  --letter-spacing-wide: 0.05em;
+
   /* Typography — Heading sizes */
   --font-heading-sm-size: 16px;
   --font-heading-md-size: 20px;
@@ -53,6 +61,7 @@
   --border-radius-sm: 4px;
   --border-radius-md: 8px;
   --border-radius-lg: 12px;
+  --border-radius-full: 9999px;
   --border-width-regular: 1px;
 
   /* Spacing — 4px grid with half-steps where real usage justifies them */
