@@ -1,17 +1,37 @@
 import preview from "@strava-mcp/design-system/preview";
 import { Pill, PillGroup } from "./Pill";
 
-function PillDemo() {
-  return (
+const meta = preview.meta({ component: Pill });
+
+export const Default = meta.story({
+  render: () => (
     <PillGroup>
       <Pill active>Effort</Pill>
       <Pill>Power</Pill>
       <Pill>Form</Pill>
       <Pill>All</Pill>
     </PillGroup>
-  );
-}
+  ),
+});
 
-const meta = preview.meta({ component: PillDemo });
+export const AllInactive = meta.story({
+  render: () => (
+    <PillGroup>
+      <Pill>Effort</Pill>
+      <Pill>Power</Pill>
+      <Pill>Form</Pill>
+      <Pill>All</Pill>
+    </PillGroup>
+  ),
+});
 
-export const Default = meta.story({});
+export const MultipleActive = meta.story({
+  render: () => (
+    <PillGroup>
+      <Pill active>Effort</Pill>
+      <Pill active>Power</Pill>
+      <Pill>Form</Pill>
+      <Pill>All</Pill>
+    </PillGroup>
+  ),
+});
