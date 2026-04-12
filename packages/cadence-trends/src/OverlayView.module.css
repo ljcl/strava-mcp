@@ -15,7 +15,7 @@
 }
 
 .loading {
-  padding: 4px 0;
+  padding: var(--space-1) 0;
   font-family: var(--font-sans);
   font-size: var(--font-text-xs-size);
   color: var(--color-text-secondary);
@@ -24,9 +24,9 @@
 .footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
   justify-content: space-between;
-  padding: 0 8px;
-  margin-top: 8px;
+  padding: 0 var(--space-2);
+  margin-top: var(--space-2);
 }

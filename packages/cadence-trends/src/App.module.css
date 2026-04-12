@@ -11,7 +11,7 @@
 }
 
 .nav {
-  padding: 12px 0 0;
+  padding: var(--space-3) 0 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -21,43 +21,43 @@
 }
 
 .container[data-compact] .nav {
-  padding-top: 8px;
+  padding-top: var(--space-2);
 }
 
 .viewContainer {
   flex: 1;
-  padding: 16px 0 0;
+  padding: var(--space-4) 0 0;
 }
 
 .container[data-compact] .viewContainer {
-  padding: 10px 0 0;
+  padding: var(--space-2) 0 0;
 }
 
 .selectionBar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 0;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
   font-size: var(--font-text-xs-size);
   border-top: 1px solid var(--color-border-secondary);
 }
 
 .container[data-compact] .selectionBar {
-  padding: 6px 0;
+  padding: var(--space-1-5) 0;
 }
 
 .selectedRun {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   align-items: center;
-  padding: 2px 8px;
+  padding: var(--space-0-5) var(--space-2);
   color: var(--color-text-secondary);
   background: var(--color-background-secondary);
   border-radius: var(--border-radius-sm);
 }
 
 .selectedRun button {
-  padding: 0 2px;
+  padding: 0 var(--space-0-5);
   font-size: var(--font-text-xs-size);
   color: var(--color-text-tertiary);
   cursor: pointer;

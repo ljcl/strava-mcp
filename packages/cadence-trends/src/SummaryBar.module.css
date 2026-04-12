@@ -1,8 +1,8 @@
 .bar {
   display: flex;
   flex-wrap: wrap;
-  gap: 24px;
-  padding: 12px 0;
+  gap: var(--space-6);
+  padding: var(--space-3) 0;
   font-family: var(--font-sans);
   font-size: var(--font-text-xs-size);
   color: var(--color-text-secondary);
@@ -10,14 +10,14 @@
 }
 
 .bar[data-compact] {
-  gap: 14px;
-  padding: 4px 0 10px;
+  gap: var(--space-3);
+  padding: var(--space-1) 0 var(--space-2);
 }
 
 .stat {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0-5);
 }
 
 .bar[data-compact] .stat {
@@ -28,12 +28,12 @@
   font-weight: var(--font-weight-medium);
   color: var(--color-text-tertiary);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--letter-spacing-wide);
 }
 
 .bar[data-compact] .label {
   font-size: 10px;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--letter-spacing-wide);
 }
 
 .value {
