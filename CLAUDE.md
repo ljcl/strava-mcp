@@ -16,7 +16,8 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `packages/cadence-trends/` — React + Recharts MCP App for cadence trend analysis
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend)
-- `packages/design-system/` — Shared design tokens and color constants
+- `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
+- `packages/vite-config/` — Shared Vite config for MCP App single-file builds
 - `packages/tsconfig/` — Shared TypeScript configurations
 - `docs/plans/` — Design docs and implementation plans
 
@@ -200,12 +201,23 @@ This matches what renders inside the host iframe, not Storybook's default padded
 
 Run this gate before declaring a task complete, opening a PR, or cutting a release. Each step is a hard requirement; if any fail, fix before moving on.
 
+The fastest local gate is `bun run check`, which runs lint, test, typecheck, build, and boundaries through Turborepo with full caching. On a branch, prefer `bun run check:affected` to skip unchanged packages entirely.
+
+```bash
+bun run check             # Lint + test + typecheck + build + boundaries (cached via Turborepo)
+bun run check:affected    # Same, but only packages changed since main
+docker compose build      # Server container builds from current sources
+```
+
+Individual steps if needed:
+
 ```bash
 bun run typecheck         # TS across every workspace package
-bun run lint              # Biome across every workspace package
+bun run lint              # Biome (root task, not per-package)
 bun run test              # Vitest (server + any package with tests)
 bun run build             # Turborepo build (produces MCP App single-file HTML bundles)
-docker compose build      # Server container builds from current sources
+bun run boundaries        # Package boundary enforcement (turbo boundaries)
+bun run knip              # Dead code / unused export analysis
 ```
 
 Supplementary checks when the change touches UI:
@@ -216,13 +228,19 @@ Supplementary checks when the change touches UI:
 ## Commands
 
 ```bash
-bun install          # Install all deps (workspace-aware)
-bun run build        # Build all packages (via Turborepo)
-bun run test         # Run all tests (via Turborepo)
-bun run typecheck     # Typecheck all packages (via Turborepo)
-bun run lint         # Lint all packages (Biome)
-bun run lint:fix     # Auto-fix lint issues
-bun run dev          # Dev mode (via Turborepo)
+bun install               # Install all deps (workspace-aware)
+bun run check             # Full verification: lint + test + typecheck + build + boundaries
+bun run check:affected    # Same, but only packages changed since main
+bun run build             # Build all packages (via Turborepo)
+bun run build:affected    # Build only changed packages
+bun run test              # Run all tests (via Turborepo)
+bun run typecheck         # Typecheck all packages (via Turborepo)
+bun run typecheck:affected # Typecheck only changed packages
+bun run lint              # Lint all packages (Biome, root task)
+bun run lint:fix          # Auto-fix lint issues
+bun run knip              # Dead code / unused export analysis
+bun run boundaries        # Package boundary enforcement
+bun run dev               # Dev mode (via Turborepo)
 
 # Server only
 cd apps/server
@@ -248,9 +266,21 @@ docker compose up -d
 docker compose logs -f
 ```
 
+## Turborepo
+
+The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only `activity-chart` and `cadence-trends` produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
+
+Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough to run at root per the Turborepo docs. Knip is a whole-graph analyzer that cannot be decomposed per-package.
+
+Storybook uses the co-located stories pattern: story files in `packages/` are excluded from the root `build` inputs (`!**/*.stories.{ts,tsx,mdx}`) so story edits do not bust unrelated build caches. The `build:storybook` task has its own cache tracked in `apps/storybook/turbo.json`.
+
+Package boundaries are enforced via `turbo boundaries`. Six tags: `app`, `mcp-app`, `shared-ui`, `shared-data`, `design-system`, `config`. Key rules: apps cannot cross-import, mcp-apps cannot cross-import, `data` is pure (no React), `design-system` sits at the bottom. Run `bun run boundaries` to check locally; CI enforces on every PR.
+
+Do NOT change root `lint` to `turbo run lint` (would create an infinite loop). Biome runs directly via root `lint`; turbo dispatches it only when invoked through `bun run check` or `turbo run lint`.
+
 ## Docker
 
-Built via `turbo prune @strava-mcp/server --docker`. Adding a new workspace package does not require editing the Dockerfile; turbo prune derives the package set from the workspace graph. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/activity-chart/app.html")` so each app package must declare an `./app.html` export and a `dist/` build output.
+Built via `turbo prune @strava-mcp/server --docker`. The Dockerfile's build step uses `--filter=@strava-mcp/server^...` to build only the server's workspace dependencies (the two MCP App packages), excluding the server itself since it is JIT. Adding a new workspace package does not require editing the Dockerfile; turbo prune derives the package set from the workspace graph. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/activity-chart/app.html")` so each app package must declare an `./app.html` export and a `dist/` build output.
 
 ## Testing the MCP endpoint
 
