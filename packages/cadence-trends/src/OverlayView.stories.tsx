@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/storybook/preview";
+import preview from "@strava-mcp/design-system/preview";
 import { mockStreamCache } from "./__fixtures__/overlay-streams";
 import { MobileCardShell } from "./_storyHelpers";
 import { OverlayView } from "./OverlayView";

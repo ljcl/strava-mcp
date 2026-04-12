@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/storybook/preview";
+import preview from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "./_storyHelpers";
 import { SummaryBar } from "./SummaryBar";
 

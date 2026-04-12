@@ -12,6 +12,17 @@
     "TOKEN_DATA_DIR"
   ],
   "globalDependencies": [".env", ".env.local"],
+  "boundaries": {
+    "tags": {
+      "app": { "dependencies": { "deny": ["app"] } },
+      "mcp-app": { "dependencies": { "deny": ["app", "mcp-app"] } },
+      "shared-ui": {
+        "dependencies": { "allow": ["design-system", "config"] }
+      },
+      "shared-data": { "dependencies": { "allow": ["config"] } },
+      "design-system": { "dependencies": { "allow": ["config"] } }
+    }
+  },
   "tasks": {
     "topo": { "dependsOn": ["^topo"] },
     "build": {

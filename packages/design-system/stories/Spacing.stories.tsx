@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/storybook/preview";
+import preview from "@strava-mcp/design-system/preview";
 
 const SPACING_STEPS = [
   { name: "--space-0-5", value: 2 },

@@ -28,3 +28,5 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - run: bun run turbo run lint test typecheck build knip --affected
+
+      - run: bun run turbo boundaries

@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/storybook/preview";
+import preview from "@strava-mcp/design-system/preview";
 import { type ReactNode } from "react";
 import { poolSwim } from "./__fixtures__/pool-swim";
 import { tempoRun } from "./__fixtures__/tempo-run";

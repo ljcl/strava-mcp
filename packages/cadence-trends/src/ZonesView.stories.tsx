@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/storybook/preview";
+import preview from "@strava-mcp/design-system/preview";
 import { mockRuns } from "./__fixtures__/runs";
 import { MobileCardShell } from "./_storyHelpers";
 import { ZonesView } from "./ZonesView";

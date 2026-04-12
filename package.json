@@ -15,6 +15,7 @@
     "lint:fix": "biome check --write .",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
+    "boundaries": "turbo boundaries",
     "check": "turbo run lint test typecheck build",
     "check:affected": "turbo run lint test typecheck build --affected",
     "build:affected": "turbo run build --affected",

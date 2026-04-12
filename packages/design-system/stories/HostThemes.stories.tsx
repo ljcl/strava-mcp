@@ -1,5 +1,5 @@
 import { HOST_THEMES } from "@strava-mcp/design-system/host-themes";
-import preview from "@strava-mcp/storybook/preview";
+import preview from "@strava-mcp/design-system/preview";
 
 const colorVars = [
   "--color-background-primary",

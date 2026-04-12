@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/storybook/preview";
+import preview from "@strava-mcp/design-system/preview";
 import { Skeleton } from "./Skeleton";
 
 const meta = preview.meta({ component: Skeleton });
