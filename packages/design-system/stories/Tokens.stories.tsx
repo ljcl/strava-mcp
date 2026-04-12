@@ -72,8 +72,32 @@ const allTokens = [
       { var: "--border-radius-sm", light: "4px", dark: "\u2014" },
       { var: "--border-radius-md", light: "8px", dark: "\u2014" },
       { var: "--border-radius-lg", light: "12px", dark: "\u2014" },
+      { var: "--border-radius-full", light: "9999px", dark: "\u2014" },
       { var: "--border-width-regular", light: "1px", dark: "\u2014" },
     ],
+  },
+  {
+    category: "Spacing",
+    tokens: [
+      { var: "--space-0-5", light: "2px", dark: "\u2014" },
+      { var: "--space-1", light: "4px", dark: "\u2014" },
+      { var: "--space-1-5", light: "6px", dark: "\u2014" },
+      { var: "--space-2", light: "8px", dark: "\u2014" },
+      { var: "--space-3", light: "12px", dark: "\u2014" },
+      { var: "--space-4", light: "16px", dark: "\u2014" },
+      { var: "--space-6", light: "24px", dark: "\u2014" },
+    ],
+  },
+  {
+    category: "Line Height",
+    tokens: [
+      { var: "--line-height-tight", light: "1", dark: "\u2014" },
+      { var: "--line-height-relaxed", light: "1.8", dark: "\u2014" },
+    ],
+  },
+  {
+    category: "Letter Spacing",
+    tokens: [{ var: "--letter-spacing-wide", light: "0.05em", dark: "\u2014" }],
   },
   {
     category: "Chart",
