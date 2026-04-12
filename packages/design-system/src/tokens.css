@@ -44,9 +44,8 @@
   --font-text-sm-line-height: 1.5;
   --font-text-md-line-height: 1.5;
 
-  /* Typography — Line-height variants (for non-body contexts) */
+  /* Typography — Line-height variants for labels, pills, and multi-line tooltips */
   --line-height-tight: 1;
-  --line-height-normal: 1.5;
   --line-height-relaxed: 1.8;
 
   /* Typography — Letter spacing */
