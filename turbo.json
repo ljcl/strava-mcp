@@ -1,25 +1,16 @@
 {
   "$schema": "https://turborepo.dev/schema.v2.json",
   "tasks": {
-    "build": {
-      "dependsOn": ["^build"],
-      "outputs": ["dist/**"]
-    },
-    "test": {
-      "dependsOn": ["^build"]
-    },
-    "typecheck": {},
-    "//#lint": {
-      "outputs": []
-    },
+    "topo": { "dependsOn": ["^topo"] },
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "test": { "dependsOn": ["topo"] },
+    "typecheck": { "dependsOn": ["topo"] },
+    "//#lint": { "outputs": [] },
     "dev": {
       "persistent": true,
       "cache": false,
       "env": ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "PUBLIC_URL", "PORT"]
     },
-    "storybook": {
-      "persistent": true,
-      "cache": false
-    }
+    "storybook": { "persistent": true, "cache": false }
   }
 }
