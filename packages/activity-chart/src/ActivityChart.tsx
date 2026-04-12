@@ -4,6 +4,7 @@ import {
   formatTime,
   type HostLayout,
 } from "@strava-mcp/data";
+import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
   Legend,
   LegendItem,
@@ -274,13 +275,15 @@ export function ActivityChart({
   // Legacy compact flag still used by the CSS module for header/footer
   // spacing; any mobile render counts as compact.
   const isCompact = isMobile || layout?.mode === "mobile";
+  const chartTokens = getChartTokens(mode);
   const tokens = {
-    axisFont: isMobile ? 14 : 13,
-    strokeWidth: isMobile ? 2.25 : 2,
-    cadenceStrokeWidth: isMobile ? 1.75 : 1.5,
+    ...chartTokens,
+    // Alias for the cadence overlay; it's the secondary stroke semantically.
+    cadenceStrokeWidth: chartTokens.secondaryStrokeWidth,
+    // activity-chart is a hero chart and reclaims YAxis space with negative outer margin.
     chartMarginX: isMobile ? -20 : -30,
+    // Slight top margin to separate the header from the chart plot area.
     chartMarginTop: isMobile ? 8 : 5,
-    legendSize: (isMobile ? "touch" : "default") as "default" | "touch",
   };
   // Determine which series have data
   const hasHeartrate = data.some((d) => d.heartrate !== undefined);
@@ -413,7 +416,7 @@ export function ActivityChart({
           <CartesianGrid
             horizontal={true}
             vertical={false}
-            strokeDasharray="3 3"
+            strokeDasharray={GRID_DASHARRAY}
             stroke="var(--color-border-tertiary)"
           />
           <XAxis
