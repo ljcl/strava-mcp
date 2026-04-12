@@ -24,7 +24,7 @@ export function getChartTokens(mode: ChartMode) {
     /** Bar chart error-bar whisker width. */
     errorBarWidth: isMobile ? 6 : 8,
     /** Label font size for bar chart values. */
-    labelFontSize: isMobile ? 10 : 9,
+    labelFontSize: isMobile ? 9 : 10,
     /** Legend size prop for the shared Legend component. */
     legendSize: (isMobile ? "touch" : "default") as "default" | "touch",
   };

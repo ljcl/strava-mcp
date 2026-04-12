@@ -13,7 +13,7 @@ describe("getChartTokens", () => {
     expect(t.secondaryStrokeWidth).toBe(1.5);
     expect(t.dotScale).toBe(1);
     expect(t.errorBarWidth).toBe(8);
-    expect(t.labelFontSize).toBe(9);
+    expect(t.labelFontSize).toBe(10);
     expect(t.legendSize).toBe("default");
   });
 
@@ -24,7 +24,7 @@ describe("getChartTokens", () => {
     expect(t.secondaryStrokeWidth).toBe(1.75);
     expect(t.dotScale).toBe(0.75);
     expect(t.errorBarWidth).toBe(6);
-    expect(t.labelFontSize).toBe(10);
+    expect(t.labelFontSize).toBe(9);
     expect(t.legendSize).toBe("touch");
   });
 });
