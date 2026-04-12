@@ -1,3 +1,4 @@
+import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import { Legend, LegendItem, Pill, PillGroup } from "@strava-mcp/ui";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -35,12 +36,14 @@ export function OverlayView({
   mode = "desktop",
 }: OverlayViewProps) {
   const isMobile = mode === "mobile";
+  const chartTokens = getChartTokens(mode);
   const tokens = {
-    axisFont: 11,
+    ...chartTokens,
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
     marginBottom: 24,
-    strokeWidth: isMobile ? 1.75 : 1.5,
+    // OverlayView stacks many streams; use the lighter secondary stroke.
+    strokeWidth: chartTokens.secondaryStrokeWidth,
   };
 
   const [xMode, setXMode] = useState<XMode>("distance");
@@ -127,7 +130,7 @@ export function OverlayView({
             }}
           >
             <CartesianGrid
-              strokeDasharray="3 3"
+              strokeDasharray={GRID_DASHARRAY}
               stroke="var(--color-border-tertiary)"
             />
             <XAxis

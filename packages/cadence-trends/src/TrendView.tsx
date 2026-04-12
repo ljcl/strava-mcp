@@ -1,3 +1,4 @@
+import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import { useMemo } from "react";
 import {
   CartesianGrid,
@@ -29,16 +30,15 @@ export function TrendView({
   mode = "desktop",
 }: TrendViewProps) {
   const isMobile = mode === "mobile";
+  const chartTokens = getChartTokens(mode);
   const tokens = {
-    axisFont: 11,
+    ...chartTokens,
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
-    // bottom margin must comfortably fit an 11px tick label plus its
-    // descender — too small and the labels overflow the chart SVG and
-    // get clipped by the card's border-radius / overflow: hidden.
+    // Bottom margin must fit tick label descenders; see CLAUDE.md.
     marginBottom: 24,
-    trendStrokeWidth: isMobile ? 2.25 : 2,
-    dotScale: isMobile ? 0.75 : 1,
+    // Alias for call-site clarity.
+    trendStrokeWidth: chartTokens.strokeWidth,
   };
 
   const sorted = useMemo(
@@ -92,7 +92,7 @@ export function TrendView({
           }}
         >
           <CartesianGrid
-            strokeDasharray="3 3"
+            strokeDasharray={GRID_DASHARRAY}
             stroke="var(--color-border-tertiary)"
           />
           <XAxis

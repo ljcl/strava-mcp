@@ -1,4 +1,5 @@
 import { formatPace } from "@strava-mcp/data";
+import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import { useMemo } from "react";
 import {
   CartesianGrid,
@@ -31,11 +32,10 @@ export function ScatterView({
 }: ScatterViewProps) {
   const isMobile = mode === "mobile";
   const tokens = {
-    axisFont: 11,
+    ...getChartTokens(mode),
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
     marginBottom: 24,
-    dotScale: isMobile ? 0.75 : 1,
   };
 
   const runs = useMemo(
@@ -99,7 +99,7 @@ export function ScatterView({
           }}
         >
           <CartesianGrid
-            strokeDasharray="3 3"
+            strokeDasharray={GRID_DASHARRAY}
             stroke="var(--color-border-tertiary)"
           />
           <XAxis

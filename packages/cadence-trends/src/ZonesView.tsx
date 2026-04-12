@@ -1,3 +1,4 @@
+import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import { useMemo } from "react";
 import {
   Bar,
@@ -24,13 +25,11 @@ const ZONE_OPACITIES = [1, 0.8, 0.6, 0.4];
 export function ZonesView({ activities, mode = "desktop" }: ZonesViewProps) {
   const isMobile = mode === "mobile";
   const tokens = {
-    axisFont: 11,
+    ...getChartTokens(mode),
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
     marginTop: isMobile ? 20 : 16,
     marginBottom: 24,
-    errorBarWidth: isMobile ? 6 : 8,
-    labelFontSize: isMobile ? 9 : 10,
   };
 
   const zoneStats = useMemo(() => computeZoneStats(activities), [activities]);
@@ -72,7 +71,7 @@ export function ZonesView({ activities, mode = "desktop" }: ZonesViewProps) {
           }}
         >
           <CartesianGrid
-            strokeDasharray="3 3"
+            strokeDasharray={GRID_DASHARRAY}
             stroke="var(--color-border-tertiary)"
             vertical={false}
           />
