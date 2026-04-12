@@ -15,7 +15,7 @@
     "lint:fix": "biome check --write .",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
-    "check": "turbo run lint test typecheck",
+    "check": "turbo run lint test typecheck build",
     "knip": "knip",
     "storybook": "turbo run storybook --filter=@strava-mcp/storybook",
     "build-storybook": "turbo run build:storybook --filter=@strava-mcp/storybook"

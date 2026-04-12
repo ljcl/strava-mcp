@@ -26,12 +26,19 @@
       "inputs": [
         "$TURBO_DEFAULT$",
         "biome.json",
+        ".gitignore",
         "!**/dist/**",
         "!**/storybook-static/**"
       ]
     },
     "//#knip": {
-      "inputs": ["$TURBO_DEFAULT$", "knip.config.ts", "!**/dist/**"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "knip.config.ts",
+        "apps/*/package.json",
+        "packages/*/package.json",
+        "!**/dist/**"
+      ]
     },
     "dev": {
       "persistent": true,
