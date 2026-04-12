@@ -11,7 +11,7 @@
 
 .skeleton {
   width: 100%;
-  padding: 16px;
+  padding: var(--space-4);
   font-family: var(--font-sans);
 }
 
@@ -30,7 +30,7 @@
 }
 
 .skeleton[data-variant="chart"] .chartArea {
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .chartFooter {
@@ -40,20 +40,20 @@
 
 .pillRow {
   display: flex;
-  gap: 6px;
+  gap: var(--space-1-5);
 }
 
 .pillGhost {
   width: 56px;
   height: 28px;
   background: var(--color-background-secondary);
-  border-radius: 999px;
+  border-radius: var(--border-radius-full);
 }
 
 .barRow {
   display: flex;
-  gap: 24px;
-  padding: 12px 0;
+  gap: var(--space-6);
+  padding: var(--space-3) 0;
 }
 
 .barItem {
