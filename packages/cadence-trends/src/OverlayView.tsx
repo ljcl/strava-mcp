@@ -143,15 +143,19 @@ export function OverlayView({
               }}
               tickLine={false}
               axisLine={{ stroke: "var(--color-border-secondary)" }}
-              label={{
-                value: xMode === "distance" ? "km" : "min",
-                position: "insideBottomRight",
-                offset: -4,
-                style: {
-                  fontSize: tokens.axisFont,
-                  fill: "var(--color-text-tertiary)",
-                },
-              }}
+              label={
+                isMobile
+                  ? undefined
+                  : {
+                      value: xMode === "distance" ? "km" : "min",
+                      position: "insideBottomRight",
+                      offset: -4,
+                      style: {
+                        fontSize: tokens.axisFont,
+                        fill: "var(--color-text-tertiary)",
+                      },
+                    }
+              }
             />
             <YAxis
               domain={["auto", "auto"]}
