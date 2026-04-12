@@ -6,9 +6,9 @@ import { useSyncExternalStore } from "react";
  * Width (in px) below which we render the mobile layout. Re-exported from
  * design-system so existing `@strava-mcp/ui` consumers keep working.
  *
- * Design-system owns the source of truth. See
- * `packages/design-system/src/chart-tokens.ts` for the value and the
- * detection heuristic is in this file.
+ * Design-system owns the value (see
+ * `packages/design-system/src/chart-tokens.ts`). The detection heuristic
+ * lives in this file.
  */
 export { MOBILE_BREAKPOINT_PX };
 

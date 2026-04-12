@@ -34,7 +34,10 @@ export function getChartTokens(mode: ChartMode) {
 export const GRID_DASHARRAY = "3 3";
 
 /**
- * Width (in px) below which we render the mobile layout. See
- * `packages/ui/src/useMobileMode.ts` for the full detection heuristic.
+ * Width (in px) below which we render the mobile layout. Chosen to cover
+ * iPhone Pro Max (~430 CSS px), rotated iPads in split view, and narrow
+ * desktop side panels where the desktop layout would wrap and collide.
+ *
+ * The full detection heuristic lives in `packages/ui/src/useMobileMode.ts`.
  */
 export const MOBILE_BREAKPOINT_PX = 640;
