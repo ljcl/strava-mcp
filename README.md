@@ -113,15 +113,15 @@ For running without Docker or Tailscale Funnel:
 ### Setup
 
 ```bash
-# Install dependencies
 bun install
 
 # Run the setup script for localhost-based OAuth
 cd apps/server
 bun run setup-auth
 
-# Start the development server
-bun run dev:http
+# Start the development server (server + MCP App watchers)
+cd ../..
+bun run dev
 ```
 
 The setup script will guide you through the OAuth flow using `localhost` as the redirect URI.
@@ -206,6 +206,10 @@ The server exposes the following MCP tools:
 | `get-activity-streams` | Get time-series data (HR, power, GPS, etc.) |
 | `get-activity-laps` | Get lap data for an activity |
 | `get-activity-photos` | Get photos from an activity |
+| `get-running-summary` | Running-focused summary with HR zones and lap analysis |
+| `get-training-load` | Training load summary with trend analysis |
+| `compare-activities` | Compare two running activities side-by-side |
+| `get-best-efforts` | Personal best efforts across all running activities |
 
 ### Athlete Tools
 
@@ -240,23 +244,46 @@ The server exposes the following MCP tools:
 
 | Tool | Description |
 | ---- | ----------- |
-| `view-activity-chart` | Interactive chart with HR, power, pace, altitude overlays |
+| `view-activity-chart` | Interactive chart with HR, power, pace, altitude overlays (MCP App) |
 | `get-activity-streams-raw` | Raw stream data for the activity chart UI (app-only) |
+| `view-cadence-trends` | Interactive cadence trends with timeline, scatter, zones, and overlay views (MCP App) |
+| `get-cadence-trend-data` | Summary cadence/pace data for the cadence trends UI (app-only) |
+
+## Project Structure
+
+```
+apps/server/               MCP server (tools, auth, token management)
+apps/storybook/            Storybook for UI development
+packages/activity-chart/   Interactive activity chart (MCP App)
+packages/cadence-trends/   Cadence trend analysis (MCP App)
+packages/data/             Shared pure data utilities
+packages/ui/               Shared presentational React components
+packages/design-system/    Design tokens, color constants, Storybook preview
+packages/vite-config/      Shared Vite config for MCP App builds
+packages/tsconfig/         Shared TypeScript configurations
+```
 
 ## Development
 
-```bash
-bun run build        # Build all packages (Turborepo)
-bun run test         # Run all tests (Turborepo)
-bun run lint         # Lint all packages (Biome)
-bun run lint:fix     # Auto-fix lint issues
-bun run dev          # Dev mode (Turborepo)
+Bun workspaces with Turborepo. All tasks are cached and run in parallel where possible.
 
-# Server only
-cd apps/server
-bun run test         # Run server tests (Vitest)
-bun run test:watch   # Watch mode
+```bash
+bun run check             # Full verification: lint + test + typecheck + build + boundaries
+bun run check:affected    # Same, only packages changed since main
+bun run build             # Build all packages
+bun run test              # Run all tests
+bun run lint              # Lint (Biome)
+bun run lint:fix          # Auto-fix lint issues
+bun run knip              # Dead code / unused export analysis
+bun run boundaries        # Package boundary enforcement
+bun run dev               # Dev mode (server + MCP App watchers)
+
+# Storybook
+cd apps/storybook
+bun run storybook         # Storybook on port 6006
 ```
+
+See `CLAUDE.md` for the full architecture reference, styling guide, Turborepo details, and MCP App patterns.
 
 ## Troubleshooting
 
@@ -266,10 +293,6 @@ bun run test:watch   # Watch mode
 
 **Token errors or expired tokens** — Visit `/auth/start` on your server to re-authorize. Tokens are refreshed automatically, but a full re-auth may be needed if the refresh token has been revoked.
 
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+MIT
