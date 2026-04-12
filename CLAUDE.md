@@ -196,6 +196,23 @@ Every view gets a mobile story using:
 
 This matches what renders inside the host iframe, not Storybook's default padded canvas.
 
+## Verification sweep
+
+Run this gate before declaring a task complete, opening a PR, or cutting a release. Each step is a hard requirement; if any fail, fix before moving on.
+
+```bash
+bun run typecheck         # TS across every workspace package
+bun run lint              # Biome across every workspace package
+bun run test              # Vitest (server + any package with tests)
+bun run build             # Turborepo build (produces MCP App single-file HTML bundles)
+docker compose build      # Server container builds from current sources
+```
+
+Supplementary checks when the change touches UI:
+
+- Storybook sweep: visit each affected story in desktop and the `claudeIosCard` mobile viewport. The claude-in-chrome or storybook MCP tools can do this without leaving the session.
+- MCP endpoint smoke test: `cd apps/server && bun run start`, then `curl http://localhost:3000/health` from another shell. Needs valid `STRAVA_REFRESH_TOKEN`; skip if tokens are stale and note it explicitly.
+
 ## Commands
 
 ```bash
