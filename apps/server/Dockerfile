@@ -17,7 +17,7 @@ COPY --from=pruner /app/out/json/ ./
 COPY --from=pruner /app/out/bun.lock ./bun.lock
 RUN bun install --frozen-lockfile
 COPY --from=pruner /app/out/full/ ./
-RUN turbo run build --filter=@strava-mcp/server
+RUN turbo run build --filter=@strava-mcp/server^...
 
 # 3) Runner: lean image with prod-only deps plus built app.html resources.
 #    Prod install links workspace deps by symlink; we fill in the built
