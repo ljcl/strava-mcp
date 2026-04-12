@@ -82,6 +82,12 @@ Remote MCP server for connecting AI tools to your Strava data.
 - Keep inline `style` only for truly dynamic values computed at runtime (e.g. per-entry colors from props)
 - Recharts component props (`stroke`, `fill`, `strokeWidth`, etc.) are library API and stay as props
 - Design tokens come from `packages/design-system` via CSS custom properties (`var(--color-*)`, `var(--font-*)`)
+- Spacing: use `var(--space-*)` tokens (`--space-0-5` through `--space-6`, a 4px grid with half-steps) instead of hardcoded px
+- Border radius: full-rounded elements use `var(--border-radius-full)`
+- Line heights outside the default 1.5: use `var(--line-height-tight)` or `var(--line-height-relaxed)`
+- Uppercase label letter spacing: `var(--letter-spacing-wide)`
+- Shared Recharts numeric tokens live in `packages/design-system/src/chart-tokens.ts`. Use `getChartTokens(mode)` in any new chart view; per-chart layout margins stay local
+- `MOBILE_BREAKPOINT_PX` lives in design-system and is re-exported from `packages/ui`
 
 ## MCP App (Activity Chart)
 
@@ -163,10 +169,16 @@ Default `bottom: 24` in the chart margin. Recharts renders tick labels inside `m
 
 ### Mobile token patterns
 
-Views take a `mode: "mobile" | "desktop"` prop and derive tokens:
+Views take a `mode: "mobile" | "desktop"` prop and spread `getChartTokens(mode)` from `@strava-mcp/design-system` into their local `tokens` object. That provides the shared numeric values:
 
 - Axis font 14 mobile, 13 desktop
 - Stroke widths 2.25 mobile, 2 desktop
+- Secondary stroke widths 1.75 mobile, 1.5 desktop (e.g. cadence overlay)
+- Dot scale 0.75 mobile, 1 desktop
+- Error bar width, label font size, legend size variants
+
+Per-chart layout values stay local (they differ by layout intent):
+
 - Narrower chart aspect on mobile (0.95 vs 1.8 for activity-chart)
 - Tighter chart margins, tighter YAxis width (34 vs 40px)
 - Drop YAxis `label` titles on mobile
