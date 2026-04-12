@@ -1,11 +1,7 @@
 import { z } from "zod";
 import { HttpError, stravaApi } from "../fetchClient";
 import { getActivityById } from "../stravaClient";
-import {
-  isRunningActivity,
-  metersPerSecToPace,
-  transformCadence,
-} from "../utils/running";
+import { isRunningActivity, metersPerSecToPace } from "../utils/running";
 
 // Define stream types available in Strava API
 const STREAM_TYPES = [
@@ -31,63 +27,27 @@ export const inputSchema = z.object({
     .number()
     .or(z.string())
     .describe(
-      "The Strava activity identifier to fetch streams for. This can be obtained from activity URLs or the get-activities tool.",
+      "The Strava activity identifier. Obtainable from activity URLs or get-recent-activities.",
     ),
   types: z
     .array(z.enum(STREAM_TYPES))
-    .default(["time", "distance", "heartrate", "cadence", "watts"])
+    .default(["time", "heartrate", "cadence", "watts"])
     .describe(
-      "Array of stream types to fetch. Available types:\n" +
-        "- time: Time in seconds from start\n" +
-        "- distance: Distance in meters from start\n" +
-        "- latlng: Array of [latitude, longitude] pairs\n" +
-        "- altitude: Elevation in meters\n" +
-        "- velocity_smooth: Smoothed speed in meters/second\n" +
-        "- heartrate: Heart rate in beats per minute\n" +
-        "- cadence: Cadence in revolutions per minute\n" +
-        "- watts: Power output in watts\n" +
-        "- temp: Temperature in Celsius\n" +
-        "- moving: Boolean indicating if moving\n" +
-        "- grade_smooth: Road grade as percentage",
+      "Stream types to fetch. Available: time, distance, latlng, altitude, " +
+        "velocity_smooth, heartrate, cadence, watts, temp, moving, grade_smooth",
     ),
   resolution: z
     .enum(RESOLUTION_TYPES)
-    .optional()
+    .default("medium")
     .describe(
-      "Optional data resolution. Affects number of data points returned:\n" +
-        "- low: ~100 points\n" +
-        "- medium: ~1000 points\n" +
-        "- high: ~10000 points\n" +
-        "Default varies based on activity length.",
+      "Data density: low (~100 points), medium (~1000 points), high (~10000 points). " +
+        "Medium is recommended for most analysis.",
     ),
   series_type: z
     .enum(["time", "distance"])
     .optional()
-    .default("distance")
-    .describe(
-      "Optional base series type for the streams:\n" +
-        "- time: Data points are indexed by time (seconds from start)\n" +
-        "- distance: Data points are indexed by distance (meters from start)\n" +
-        "Useful for comparing different activities or analyzing specific segments.",
-    ),
-  page: z
-    .number()
-    .optional()
-    .default(1)
-    .describe(
-      "Optional page number for paginated results. Use with points_per_page to retrieve specific data ranges.\n" +
-        "Example: page=2 with points_per_page=100 gets points 101-200.",
-    ),
-  points_per_page: z
-    .number()
-    .optional()
-    .default(100)
-    .describe(
-      "Optional number of data points per page. Special values:\n" +
-        "- Positive number: Returns that many points per page\n" +
-        "- -1: Returns ALL data points split into multiple messages (~1000 points each)\n" +
-        "Use -1 when you need the complete activity data for analysis.",
-    ),
+    .default("time")
+    .describe("Index series: time (seconds) or distance (meters)."),
 });
 
 // Type for the input parameters
@@ -203,37 +163,17 @@ type Stream =
 export const getActivityStreamsTool = {
   name: "get-activity-streams",
   description:
-    "Retrieves detailed time-series data streams from a Strava activity. Perfect for analyzing workout metrics, " +
-    "visualizing routes, or performing detailed activity analysis.\n\n" +
-    "Key Features:\n" +
-    "1. Multiple Data Types: Access various metrics like heart rate, power, speed, GPS coordinates, etc.\n" +
-    "2. Flexible Resolution: Choose data density from low (~100 points) to high (~10000 points)\n" +
-    "3. Smart Pagination: Get data in manageable chunks or all at once\n" +
-    "4. Rich Statistics: Includes min/max/avg for numeric streams\n" +
-    "5. Formatted Output: Data is processed into human and LLM-friendly formats\n\n" +
-    "Common Use Cases:\n" +
-    "- Analyzing workout intensity through heart rate zones\n" +
-    "- Calculating power metrics for cycling activities\n" +
-    "- Visualizing route data using GPS coordinates\n" +
-    "- Analyzing pace and elevation changes\n" +
-    "- Detailed segment analysis\n\n" +
-    "Output Format:\n" +
-    "1. Metadata: Activity overview, available streams, data points\n" +
-    "2. Statistics: Summary stats for each stream type (max/min/avg where applicable)\n" +
-    "3. Stream Data: Actual time-series data, formatted for easy use\n\n" +
-    "Notes:\n" +
-    "- Requires activity:read scope\n" +
-    "- Not all streams are available for all activities\n" +
-    "- Older activities might have limited data\n" +
-    "- Large activities are automatically paginated to handle size limits",
+    "Retrieves time-series data streams from a Strava activity as columnar arrays. " +
+    "Returns a units header describing each stream, summary statistics, and flat arrays. " +
+    "Default resolution is medium (~1000 points). " +
+    "Running activities get pace (min/km) and cadence (steps/min). " +
+    "Cycling activities get speed (km/h) and cadence (rpm).",
   inputSchema,
   execute: async ({
     id,
     types,
     resolution,
     series_type,
-    page = 1,
-    points_per_page = 100,
   }: GetActivityStreamsParams) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
     if (!token) {
@@ -241,7 +181,7 @@ export const getActivityStreamsTool = {
         content: [
           {
             type: "text" as const,
-            text: "❌ Missing STRAVA_ACCESS_TOKEN in .env",
+            text: "Missing STRAVA_ACCESS_TOKEN in .env",
           },
         ],
         isError: true,
@@ -255,9 +195,10 @@ export const getActivityStreamsTool = {
       const activityType = activity.type;
       const isRunning = isRunningActivity(activityType);
 
-      // Build query parameters
-      const params: Record<string, string> = {};
-      if (resolution) params.resolution = resolution;
+      // Build query parameters - resolution always has a default now
+      const params: Record<string, string> = {
+        resolution,
+      };
       if (series_type) params.series_type = series_type;
 
       // Convert query params to string
@@ -276,11 +217,7 @@ export const getActivityStreamsTool = {
           content: [
             {
               type: "text" as const,
-              text:
-                "⚠️ No streams were returned. This could mean:\n" +
-                "1. The activity was recorded without this data\n" +
-                "2. The activity is not a GPS-based activity\n" +
-                "3. The activity is too old (Strava may not keep all stream data indefinitely)",
+              text: "No streams returned. The activity may lack this data or the stream types may be unavailable.",
             },
           ],
           isError: true,
@@ -353,267 +290,104 @@ export const getActivityStreamsTool = {
         streamStats[stream.type] = stats;
       });
 
-      // Special case: return all data in multiple messages if points_per_page is -1
-      if (points_per_page === -1) {
-        // Calculate optimal chunk size (aim for ~500KB per message)
-        const CHUNK_SIZE = 1000; // Adjust this if needed
-        const numChunks = Math.ceil(totalPoints / CHUNK_SIZE);
+      // Build columnar output
+      const units: Record<string, string> = {};
+      const columnar: Record<string, unknown[]> = {};
 
-        // Return array of messages
-        return {
-          content: [
-            // First message with metadata
-            {
-              type: "text" as const,
-              text: `📊 Activity Stream Data (${totalPoints} points)\nWill be sent in ${numChunks + 1} messages:\n1. Metadata and Statistics\n2-${numChunks + 1}. Stream Data (${CHUNK_SIZE} points per message)\n\nMessage 1/${numChunks + 1}:\n${JSON.stringify(
-                {
-                  metadata: {
-                    available_types: streams.map((s: Stream) => s.type),
-                    total_points: totalPoints,
-                    total_chunks: numChunks,
-                    chunk_size: CHUNK_SIZE,
-                    resolution: referenceStream.resolution,
-                    series_type: referenceStream.series_type,
-                  },
-                  statistics: streamStats,
-                },
-                null,
-                2,
-              )}`,
-            },
-            // Data messages
-            ...Array.from({ length: numChunks }, (_, i) => {
-              const chunkStart = i * CHUNK_SIZE;
-              const chunkEnd = Math.min(chunkStart + CHUNK_SIZE, totalPoints);
-              const streamData = {
-                streams: {} as Record<string, unknown>,
-              };
-
-              // Process each stream for this chunk
-              streams.forEach((stream: Stream) => {
-                const chunkData = stream.data.slice(chunkStart, chunkEnd);
-                let processedData: unknown;
-
-                switch (stream.type) {
-                  case "latlng": {
-                    const latlngData = chunkData as [number, number][];
-                    processedData = latlngData.map(([lat, lng]) => ({
-                      latitude: Number(lat.toFixed(6)),
-                      longitude: Number(lng.toFixed(6)),
-                    }));
-                    break;
-                  }
-
-                  case "time": {
-                    const timeData = chunkData as number[];
-                    processedData = timeData.map((seconds) => ({
-                      seconds_from_start: seconds,
-                      formatted: new Date(seconds * 1000)
-                        .toISOString()
-                        .substr(11, 8),
-                    }));
-                    break;
-                  }
-
-                  case "distance": {
-                    const distanceData = chunkData as number[];
-                    processedData = distanceData.map((meters) => ({
-                      meters,
-                      kilometers: Number((meters / 1000).toFixed(2)),
-                    }));
-                    break;
-                  }
-
-                  case "velocity_smooth": {
-                    const velocityData = chunkData as number[];
-                    processedData = velocityData.map((mps) => {
-                      const pace = metersPerSecToPace(mps);
-                      return {
-                        meters_per_second: mps,
-                        kilometers_per_hour: Number((mps * 3.6).toFixed(1)),
-                        // Add pace for running activities
-                        ...(isRunning && pace
-                          ? {
-                              min_per_km: pace.minPerKm,
-                              min_per_mile: pace.minPerMile,
-                            }
-                          : {}),
-                      };
-                    });
-                    break;
-                  }
-
-                  case "heartrate":
-                  case "watts":
-                  case "temp": {
-                    const numericData = chunkData as number[];
-                    processedData = numericData.map((v) => Number(v));
-                    break;
-                  }
-
-                  case "cadence": {
-                    const cadenceData = chunkData as number[];
-                    processedData = cadenceData.map((raw) => {
-                      const transformed = transformCadence(raw, activityType);
-                      return transformed ? transformed : raw;
-                    });
-                    break;
-                  }
-
-                  case "grade_smooth": {
-                    const gradeData = chunkData as number[];
-                    processedData = gradeData.map((grade) =>
-                      Number(grade.toFixed(1)),
-                    );
-                    break;
-                  }
-
-                  case "moving":
-                    processedData = chunkData as boolean[];
-                    break;
-
-                  default:
-                    processedData = chunkData;
-                }
-
-                streamData.streams[stream.type] = processedData;
-              });
-
-              return {
-                type: "text" as const,
-                text: `Message ${i + 2}/${numChunks + 1} (points ${chunkStart + 1}-${chunkEnd}):\n${JSON.stringify(streamData, null, 2)}`,
-              };
-            }),
-          ],
-        };
-      }
-
-      // Regular paginated response
-      const totalPages = Math.ceil(totalPoints / points_per_page);
-
-      // Validate page number
-      if (page < 1 || page > totalPages) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `❌ Invalid page number. Please specify a page between 1 and ${totalPages}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      // Calculate slice indices for pagination
-      const startIdx = (page - 1) * points_per_page;
-      const endIdx = Math.min(startIdx + points_per_page, totalPoints);
-
-      // Process paginated stream data
-      const streamData: Record<string, unknown> = {
-        metadata: {
-          available_types: streams.map((s: Stream) => s.type),
-          total_points: totalPoints,
-          current_page: page,
-          total_pages: totalPages,
-          points_per_page,
-          points_in_page: endIdx - startIdx,
-        },
-        statistics: streamStats,
-        streams: {},
-      };
-
-      // Process each stream with pagination
-      const streamsMap = streamData.streams as Record<string, unknown>;
-      streams.forEach((stream: Stream) => {
-        let processedData: unknown;
-        const paginatedData = stream.data.slice(startIdx, endIdx);
-
+      for (const stream of streams) {
         switch (stream.type) {
-          case "latlng": {
-            const latlngData = paginatedData as [number, number][];
-            processedData = latlngData.map(([lat, lng]) => ({
-              latitude: Number(lat.toFixed(6)),
-              longitude: Number(lng.toFixed(6)),
-            }));
+          case "time":
+            units.time = "seconds";
+            columnar.time = stream.data;
             break;
-          }
-
-          case "time": {
-            const timeData = paginatedData as number[];
-            processedData = timeData.map((seconds) => ({
-              seconds_from_start: seconds,
-              formatted: new Date(seconds * 1000).toISOString().substr(11, 8),
-            }));
+          case "distance":
+            units.distance = "meters";
+            columnar.distance = (stream.data as number[]).map(
+              (m) => Math.round(m * 10) / 10,
+            );
             break;
-          }
-
-          case "distance": {
-            const distanceData = paginatedData as number[];
-            processedData = distanceData.map((meters) => ({
-              meters,
-              kilometers: Number((meters / 1000).toFixed(2)),
-            }));
-            break;
-          }
-
-          case "velocity_smooth": {
-            const velocityData = paginatedData as number[];
-            processedData = velocityData.map((mps) => {
-              const pace = metersPerSecToPace(mps);
-              return {
-                meters_per_second: mps,
-                kilometers_per_hour: Number((mps * 3.6).toFixed(1)),
-                // Add pace for running activities
-                ...(isRunning && pace
-                  ? {
-                      min_per_km: pace.minPerKm,
-                      min_per_mile: pace.minPerMile,
-                    }
-                  : {}),
-              };
-            });
-            break;
-          }
-
           case "heartrate":
+            units.heartrate = "bpm";
+            columnar.heartrate = stream.data;
+            break;
           case "watts":
-          case "temp": {
-            const numericData = paginatedData as number[];
-            processedData = numericData.map((v) => Number(v));
+            units.power = "watts";
+            columnar.power = stream.data;
             break;
-          }
-
           case "cadence": {
-            const cadenceData = paginatedData as number[];
-            processedData = cadenceData.map((raw) => {
-              const transformed = transformCadence(raw, activityType);
-              return transformed ? transformed : raw;
-            });
+            const raw = stream.data as number[];
+            if (isRunning) {
+              units.cadence = "spm";
+              columnar.cadence = raw.map((v) => v * 2);
+            } else {
+              units.cadence = "rpm";
+              columnar.cadence = raw;
+            }
             break;
           }
-
-          case "grade_smooth": {
-            const gradeData = paginatedData as number[];
-            processedData = gradeData.map((grade) => Number(grade.toFixed(1)));
+          case "velocity_smooth": {
+            const velocities = stream.data as number[];
+            if (isRunning) {
+              units.pace = "min/km";
+              columnar.pace = velocities.map((mps) =>
+                mps > 0 ? Math.round((1000 / mps / 60) * 100) / 100 : 0,
+              );
+            } else {
+              units.speed = "km/h";
+              columnar.speed = velocities.map(
+                (mps) => Math.round(mps * 3.6 * 10) / 10,
+              );
+            }
             break;
           }
-
+          case "altitude":
+            units.altitude = "meters";
+            columnar.altitude = (stream.data as number[]).map(
+              (v) => Math.round(v * 10) / 10,
+            );
+            break;
+          case "grade_smooth":
+            units.grade = "percent";
+            columnar.grade = (stream.data as number[]).map(
+              (v) => Math.round(v * 10) / 10,
+            );
+            break;
+          case "temp":
+            units.temp = "celsius";
+            columnar.temp = stream.data;
+            break;
+          case "latlng":
+            units.latlng = "[lat, lng]";
+            columnar.latlng = stream.data;
+            break;
           case "moving":
-            processedData = paginatedData as boolean[];
+            units.moving = "boolean";
+            columnar.moving = stream.data;
             break;
-
-          default:
-            processedData = paginatedData;
         }
+      }
 
-        streamsMap[stream.type] = processedData;
-      });
+      const result = {
+        activity: {
+          name: activity.name,
+          type: activityType,
+          duration: activity.moving_time,
+          distance: activity.distance
+            ? Math.round(activity.distance / 10) / 100
+            : undefined,
+        },
+        points: totalPoints,
+        resolution: referenceStream.resolution,
+        units,
+        statistics: streamStats,
+        streams: columnar,
+      };
 
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(streamData, null, 2),
+            text: JSON.stringify(result),
           },
         ],
       };
@@ -627,7 +401,7 @@ export const getActivityStreamsTool = {
             ? error.message
             : String(error);
 
-      let userFriendlyError = `❌ Failed to fetch activity streams (${statusCode}): ${errorMessage}\n\n`;
+      let userFriendlyError = `Failed to fetch activity streams (${statusCode}): ${errorMessage}\n\n`;
       userFriendlyError += "This could be because:\n";
       userFriendlyError += "1. The activity ID is invalid\n";
       userFriendlyError +=
