@@ -1,15 +1,41 @@
 {
   "$schema": "https://turborepo.dev/schema.v2.json",
+  "globalEnv": ["NODE_ENV"],
+  "globalPassThroughEnv": [
+    "STRAVA_CLIENT_ID",
+    "STRAVA_CLIENT_SECRET",
+    "PUBLIC_URL",
+    "PORT",
+    "STRAVA_ACCESS_TOKEN",
+    "STRAVA_REFRESH_TOKEN",
+    "ROUTE_EXPORT_PATH",
+    "TOKEN_DATA_DIR"
+  ],
+  "globalDependencies": [".env", ".env.local"],
   "tasks": {
     "topo": { "dependsOn": ["^topo"] },
-    "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.stories.{ts,tsx,mdx}"]
+    },
+    "build:storybook": {},
     "test": { "dependsOn": ["topo"] },
     "typecheck": { "dependsOn": ["topo"] },
-    "//#lint": { "outputs": [] },
+    "//#lint": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "biome.json",
+        "!**/dist/**",
+        "!**/storybook-static/**"
+      ]
+    },
+    "//#knip": {
+      "inputs": ["$TURBO_DEFAULT$", "knip.config.ts", "!**/dist/**"]
+    },
     "dev": {
       "persistent": true,
-      "cache": false,
-      "env": ["STRAVA_CLIENT_ID", "STRAVA_CLIENT_SECRET", "PUBLIC_URL", "PORT"]
+      "cache": false
     },
     "storybook": { "persistent": true, "cache": false }
   }

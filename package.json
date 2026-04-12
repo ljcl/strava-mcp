@@ -15,10 +15,10 @@
     "lint:fix": "biome check --write .",
     "dev": "turbo run dev",
     "typecheck": "turbo run typecheck",
-    "check": "biome check . && turbo run test",
+    "check": "turbo run lint test typecheck",
     "knip": "knip",
     "storybook": "turbo run storybook --filter=@strava-mcp/storybook",
-    "build-storybook": "turbo run build-storybook --filter=@strava-mcp/storybook"
+    "build-storybook": "turbo run build:storybook --filter=@strava-mcp/storybook"
   },
   "devDependencies": {
     "@biomejs/biome": "2.4.11",
