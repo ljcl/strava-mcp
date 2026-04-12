@@ -2,9 +2,6 @@
   "name": "@strava-mcp/storybook",
   "private": true,
   "type": "module",
-  "exports": {
-    "./preview": "./.storybook/preview.tsx"
-  },
   "scripts": {
     "storybook": "storybook dev -p 6006",
     "build:storybook": "storybook build",
