@@ -4,8 +4,8 @@
 }
 
 .header {
-  padding: 0 8px;
-  margin-bottom: 8px;
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-2);
   font-family: var(--font-sans);
 }
 
@@ -23,18 +23,18 @@
 .footer {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-3);
   align-items: center;
   justify-content: space-between;
   min-width: 0;
-  padding: 0 8px;
-  margin-top: 8px;
+  padding: 0 var(--space-2);
+  margin-top: var(--space-2);
 }
 
 .footerControls {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
   min-width: 0;
 }
@@ -43,7 +43,7 @@
    the full card width so it can wrap into multiple rows. */
 .activityChart[data-compact] .footer {
   flex-direction: column;
-  gap: 10px;
+  gap: var(--space-2);
   align-items: stretch;
 }
 
@@ -52,7 +52,7 @@
 }
 
 .activityChart[data-compact] .header {
-  padding: 0 4px;
+  padding: 0 var(--space-1);
 }
 
 .activityChart[data-compact] .title {
