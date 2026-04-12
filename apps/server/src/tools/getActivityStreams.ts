@@ -199,7 +199,7 @@ export const getActivityStreamsTool = {
       const params: Record<string, string> = {
         resolution,
       };
-      if (series_type) params.series_type = series_type;
+      params.series_type = series_type;
 
       // Convert query params to string
       const queryString = new URLSearchParams(params).toString();
@@ -287,7 +287,18 @@ export const getActivityStreamsTool = {
             break;
         }
 
-        streamStats[stream.type] = stats;
+        // Use semantic keys matching the columnar output
+        const statsKey =
+          stream.type === "velocity_smooth"
+            ? isRunning
+              ? "pace"
+              : "speed"
+            : stream.type === "watts"
+              ? "power"
+              : stream.type === "grade_smooth"
+                ? "grade"
+                : stream.type;
+        streamStats[statsKey] = stats;
       });
 
       // Build columnar output
@@ -372,7 +383,7 @@ export const getActivityStreamsTool = {
           name: activity.name,
           type: activityType,
           duration: activity.moving_time,
-          distance: activity.distance
+          distance_km: activity.distance
             ? Math.round(activity.distance / 10) / 100
             : undefined,
         },
