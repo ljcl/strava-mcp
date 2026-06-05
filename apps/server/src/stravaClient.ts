@@ -3,6 +3,10 @@ import path from "node:path";
 import { z } from "zod";
 import { HttpError, stravaApi } from "./fetchClient";
 import { saveTokens, type TokenData } from "./tokenManager";
+import {
+  buildUpdateActivityBody,
+  type UpdateActivityParams,
+} from "./utils/activityWrite";
 
 // SummaryActivity schema based on Strava Swagger spec
 // Uses .passthrough() so Zod doesn't strip unrecognized fields
@@ -1749,6 +1753,68 @@ export async function getActivityPhotos(
         // Use new token from environment after refresh
         const newToken = process.env.STRAVA_ACCESS_TOKEN!;
         return getActivityPhotos(newToken, activityId, size);
+      },
+    );
+  }
+}
+
+/**
+ * Updates an activity's mutable fields (name, description, sport type, gear,
+ * and flags). Only provided fields are sent. Requires the activity:write scope.
+ *
+ * @param accessToken - The Strava API access token.
+ * @param activityId - The ID of the activity to update.
+ * @param updates - The mutable fields to apply. `description` must already be
+ *   resolved (append composition happens in the tool layer).
+ * @returns The updated detailed activity.
+ */
+export async function updateActivity(
+  accessToken: string,
+  activityId: number,
+  updates: UpdateActivityParams,
+): Promise<StravaDetailedActivity> {
+  if (!accessToken) {
+    throw new Error("Strava access token is required.");
+  }
+  if (!activityId) {
+    throw new Error("Activity ID is required to update an activity.");
+  }
+
+  const body = buildUpdateActivityBody(updates);
+
+  try {
+    const response = await stravaApi.put<unknown>(
+      `/activities/${activityId}`,
+      body,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const validationResult = ExtendedDetailedActivitySchema.safeParse(
+      response.data,
+    );
+
+    if (!validationResult.success) {
+      console.error(
+        `Strava API validation failed (updateActivity: ${activityId}):`,
+        validationResult.error,
+      );
+      throw new Error(
+        `Invalid data format received from Strava API: ${validationResult.error.message}`,
+      );
+    }
+    return validationResult.data;
+  } catch (error) {
+    return await handleApiError<StravaDetailedActivity>(
+      error,
+      `updateActivity for ID ${activityId}`,
+      async () => {
+        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+        return updateActivity(newToken, activityId, updates);
       },
     );
   }
