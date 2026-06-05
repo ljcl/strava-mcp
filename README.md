@@ -163,7 +163,16 @@ The server implements automatic token management:
 - **Persistence**: Tokens are saved to `data/tokens.json` (survives container restarts)
 - **Re-authorization**: Visit `/auth/start` anytime to re-authorize
 
-You only need to authorize once. The refresh token is used to obtain new access tokens automatically.
+You only need to authorize once **per scope set**. The refresh token obtains new access tokens automatically, but it cannot add scopes that were not granted originally.
+
+### Re-authorizing after a scope change
+
+When the server gains a tool that needs a new OAuth scope (for example `activity:write` for editing activities), you must do a fresh authorization to mint a token that carries it. The automatic refresh keeps the old scopes.
+
+- Local: `cd apps/server && bun run setup-auth`
+- Web / Docker: visit `/auth/start` on your server
+
+Both flows use `approval_prompt=force`, so Strava re-prompts and issues a token with the current scope set.
 
 ## Natural Language Examples
 
@@ -203,6 +212,8 @@ The server exposes the following MCP tools:
 | `get-recent-activities` | Fetch recent activities |
 | `get-all-activities` | Fetch all activities with filtering |
 | `get-activity-details` | Get detailed info for a specific activity |
+| `update-activity` | Update an activity's description, title, sport type, gear, or flags |
+| `get-activity-segment-efforts` | Segment efforts in an activity, with PRs and top-10s highlighted |
 | `get-activity-streams` | Get time-series data (HR, power, GPS, etc.) |
 | `get-activity-laps` | Get lap data for an activity |
 | `get-activity-photos` | Get photos from an activity |
@@ -218,6 +229,7 @@ The server exposes the following MCP tools:
 | `get-athlete-profile` | Get authenticated athlete's profile |
 | `get-athlete-stats` | Get activity statistics (recent, YTD, all-time) |
 | `get-athlete-zones` | Get heart rate and power zones |
+| `list-gear` | List saved gear (shoes and bikes) with distance and status |
 | `list-athlete-clubs` | List clubs the athlete is a member of |
 
 ### Segment Tools
