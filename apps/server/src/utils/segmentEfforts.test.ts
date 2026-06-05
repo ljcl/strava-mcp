@@ -31,9 +31,18 @@ describe("processSegmentEfforts", () => {
       "Park Loop", // no rank
     ]);
     const [first, second, third] = result.efforts;
-    expect(first?.achievement).toBe("PR");
+    expect(first?.achievement).toBe("PR, Top 10 (#8)");
     expect(second?.achievement).toBe("2nd best");
     expect(third?.achievement).toBeNull();
+  });
+
+  it("labels a PR that is not also a top-10 as just the PR", () => {
+    // biome-ignore lint/style/noNonNullAssertion: fixture index is statically known
+    const riverside = efforts[0]!;
+    const prOnly = [{ ...riverside, pr_rank: 1, kom_rank: null }];
+    const result = processSegmentEfforts(prOnly);
+    const [first] = result.efforts;
+    expect(first?.achievement).toBe("PR");
   });
 
   it("labels a top-10 effort that is not a PR", () => {

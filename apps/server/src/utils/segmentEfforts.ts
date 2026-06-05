@@ -41,11 +41,14 @@ function achievementLabel(
   prRank: number | null | undefined,
   komRank: number | null | undefined,
 ): string | null {
-  if (prRank === 1) return "PR";
-  if (prRank === 2) return "2nd best";
-  if (prRank === 3) return "3rd best";
-  if (komRank != null) return `Top 10 (#${komRank})`;
-  return null;
+  // An effort can be both a personal best and a top-10 leaderboard placing.
+  // Surface both so the line matches the summary counts.
+  const parts: string[] = [];
+  if (prRank === 1) parts.push("PR");
+  else if (prRank === 2) parts.push("2nd best");
+  else if (prRank === 3) parts.push("3rd best");
+  if (komRank != null) parts.push(`Top 10 (#${komRank})`);
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 function tier(e: EffortLike): number {
