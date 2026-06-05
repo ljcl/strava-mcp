@@ -7,7 +7,7 @@ import * as dotenv from "dotenv";
 // Define required scopes for all current and planned tools
 // Explicitly request profile and activity read access.
 const REQUIRED_SCOPES =
-  "profile:read_all,activity:read_all,activity:read,profile:write";
+  "profile:read_all,activity:read_all,activity:read,profile:write,activity:write";
 const REDIRECT_URI = "http://localhost"; // Must match one configured in Strava App settings
 
 const __filename = fileURLToPath(import.meta.url);
