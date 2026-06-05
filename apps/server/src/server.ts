@@ -38,6 +38,7 @@ import { listAthleteRoutesTool } from "./tools/listAthleteRoutes";
 import { listSegmentEffortsTool } from "./tools/listSegmentEfforts";
 import { listStarredSegments } from "./tools/listStarredSegments";
 import { starSegment } from "./tools/starSegment";
+import { updateActivityTool } from "./tools/updateActivity";
 
 const EMPTY_SCHEMA = { type: "object", properties: {}, required: [] } as const;
 
@@ -65,6 +66,7 @@ const STRAVA_TOOLS = [
   getAthleteProfile,
   getAthleteStatsTool,
   getActivityDetailsTool,
+  updateActivityTool,
   getRecentActivities,
   listAthleteClubs,
   listStarredSegments,
