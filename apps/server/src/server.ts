@@ -37,6 +37,7 @@ import { getTrainingLoadTool } from "./tools/getTrainingLoad";
 import { listAthleteClubs } from "./tools/listAthleteClubs";
 import { listAthleteRoutesTool } from "./tools/listAthleteRoutes";
 import { listSegmentEffortsTool } from "./tools/listSegmentEfforts";
+import { getActivitySegmentEffortsTool } from "./tools/getActivitySegmentEfforts";
 import { listStarredSegments } from "./tools/listStarredSegments";
 import { starSegment } from "./tools/starSegment";
 import { updateActivityTool } from "./tools/updateActivity";
@@ -77,6 +78,7 @@ const STRAVA_TOOLS = [
   starSegment,
   getSegmentEffortTool,
   listSegmentEffortsTool,
+  getActivitySegmentEffortsTool,
   listAthleteRoutesTool,
   getRouteTool,
   exportRouteGpx,
