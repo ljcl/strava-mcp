@@ -80,6 +80,19 @@ const BaseAthleteSchema = z.object({
   id: z.number().int(),
   resource_state: z.number().int(),
 });
+
+// --- Athlete Gear (summary) Schema ---
+// Gear as it appears in the shoes/bikes arrays on the detailed athlete profile.
+const AthleteGearSchema = z.object({
+  id: z.string(),
+  resource_state: z.number().int().optional(),
+  primary: z.boolean(),
+  name: z.string(),
+  nickname: z.string().nullable().optional(),
+  retired: z.boolean().optional(),
+  distance: z.number(),
+});
+
 const DetailedAthleteSchema = BaseAthleteSchema.extend({
   username: z.string().nullable(),
   firstname: z.string(),
@@ -96,7 +109,9 @@ const DetailedAthleteSchema = BaseAthleteSchema.extend({
   profile: z.string().url(),
   weight: z.number().nullable(),
   measurement_preference: z.enum(["feet", "meters"]).optional().nullable(),
-  // Add other fields as needed (e.g., follower_count, friend_count, ftp, clubs, bikes, shoes)
+  // Add other fields as needed (e.g., follower_count, friend_count, ftp, clubs)
+  shoes: z.array(AthleteGearSchema).optional(),
+  bikes: z.array(AthleteGearSchema).optional(),
 });
 
 // Type alias for the inferred athlete type
@@ -346,9 +361,10 @@ const BestEffortSchema = z.object({
   hidden: z.boolean().optional().nullable(),
 });
 
-// Extend DetailedActivitySchema to include best_efforts now that BestEffortSchema is defined
+// Extend DetailedActivitySchema to include best_efforts and segment_efforts now that the schemas are defined
 const ExtendedDetailedActivitySchema = DetailedActivitySchema.extend({
   best_efforts: z.array(BestEffortSchema).optional(),
+  segment_efforts: z.array(DetailedSegmentEffortSchema).optional(),
 });
 export type StravaDetailedActivity = z.infer<
   typeof ExtendedDetailedActivitySchema
@@ -390,6 +406,7 @@ const StravaRoutesResponseSchema = z.array(RouteSchema);
 // --- Schema Exports for Testing ---
 export {
   ActivityStatsSchema,
+  AthleteGearSchema,
   DetailedAthleteSchema,
   DetailedSegmentSchema,
   ExtendedDetailedActivitySchema as DetailedActivitySchema,

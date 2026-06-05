@@ -16,6 +16,36 @@ export const detailedAthlete = {
   profile: "https://example.com/avatar.jpg",
   weight: 70.5,
   measurement_preference: "meters" as const,
+  shoes: [
+    {
+      id: "g123456",
+      resource_state: 2,
+      primary: true,
+      name: "Nike Pegasus 40",
+      nickname: "Daily trainers",
+      retired: false,
+      distance: 412000,
+    },
+    {
+      id: "g987654",
+      resource_state: 2,
+      primary: false,
+      name: "Saucony Endorphin",
+      nickname: null,
+      retired: true,
+      distance: 805000,
+    },
+  ],
+  bikes: [
+    {
+      id: "b111222",
+      resource_state: 2,
+      primary: true,
+      name: "Canyon Endurace",
+      retired: false,
+      distance: 1500000,
+    },
+  ],
 };
 
 export const athleteWithNullFields = {
@@ -114,3 +144,10 @@ export const heartRateZones = [
   { min: 160, max: 180 },
   { min: 180, max: -1 },
 ];
+
+export const athleteNoGear = {
+  ...detailedAthlete,
+  id: 123458,
+  shoes: [],
+  bikes: [],
+};

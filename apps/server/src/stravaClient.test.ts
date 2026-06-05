@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fixtures from "./__fixtures__";
 import {
   ActivityStatsSchema,
+  AthleteGearSchema,
   DetailedActivitySchema,
   DetailedAthleteSchema,
   DetailedSegmentSchema,
@@ -41,6 +42,16 @@ describe("DetailedActivitySchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("parses activity with segment efforts", () => {
+    const result = DetailedActivitySchema.safeParse(
+      fixtures.activityWithSegmentEfforts,
+    );
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.segment_efforts?.length).toBe(3);
+    }
+  });
+
   it("rejects activity missing required fields", () => {
     const { id, ...incomplete } = fixtures.basicRunActivity;
     const result = DetailedActivitySchema.safeParse(incomplete);
@@ -71,6 +82,31 @@ describe("DetailedAthleteSchema", () => {
   it("parses athlete with null fields", () => {
     const result = DetailedAthleteSchema.safeParse(
       fixtures.athleteWithNullFields,
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("parses athlete with gear arrays", () => {
+    const result = DetailedAthleteSchema.safeParse(fixtures.detailedAthlete);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.shoes?.length).toBe(2);
+      expect(result.data.bikes?.length).toBe(1);
+    }
+  });
+});
+
+describe("AthleteGearSchema", () => {
+  it("parses a shoe gear entry", () => {
+    const result = AthleteGearSchema.safeParse(
+      fixtures.detailedAthlete.shoes[0],
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("parses a retired gear entry with null nickname", () => {
+    const result = AthleteGearSchema.safeParse(
+      fixtures.detailedAthlete.shoes[1],
     );
     expect(result.success).toBe(true);
   });
