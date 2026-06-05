@@ -48,7 +48,7 @@ interface WeekData {
   time_seconds: number;
   elevation_m: number;
   activities: Array<{
-    id: number;
+    id: string;
     name: string;
     date: string;
     distance_km: number;

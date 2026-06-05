@@ -30,6 +30,43 @@ interface RequestInterceptor {
   onRejected?: (error: Error) => Promise<Error>;
 }
 
+/**
+ * Parses a JSON string while preserving integers that exceed
+ * `Number.MAX_SAFE_INTEGER` (2^53 - 1).
+ *
+ * Strava issues 64-bit identifiers — segment-effort ids in particular now run
+ * well past 2^53 — which the default number-based `JSON.parse` silently rounds,
+ * corrupting the id before any validation runs (and tripping Zod's safe-integer
+ * bound). The reviver's third argument exposes the raw source text for each
+ * value (supported by Bun's JavaScriptCore and Node >= 21), so we can detect an
+ * unsafe integer and keep its exact digits as a string instead. Downstream id
+ * schemas accept string ids, so they round-trip losslessly.
+ *
+ * On runtimes that don't expose the source text the reviver is a no-op and
+ * parsing falls back to the (lossy) default — same behaviour as before.
+ */
+export function parseJsonWithLargeInts(text: string): unknown {
+  const reviver = (
+    _key: string,
+    value: unknown,
+    context?: { source?: string },
+  ): unknown => {
+    if (
+      typeof value === "number" &&
+      !Number.isSafeInteger(value) &&
+      typeof context?.source === "string" &&
+      /^-?\d+$/.test(context.source)
+    ) {
+      return context.source;
+    }
+    return value;
+  };
+
+  // The 3-arg reviver is cast to the standard 2-arg signature so this compiles
+  // regardless of the TS lib version; engines still pass `context` at runtime.
+  return JSON.parse(text, reviver as (key: string, value: unknown) => unknown);
+}
+
 class FetchClient {
   private baseURL: string;
   private requestInterceptors: RequestInterceptor[] = [];
@@ -115,7 +152,8 @@ class FetchClient {
     } else {
       const contentType = response.headers.get("content-type");
       if (contentType?.includes("application/json")) {
-        data = await response.json();
+        // Parse via text so oversized Strava ids survive without precision loss.
+        data = parseJsonWithLargeInts(await response.text()) as T;
       } else {
         data = (await response.text()) as T;
       }

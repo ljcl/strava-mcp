@@ -8,6 +8,11 @@ import {
   formatRouteSummary,
   formatSpeed,
 } from "./formatters";
+import { RouteSchema } from "./stravaClient";
+
+// Raw route fixtures use numeric ids; parse them so the formatter receives the
+// normalised (string-id) shape it gets in production.
+const parseRoute = (raw: unknown) => RouteSchema.parse(raw);
 
 describe("formatDuration", () => {
   it("formats seconds to HH:MM:SS with hours", () => {
@@ -121,7 +126,7 @@ describe("formatSpeed", () => {
 
 describe("formatRouteSummary", () => {
   it("formats route with all fields", () => {
-    const result = formatRouteSummary(basicRoute);
+    const result = formatRouteSummary(parseRoute(basicRoute));
     expect(result).toContain("Sunday Long Ride");
     expect(result).toContain("50.00 km");
     expect(result).toContain("500 m");
@@ -129,7 +134,7 @@ describe("formatRouteSummary", () => {
   });
 
   it("handles null description", () => {
-    const result = formatRouteSummary(routeWithNullOptionals);
+    const result = formatRouteSummary(parseRoute(routeWithNullOptionals));
     expect(result).not.toContain("Description:");
   });
 
@@ -138,7 +143,7 @@ describe("formatRouteSummary", () => {
       ...basicRoute,
       description: "A".repeat(150),
     };
-    const result = formatRouteSummary(longDescRoute);
+    const result = formatRouteSummary(parseRoute(longDescRoute));
     expect(result).toContain("...");
   });
 });
