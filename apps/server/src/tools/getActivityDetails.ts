@@ -14,6 +14,7 @@ import {
   metersPerSecToPace,
   transformCadence,
 } from "../utils/running";
+import { summarizeAchievements } from "../utils/segmentEfforts";
 
 // Zod schema for input validation
 const GetActivityDetailsInputSchema = z.object({
@@ -81,6 +82,12 @@ function formatActivityDetails(activity: StravaDetailedActivity): string {
   if (activity.description)
     details += `   - Description: ${activity.description}\n`;
   if (activity.gear) details += `   - Gear: ${activity.gear.name}\n`;
+  if (activity.segment_efforts && activity.segment_efforts.length > 0) {
+    const { total, prCount, topTenCount } = summarizeAchievements(
+      activity.segment_efforts,
+    );
+    details += `   - Segments: ${total} efforts, ${prCount} PR${prCount === 1 ? "" : "s"}, ${topTenCount} top-10 (use get-activity-segment-efforts for detail)\n`;
+  }
 
   return details;
 }
