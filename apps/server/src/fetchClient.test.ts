@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HttpError } from "./fetchClient";
+import { HttpError, parseJsonWithLargeInts } from "./fetchClient";
 
 describe("HttpError", () => {
   it("creates error with correct message", () => {
@@ -74,5 +74,44 @@ describe("HttpError", () => {
     });
 
     expect(error.stack).toBeDefined();
+  });
+});
+
+describe("parseJsonWithLargeInts", () => {
+  it("preserves integers beyond MAX_SAFE_INTEGER as exact strings", () => {
+    // A real-world Strava segment-effort id, well past 2^53 - 1.
+    const big = "3503400000123456789";
+    const out = parseJsonWithLargeInts(`{"id":${big}}`) as { id: unknown };
+    expect(out.id).toBe(big);
+  });
+
+  it("leaves safe integers as numbers", () => {
+    const out = parseJsonWithLargeInts('{"id":18685903457}') as { id: unknown };
+    expect(out.id).toBe(18685903457);
+    expect(typeof out.id).toBe("number");
+  });
+
+  it("does not touch floats or non-integer numbers", () => {
+    const out = parseJsonWithLargeInts('{"distance":5000.5,"grade":-1.2}') as {
+      distance: unknown;
+      grade: unknown;
+    };
+    expect(out.distance).toBe(5000.5);
+    expect(out.grade).toBe(-1.2);
+  });
+
+  it("preserves oversized ids nested in arrays", () => {
+    const out = parseJsonWithLargeInts(
+      '{"segment_efforts":[{"id":3503400000123456789},{"id":42}]}',
+    ) as { segment_efforts: Array<{ id: unknown }> };
+    expect(out.segment_efforts[0]?.id).toBe("3503400000123456789");
+    expect(out.segment_efforts[1]?.id).toBe(42);
+  });
+
+  it("preserves negative oversized integers", () => {
+    const out = parseJsonWithLargeInts('{"id":-9007199254740993}') as {
+      id: unknown;
+    };
+    expect(out.id).toBe("-9007199254740993");
   });
 });

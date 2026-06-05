@@ -70,7 +70,7 @@ const STANDARD_DISTANCES = [
 ];
 
 interface BestEffort {
-  activity_id: number;
+  activity_id: string;
   activity_name: string;
   date: string;
   elapsed_time_seconds: number;

@@ -8,14 +8,28 @@ import {
   type UpdateActivityParams,
 } from "./utils/activityWrite";
 
+/**
+ * Strava resource identifier (activity, segment, segment-effort, athlete, etc.).
+ *
+ * Strava issues 64-bit ids; segment-effort ids in particular now exceed
+ * `Number.MAX_SAFE_INTEGER`, which both loses precision under the default JSON
+ * parse and trips `z.number().int()`'s safe-integer bound. The fetch client
+ * preserves oversized integers as exact strings (see `parseJsonWithLargeInts`);
+ * here we accept a number, bigint, or string and normalise to a string so ids
+ * round-trip losslessly and never blow up validation.
+ */
+const StravaIdSchema = z
+  .union([z.number(), z.bigint(), z.string()])
+  .transform((value) => value.toString());
+
 // SummaryActivity schema based on Strava Swagger spec
 // Uses .passthrough() so Zod doesn't strip unrecognized fields
 const StravaActivitySchema = z
   .object({
-    id: z.number().int(),
+    id: StravaIdSchema,
     resource_state: z.number().int().optional(),
     athlete: z
-      .object({ id: z.number().int(), resource_state: z.number().int() })
+      .object({ id: StravaIdSchema, resource_state: z.number().int() })
       .optional(),
     name: z.string(),
     distance: z.number(),
@@ -26,7 +40,7 @@ const StravaActivitySchema = z
     sport_type: z.string().optional(),
     workout_type: z.number().int().optional().nullable(),
     external_id: z.string().optional().nullable(),
-    upload_id: z.number().int().optional().nullable(),
+    upload_id: StravaIdSchema.optional().nullable(),
     start_date: z.string().datetime(),
     start_date_local: z.string().datetime().optional(),
     timezone: z.string().optional(),
@@ -81,7 +95,7 @@ const StravaActivitiesResponseSchema = z.array(StravaActivitySchema);
 
 // Define the expected structure for the Authenticated Athlete response
 const BaseAthleteSchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
   resource_state: z.number().int(),
 });
 
@@ -151,7 +165,7 @@ export type StravaStats = z.infer<typeof ActivityStatsSchema>;
 // --- Club Schema ---
 // Based on https://developers.strava.com/docs/reference/#api-models-SummaryClub
 const SummaryClubSchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
   resource_state: z.number().int(),
   name: z.string(),
   profile_medium: z.string().url(),
@@ -194,7 +208,7 @@ const MapSchema = z
 
 // --- Segment Schema ---
 const SummarySegmentSchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
   name: z.string(),
   activity_type: z.string(),
   distance: z.number(),
@@ -230,7 +244,7 @@ const StravaSegmentsResponseSchema = z.array(SummarySegmentSchema);
 // --- Explorer Schemas ---
 // Based on https://developers.strava.com/docs/reference/#api-models-ExplorerSegment
 const ExplorerSegmentSchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
   name: z.string(),
   climb_category: z.number().int(),
   climb_category_desc: z.string(), // e.g., "NC", "4", "3", "2", "1", "HC"
@@ -252,7 +266,7 @@ export type StravaExplorerResponse = z.infer<typeof ExplorerResponseSchema>;
 // --- Detailed Activity Schema ---
 // Based on https://developers.strava.com/docs/reference/#api-models-DetailedActivity
 const DetailedActivitySchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
   resource_state: z.number().int(), // Should be 3 for detailed
   athlete: BaseAthleteSchema, // Contains athlete ID
   name: z.string(),
@@ -306,7 +320,7 @@ const DetailedActivitySchema = z.object({
 // --- Meta Schemas ---
 // Based on https://developers.strava.com/docs/reference/#api-models-MetaActivity
 const MetaActivitySchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
 });
 
 // BaseAthleteSchema serves as MetaAthleteSchema (id only needed for effort)
@@ -314,7 +328,7 @@ const MetaActivitySchema = z.object({
 // --- Segment Effort Schema ---
 // Based on https://developers.strava.com/docs/reference/#api-models-DetailedSegmentEffort
 const DetailedSegmentEffortSchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
   activity: MetaActivitySchema,
   athlete: BaseAthleteSchema,
   segment: SummarySegmentSchema, // Reuse SummarySegmentSchema
@@ -343,7 +357,7 @@ export type StravaDetailedSegmentEffort = z.infer<
 // Best efforts are different from segment efforts - they represent time-based achievements
 // (e.g., best 400m, 1/2 mile, 1k, etc.) and don't have a segment field (or it's null)
 const BestEffortSchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
   activity: MetaActivitySchema.optional(),
   athlete: BaseAthleteSchema.optional(),
   segment: SummarySegmentSchema.nullish(), // Best efforts don't have segments, but API may return null
@@ -381,7 +395,7 @@ const RouteSchema = z.object({
   description: z.string().nullable(),
   distance: z.number(), // meters
   elevation_gain: z.number().nullable(), // meters
-  id: z.number().int(),
+  id: StravaIdSchema,
   id_str: z.string(),
   map: MapSchema, // Reuse MapSchema
   map_urls: z
@@ -888,7 +902,7 @@ export async function getAthleteStats(
  */
 export async function getActivityById(
   accessToken: string,
-  activityId: number,
+  activityId: number | string,
 ): Promise<StravaDetailedActivity> {
   if (!accessToken) {
     throw new Error("Strava access token is required.");
@@ -1503,7 +1517,7 @@ export async function exportRouteTcx(
 // --- Photo Schema ---
 // Based on https://developers.strava.com/docs/reference/#api-models-Photo
 const PhotoSchema = z.object({
-  id: z.number().int().nullable().optional(), // Photo ID (may be null for some sources)
+  id: StravaIdSchema.nullable().optional(), // Photo ID (may be null for some sources)
   unique_id: z.string().nullable().optional(), // Unique identifier
   urls: z.record(z.string(), z.string()).optional(), // Maps size names (e.g., "100", "600", "1800") to URLs
   source: z.number().int().optional(), // 1 = Strava, 2 = Instagram
@@ -1512,11 +1526,11 @@ const PhotoSchema = z.object({
   created_at_local: z.string().optional().nullable(),
   location: z.array(z.number()).nullable().optional(), // [lat, lng]
   caption: z.string().nullable().optional(),
-  activity_id: z.number().int().optional(),
+  activity_id: StravaIdSchema.optional(),
   activity_name: z.string().optional().nullable(),
   resource_state: z.number().int().optional(),
-  athlete_id: z.number().int().optional().nullable(),
-  post_id: z.number().int().nullable().optional(),
+  athlete_id: StravaIdSchema.optional().nullable(),
+  post_id: StravaIdSchema.nullable().optional(),
   default_photo: z.boolean().optional(),
   type: z.union([z.string(), z.number()]).optional(), // Can be number (1) or string ("InstagramPhoto")
   status: z.number().int().optional(), // Processing status
@@ -1537,7 +1551,7 @@ const StravaPhotosResponseSchema = z.array(PhotoSchema);
 // --- Lap Schema ---
 // Based on https://developers.strava.com/docs/reference/#api-models-Lap and user-provided image
 const LapSchema = z.object({
-  id: z.number().int(),
+  id: StravaIdSchema,
   resource_state: z.number().int(),
   name: z.string(),
   activity: BaseAthleteSchema, // Reusing BaseAthleteSchema for {id, resource_state}

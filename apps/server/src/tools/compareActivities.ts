@@ -50,7 +50,7 @@ const inputSchema = z.object({
 type CompareActivitiesInput = z.infer<typeof inputSchema>;
 
 interface ActivitySummary {
-  id: number;
+  id: string;
   name: string;
   date: string;
   type: string;
