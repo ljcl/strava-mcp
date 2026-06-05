@@ -86,11 +86,6 @@ export function computeSummaryStats(
   };
 }
 
-/** Assign a run to a pace zone */
-export function getPaceZone(pace: number): PaceZone | undefined {
-  return PACE_ZONES.find((z) => pace >= z.minPace && pace < z.maxPace);
-}
-
 /** Group activities by pace zone and compute per-zone stats */
 export function computeZoneStats(activities: RunSummary[]): Array<{
   zone: PaceZone;

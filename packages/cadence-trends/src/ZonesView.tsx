@@ -12,8 +12,8 @@ import {
   YAxis,
 } from "recharts";
 import { computeZoneStats } from "./normalize";
-import styles from "./ScatterView.module.css";
 import { type RunSummary } from "./types";
+import styles from "./ZonesView.module.css";
 
 interface ZonesViewProps {
   activities: RunSummary[];

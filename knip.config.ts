@@ -4,35 +4,43 @@ export default {
   workspaces: {
     "apps/server": {
       project: ["src/**/*.ts"],
-      ignore: ["**/*.test.ts", "**/__fixtures__/**"],
+      // Resolved at runtime via createRequire(...).resolve("<pkg>/app.html"),
+      // which knip cannot trace as a static import.
+      ignoreDependencies: [
+        "@strava-mcp/activity-chart",
+        "@strava-mcp/cadence-trends",
+      ],
     },
     "packages/activity-chart": {
       entry: ["src/main.tsx"],
       project: ["src/**/*.{ts,tsx}"],
-      ignore: ["vite-env.d.ts"],
-      ignoreDependencies: ["@strava-mcp/design-system"],
     },
     "packages/design-system": {
       project: ["src/**/*.{ts,tsx}"],
-      ignoreDependencies: ["@strava-mcp/tsconfig"],
     },
     "packages/ui": {
-      entry: ["src/index.ts"],
       project: ["src/**/*.{ts,tsx}"],
-      ignoreDependencies: ["@strava-mcp/design-system"],
     },
     "apps/storybook": {
       storybook: {
         config: [".storybook/main.ts"],
         entry: [
           ".storybook/{manager,preview,index,vitest.setup}.{js,jsx,ts,tsx}",
-          "../../../packages/activity-chart/src/**/*.stories.@(ts|tsx)",
-          "../../../packages/design-system/stories/**/*.stories.@(ts|tsx)",
-          "../../../packages/ui/src/**/*.stories.@(ts|tsx)",
+          "../../packages/activity-chart/src/**/*.stories.@(ts|tsx)",
+          "../../packages/cadence-trends/src/**/*.stories.@(ts|tsx)",
+          "../../packages/design-system/stories/**/*.stories.@(ts|tsx)",
+          "../../packages/ui/src/**/*.stories.@(ts|tsx)",
         ],
         project: [".storybook/**/*.{js,jsx,ts,tsx,mts}"],
       },
-      ignoreDependencies: ["@strava-mcp/tsconfig"],
+      // Consumed by Storybook's `stories` directory globs at build time (the
+      // story files are co-located in each package and import relatively), so
+      // there is no static `@strava-mcp/*` import for knip to follow.
+      ignoreDependencies: [
+        "@strava-mcp/activity-chart",
+        "@strava-mcp/cadence-trends",
+        "@strava-mcp/ui",
+      ],
     },
   },
   ignoreExportsUsedInFile: true,
