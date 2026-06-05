@@ -24,6 +24,7 @@ import { getActivityPhotosTool } from "./tools/getActivityPhotos";
 import { getActivityStreamsTool } from "./tools/getActivityStreams";
 import { getAllActivities } from "./tools/getAllActivities";
 import { getAthleteProfile } from "./tools/getAthleteProfile";
+import { listGearTool } from "./tools/listGear";
 import { getAthleteStatsTool } from "./tools/getAthleteStats";
 import { getAthleteZonesTool } from "./tools/getAthleteZones";
 import { getBestEffortsTool } from "./tools/getBestEfforts";
@@ -64,6 +65,7 @@ interface ToolDef {
 /** All existing Strava tools */
 const STRAVA_TOOLS = [
   getAthleteProfile,
+  listGearTool,
   getAthleteStatsTool,
   getActivityDetailsTool,
   updateActivityTool,
