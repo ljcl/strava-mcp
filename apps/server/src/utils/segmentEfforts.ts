@@ -1,4 +1,4 @@
-import type { StravaDetailedSegmentEffort } from "../stravaClient";
+import { type StravaDetailedSegmentEffort } from "../stravaClient";
 
 export interface AchievementSummary {
   total: number;

@@ -1,4 +1,4 @@
-import type { StravaAthlete } from "../stravaClient";
+import { type StravaAthlete } from "../stravaClient";
 
 export interface GearListItem {
   id: string;
