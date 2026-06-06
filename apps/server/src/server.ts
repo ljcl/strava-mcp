@@ -6,6 +6,7 @@ import {
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
+  type ToolAnnotations,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { stravaApi } from "./fetchClient";
@@ -60,6 +61,8 @@ interface ToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  annotations?: ToolAnnotations;
   _meta?: Record<string, unknown>;
 }
 
@@ -96,13 +99,23 @@ const STRAVA_TOOLS = [
 
 /** Convert existing tool definitions to low-level TOOLS array */
 function buildToolDefs(): ToolDef[] {
-  const defs: ToolDef[] = STRAVA_TOOLS.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    inputSchema: tool.inputSchema
-      ? z.toJSONSchema(tool.inputSchema)
-      : EMPTY_SCHEMA,
-  }));
+  const defs: ToolDef[] = STRAVA_TOOLS.map((tool) => {
+    const t = tool as {
+      name: string;
+      description: string;
+      inputSchema?: z.ZodType;
+      outputSchema?: z.ZodType;
+      annotations?: ToolAnnotations;
+    };
+    const def: ToolDef = {
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema ? z.toJSONSchema(t.inputSchema) : EMPTY_SCHEMA,
+    };
+    if (t.annotations) def.annotations = t.annotations;
+    if (t.outputSchema) def.outputSchema = z.toJSONSchema(t.outputSchema);
+    return def;
+  });
 
   // Add MCP App tools
   defs.push({
@@ -199,6 +212,7 @@ const TOOL_EXECUTORS = new Map<
   string,
   (args: Record<string, unknown>) => Promise<{
     content: Array<{ type: string; text: string }>;
+    structuredContent?: unknown;
     isError?: boolean;
   }>
 >();
