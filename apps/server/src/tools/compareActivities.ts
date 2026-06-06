@@ -7,6 +7,7 @@ import {
   transformCadence,
 } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
+import { CompareActivitiesOutputSchema } from "./outputs";
 
 const name = "compare-activities";
 
@@ -103,6 +104,7 @@ export const compareActivitiesTool = {
   description,
   inputSchema,
   annotations: READ_ONLY,
+  outputSchema: CompareActivitiesOutputSchema,
   execute: async ({ activityId1, activityId2 }: CompareActivitiesInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -284,14 +286,19 @@ export const compareActivitiesTool = {
         `Successfully compared activities ${activityId1} and ${activityId2}`,
       );
 
+      if (process.env.NODE_ENV !== "production") {
+        const _check = CompareActivitiesOutputSchema.safeParse(result);
+        if (!_check.success) {
+          console.error(
+            "[compare-activities] structuredContent schema drift:",
+            _check.error,
+          );
+        }
+      }
+
       return {
-        content: [
-          { type: "text" as const, text: output },
-          {
-            type: "text" as const,
-            text: `\n**Raw Data:**\n${JSON.stringify(result, null, 2)}`,
-          },
-        ],
+        content: [{ type: "text" as const, text: output }],
+        structuredContent: result,
       };
     } catch (error) {
       const errorMessage =

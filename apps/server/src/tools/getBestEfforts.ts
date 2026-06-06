@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getActivityById, getAllActivities } from "../stravaClient";
 import { formatDuration, metersPerSecToPace } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
+import { BestEffortsOutputSchema } from "./outputs";
 
 const name = "get-best-efforts";
 
@@ -87,6 +88,7 @@ export const getBestEffortsTool = {
   description,
   inputSchema,
   annotations: READ_ONLY,
+  outputSchema: BestEffortsOutputSchema,
   execute: async ({ distance, limit, maxActivities }: GetBestEffortsInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -255,14 +257,19 @@ export const getBestEffortsTool = {
         `Successfully retrieved best efforts from ${activitiesWithEfforts} activities`,
       );
 
+      if (process.env.NODE_ENV !== "production") {
+        const _check = BestEffortsOutputSchema.safeParse(response);
+        if (!_check.success) {
+          console.error(
+            "[get-best-efforts] structuredContent schema drift:",
+            _check.error,
+          );
+        }
+      }
+
       return {
-        content: [
-          { type: "text" as const, text: output },
-          {
-            type: "text" as const,
-            text: `\n**Raw Data:**\n${JSON.stringify(response, null, 2)}`,
-          },
-        ],
+        content: [{ type: "text" as const, text: output }],
+        structuredContent: response,
       };
     } catch (error) {
       const errorMessage =

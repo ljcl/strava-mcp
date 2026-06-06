@@ -115,6 +115,8 @@ export function buildAthleteStatsOutput(s: StravaStats): AthleteStatsOutput {
 }
 
 // ---------- get-athlete-zones ----------
+// Mirrors the raw Strava athlete-zones API object (StravaAthleteZones).
+// looseObject() lets extra/unknown API fields pass through without failing.
 const ZoneRangeSchema = z.object({
   min: z.number(),
   max: z.number().optional(),
@@ -122,15 +124,28 @@ const ZoneRangeSchema = z.object({
 const DistributionBucketSchema = z.object({
   min: z.number(),
   max: z.number(),
-  time_s: z.number().int().describe("Seconds spent in this bucket"),
+  time: z.number().int().describe("Seconds spent in this bucket"),
 });
-const ZoneSetSchema = z.object({
+const HeartRateZoneSetSchema = z.looseObject({
+  custom_zones: z.boolean(),
   zones: z.array(ZoneRangeSchema),
   distribution_buckets: z.array(DistributionBucketSchema).optional(),
+  resource_state: z.number().int().optional(),
+  sensor_based: z.boolean().optional(),
+  points: z.number().int().optional(),
+  type: z.literal("heartrate").optional(),
 });
-export const AthleteZonesOutputSchema = z.object({
-  heart_rate: ZoneSetSchema.nullable(),
-  power: ZoneSetSchema.nullable(),
+const PowerZoneSetSchema = z.looseObject({
+  zones: z.array(ZoneRangeSchema),
+  distribution_buckets: z.array(DistributionBucketSchema).optional(),
+  resource_state: z.number().int().optional(),
+  sensor_based: z.boolean().optional(),
+  points: z.number().int().optional(),
+  type: z.literal("power").optional(),
+});
+export const AthleteZonesOutputSchema = z.looseObject({
+  heart_rate: HeartRateZoneSetSchema.optional(),
+  power: PowerZoneSetSchema.optional(),
 });
 
 // ---------- get-training-load ----------

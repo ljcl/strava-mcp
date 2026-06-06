@@ -15,6 +15,7 @@ import {
   type ZoneBoundary,
 } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
+import { RunningSummaryOutputSchema } from "./outputs";
 
 const name = "get-running-summary";
 
@@ -95,6 +96,7 @@ export const getRunningSummaryTool = {
   description,
   inputSchema,
   annotations: READ_ONLY,
+  outputSchema: RunningSummaryOutputSchema,
   execute: async ({ activityId }: GetRunningSummaryInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -319,14 +321,19 @@ export const getRunningSummaryTool = {
         `Successfully generated running summary for: ${activity.name}`,
       );
 
+      if (process.env.NODE_ENV !== "production") {
+        const _check = RunningSummaryOutputSchema.safeParse(summary);
+        if (!_check.success) {
+          console.error(
+            "[get-running-summary] structuredContent schema drift:",
+            _check.error,
+          );
+        }
+      }
+
       return {
-        content: [
-          { type: "text" as const, text: output },
-          {
-            type: "text" as const,
-            text: `\n**Raw Data:**\n${JSON.stringify(summary, null, 2)}`,
-          },
-        ],
+        content: [{ type: "text" as const, text: output }],
+        structuredContent: summary,
       };
     } catch (error) {
       const errorMessage =
