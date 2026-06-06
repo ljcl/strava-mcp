@@ -312,6 +312,20 @@ bun run storybook         # Storybook on port 6006
 
 See `CLAUDE.md` for the full architecture reference, styling guide, Turborepo details, and MCP App patterns.
 
+### Commits and releases
+
+PRs are squash-merged, so the **PR title becomes the commit on `main`**. Write it as a
+[Conventional Commit](https://www.conventionalcommits.org/):
+
+- `feat: ...` — minor version bump
+- `fix: ...` — patch version bump
+- `feat!: ...` or a `BREAKING CHANGE:` footer — major version bump
+- `chore: ` / `docs: ` / `refactor: ` / `ci: ` — no release
+
+A CI check (`pr-title.yml`) rejects non-conforming PR titles. Versioning, the changelog,
+and image publishing are automated by release-please; a non-conventional title means no
+release is cut.
+
 ## Troubleshooting
 
 **AI tool can't reach the server** — MCP requires an HTTPS URL. Use a tunnel (Tailscale Funnel or Cloudflare Tunnel) to expose your local server. See [Connecting to AI Tools](#connecting-to-ai-tools).
