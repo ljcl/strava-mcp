@@ -10,3 +10,7 @@ export {
   useViewportWidth,
   widthFromHost,
 } from "./useMobileMode";
+export {
+  type ModelContextApp,
+  useModelContextSync,
+} from "./useModelContextSync";
