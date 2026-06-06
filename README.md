@@ -1,5 +1,8 @@
 # Strava MCP
 
+[![CI](https://github.com/ljcl/strava-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ljcl/strava-mcp/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 A Model Context Protocol (MCP) server that connects Large Language Models to your Strava data. Ask natural language questions about your activities, segments, routes, and more.
 
 ## Features
@@ -44,6 +47,15 @@ PUBLIC_URL=https://your-public-url.example.com
 ```bash
 docker compose up -d
 ```
+
+> **Prefer a prebuilt image?** Instead of building locally you can pull the published image:
+>
+> ```bash
+> docker pull ghcr.io/ljcl/strava-mcp:latest
+> ```
+>
+> Point your `docker-compose.yml` `image:` at `ghcr.io/ljcl/strava-mcp:latest` (and drop the
+> `build:` block) to run it without a local build.
 
 ### 4. Authorize with Strava
 
