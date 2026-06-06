@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getAllActivities } from "../stravaClient";
 import { formatDuration } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
-import { TrainingLoadOutputSchema } from "./outputs";
+import { TrainingLoadOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-training-load";
 
@@ -289,15 +289,7 @@ export const getTrainingLoadTool = {
 
       console.error(`Successfully generated training load for ${days} days`);
 
-      if (process.env.NODE_ENV !== "production") {
-        const _check = TrainingLoadOutputSchema.safeParse(result);
-        if (!_check.success) {
-          console.error(
-            "[get-training-load] structuredContent schema drift:",
-            _check.error,
-          );
-        }
-      }
+      warnOnSchemaDrift("get-training-load", TrainingLoadOutputSchema, result);
 
       return {
         content: [{ type: "text" as const, text: output }],

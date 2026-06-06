@@ -5,7 +5,7 @@ import {
 } from "../stravaClient";
 import { formatDuration } from "../utils";
 import { READ_ONLY } from "./_annotations";
-import { AthleteZonesOutputSchema } from "./outputs";
+import { AthleteZonesOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-athlete-zones";
 const description =
@@ -70,7 +70,7 @@ function formatAthleteZones(zonesData: StravaAthleteZones): string {
 
 export const getAthleteZonesTool = {
   name,
-  description: `${description}\n\nOutput includes both a formatted summary and the raw JSON data.`,
+  description: `${description}\n\nOutput includes a formatted summary plus structured data.`,
   inputSchema,
   annotations: READ_ONLY,
   outputSchema: AthleteZonesOutputSchema,
@@ -99,15 +99,11 @@ export const getAthleteZonesTool = {
 
       console.error("Successfully fetched athlete zones.");
 
-      if (process.env.NODE_ENV !== "production") {
-        const _check = AthleteZonesOutputSchema.safeParse(zonesData);
-        if (!_check.success) {
-          console.error(
-            "[get-athlete-zones] structuredContent schema drift:",
-            _check.error,
-          );
-        }
-      }
+      warnOnSchemaDrift(
+        "get-athlete-zones",
+        AthleteZonesOutputSchema,
+        zonesData,
+      );
 
       return {
         content: [{ type: "text" as const, text: formattedText }],

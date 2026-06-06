@@ -15,7 +15,7 @@ import {
   type ZoneBoundary,
 } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
-import { RunningSummaryOutputSchema } from "./outputs";
+import { RunningSummaryOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-running-summary";
 
@@ -321,15 +321,11 @@ export const getRunningSummaryTool = {
         `Successfully generated running summary for: ${activity.name}`,
       );
 
-      if (process.env.NODE_ENV !== "production") {
-        const _check = RunningSummaryOutputSchema.safeParse(summary);
-        if (!_check.success) {
-          console.error(
-            "[get-running-summary] structuredContent schema drift:",
-            _check.error,
-          );
-        }
-      }
+      warnOnSchemaDrift(
+        "get-running-summary",
+        RunningSummaryOutputSchema,
+        summary,
+      );
 
       return {
         content: [{ type: "text" as const, text: output }],

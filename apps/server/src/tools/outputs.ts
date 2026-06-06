@@ -276,6 +276,22 @@ export const CompareActivitiesOutputSchema = z.object({
   warnings: z.array(z.string()).optional(),
 });
 
+// ---------- dev-only schema drift guard ----------
+export function warnOnSchemaDrift<T>(
+  toolName: string,
+  schema: z.ZodType<T>,
+  value: unknown,
+): void {
+  if (process.env.NODE_ENV === "production") return;
+  const result = schema.safeParse(value);
+  if (!result.success) {
+    console.error(
+      `[${toolName}] structuredContent schema drift:`,
+      result.error,
+    );
+  }
+}
+
 // ---------- get-best-efforts ----------
 const BestEffortEntrySchema = z.object({
   activity_id: z.string(),

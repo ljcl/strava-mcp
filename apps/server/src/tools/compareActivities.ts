@@ -7,7 +7,7 @@ import {
   transformCadence,
 } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
-import { CompareActivitiesOutputSchema } from "./outputs";
+import { CompareActivitiesOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "compare-activities";
 
@@ -286,15 +286,11 @@ export const compareActivitiesTool = {
         `Successfully compared activities ${activityId1} and ${activityId2}`,
       );
 
-      if (process.env.NODE_ENV !== "production") {
-        const _check = CompareActivitiesOutputSchema.safeParse(result);
-        if (!_check.success) {
-          console.error(
-            "[compare-activities] structuredContent schema drift:",
-            _check.error,
-          );
-        }
-      }
+      warnOnSchemaDrift(
+        "compare-activities",
+        CompareActivitiesOutputSchema,
+        result,
+      );
 
       return {
         content: [{ type: "text" as const, text: output }],
