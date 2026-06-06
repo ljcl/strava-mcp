@@ -15,7 +15,7 @@ import {
   getActivityLaps,
   getAllActivities as getAllActivitiesFn,
 } from "./stravaClient";
-import { READ_ONLY, VIEW } from "./tools/_annotations";
+import { READ_ONLY } from "./tools/_annotations";
 import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
@@ -134,7 +134,7 @@ function buildToolDefs(): ToolDef[] {
       },
       required: ["activity_id"],
     },
-    annotations: VIEW,
+    annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://activity-chart/app.html" },
     },
@@ -178,7 +178,7 @@ function buildToolDefs(): ToolDef[] {
         },
       },
     },
-    annotations: VIEW,
+    annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://cadence-trends/app.html" },
     },
@@ -210,7 +210,7 @@ function buildToolDefs(): ToolDef[] {
   return defs;
 }
 
-const TOOLS = buildToolDefs();
+export const TOOLS = buildToolDefs();
 
 /** Map of tool name → execute function for existing Strava tools */
 const TOOL_EXECUTORS = new Map<

@@ -23,11 +23,3 @@ export const WRITE_IDEMPOTENT: ToolAnnotations = {
   idempotentHint: true,
   openWorldHint: true,
 };
-
-/** A view tool that only returns a UI resource reference; the app fetches data
- * later, so it does not itself touch the external API. */
-export const VIEW: ToolAnnotations = {
-  readOnlyHint: true,
-  idempotentHint: true,
-  openWorldHint: false,
-};

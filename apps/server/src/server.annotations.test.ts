@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { TOOLS } from "./server";
 import {
   READ_ONLY,
-  VIEW,
   WRITE_DESTRUCTIVE,
   WRITE_IDEMPOTENT,
 } from "./tools/_annotations";
@@ -20,8 +20,16 @@ describe("annotation constants", () => {
     expect(WRITE_IDEMPOTENT.idempotentHint).toBe(true);
     expect(WRITE_IDEMPOTENT.destructiveHint).toBe(false);
   });
-  it("view tools do not touch the open world", () => {
-    expect(VIEW.openWorldHint).toBe(false);
-    expect(VIEW.readOnlyHint).toBe(true);
+});
+
+describe("tool annotations exhaustiveness", () => {
+  it("every tool in TOOLS carries an annotations object", () => {
+    expect(TOOLS.length).toBeGreaterThan(0);
+    for (const tool of TOOLS) {
+      expect(
+        tool.annotations,
+        `${tool.name} is missing annotations`,
+      ).toBeDefined();
+    }
   });
 });
