@@ -8,10 +8,12 @@ import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
   Legend,
   LegendItem,
+  type ModelContextApp,
   Pill,
   PillGroup,
   TooltipEntry,
   Tooltip as UiTooltip,
+  useModelContextSync,
 } from "@strava-mcp/ui";
 import { useMemo, useState } from "react";
 import {
@@ -26,6 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import styles from "./ActivityChart.module.css";
+import { buildChartContextSummary } from "./contextSummary";
 import { type ChartLap, smoothData } from "./normalize";
 import {
   type ActivityMeta,
@@ -261,6 +264,7 @@ interface ActivityChartProps {
   laps?: ChartLap[];
   layout?: HostLayout;
   mode?: "mobile" | "desktop";
+  app?: ModelContextApp;
 }
 
 export function ActivityChart({
@@ -269,6 +273,7 @@ export function ActivityChart({
   laps,
   layout,
   mode = "desktop",
+  app,
 }: ActivityChartProps) {
   const aspect = layout?.chartAspect ?? (mode === "mobile" ? 0.95 : 1.8);
   const isMobile = mode === "mobile";
@@ -321,6 +326,18 @@ export function ActivityChart({
   // Mobile defaults to smoothed because the Smooth toggle is hidden there —
   // the raw traces are too noisy to read at small sizes anyway.
   const [smooth, setSmooth] = useState(isMobile);
+
+  useModelContextSync(
+    app,
+    () =>
+      buildChartContextSummary({
+        activityName: meta.name,
+        availableMetrics: [...availableMetrics],
+        hidden,
+        smooth,
+      }),
+    [meta.name, hidden, smooth, availableMetrics],
+  );
 
   const displayData = useMemo(
     () => (smooth ? smoothData(data) : data),

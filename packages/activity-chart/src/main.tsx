@@ -122,6 +122,7 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
         laps={laps}
         layout={layout}
         mode={mode}
+        app={app ?? undefined}
       />
     </div>
   );

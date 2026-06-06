@@ -1,9 +1,10 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { type HostLayout } from "@strava-mcp/data";
-import { Pill, PillGroup } from "@strava-mcp/ui";
+import { Pill, PillGroup, useModelContextSync } from "@strava-mcp/ui";
 import { useCallback, useMemo, useState } from "react";
 import styles from "./App.module.css";
+import { buildCadenceContextSummary } from "./contextSummary";
 import {
   computeSummaryStats,
   smoothOverlayPoints,
@@ -106,7 +107,21 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
     [app, streamCache, loadingStreams, data.activities],
   );
 
-  const selectedRuns = data.activities.filter((a) => selectedRunIds.has(a.id));
+  const selectedRuns = useMemo(
+    () => data.activities.filter((a) => selectedRunIds.has(a.id)),
+    [data.activities, selectedRunIds],
+  );
+
+  useModelContextSync(
+    app ?? undefined,
+    () =>
+      buildCadenceContextSummary({
+        weeks: data.weeks,
+        activeView,
+        selectedRuns,
+      }),
+    [data.weeks, activeView, selectedRuns],
+  );
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
@@ -167,7 +182,11 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
               <span>
                 {run.name} · {new Date(run.date).toLocaleDateString()}
               </span>
-              <button type="button" onClick={() => removeRun(run.id)}>
+              <button
+                type="button"
+                onClick={() => removeRun(run.id)}
+                aria-label={`Remove ${run.name}`}
+              >
                 ×
               </button>
             </div>

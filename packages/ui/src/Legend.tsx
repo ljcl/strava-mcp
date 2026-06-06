@@ -43,8 +43,14 @@ export function LegendItem({
       className={styles.legendButton}
       data-hidden={hidden || undefined}
       data-faded={faded || undefined}
+      aria-pressed={!hidden}
+      aria-label={`Toggle ${label}`}
     >
-      <div className={styles.swatch} style={{ backgroundColor: color }} />
+      <div
+        className={styles.swatch}
+        style={{ backgroundColor: color }}
+        aria-hidden="true"
+      />
       <span>{label}</span>
     </button>
   );
