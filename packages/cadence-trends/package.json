@@ -12,21 +12,21 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/ext-apps": "1.5.0",
+    "@modelcontextprotocol/ext-apps": "1.7.4",
     "@modelcontextprotocol/sdk": "1.29.0",
     "@strava-mcp/data": "workspace:*",
     "@strava-mcp/design-system": "workspace:*",
     "@strava-mcp/ui": "workspace:*",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "recharts": "3.8.1"
   },
   "devDependencies": {
     "@strava-mcp/tsconfig": "workspace:*",
     "@strava-mcp/vite-config": "workspace:*",
-    "@types/react": "19.2.14",
+    "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "typescript": "6.0.2",
-    "vite": "8.0.8"
+    "typescript": "6.0.3",
+    "vite": "8.0.16"
   }
 }
