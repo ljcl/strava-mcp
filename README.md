@@ -1,6 +1,7 @@
 # Strava MCP
 
 [![CI](https://github.com/ljcl/strava-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/ljcl/strava-mcp/actions/workflows/ci.yml)
+[![Storybook](https://img.shields.io/badge/Storybook-live-ff4785?logo=storybook&logoColor=white)](https://ljcl.github.io/strava-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
 A Model Context Protocol (MCP) server that connects Large Language Models to your Strava data. Ask natural language questions about your activities, segments, routes, and more.
@@ -17,6 +18,8 @@ A Model Context Protocol (MCP) server that connects Large Language Models to you
 - Interactive activity charts (heart rate, power, altitude, pace) rendered in MCP-compatible hosts
 - Automatic token refresh
 - Streamable HTTP transport for remote deployment
+
+Browse the UI components in the [live Storybook](https://ljcl.github.io/strava-mcp/).
 
 ## Quick Start (Docker)
 
