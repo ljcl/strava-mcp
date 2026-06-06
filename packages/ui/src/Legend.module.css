@@ -35,6 +35,11 @@
   padding: var(--space-2) 1px;
 }
 
+.legendButton:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
+
 .legendButton[data-hidden] {
   text-decoration: line-through;
   opacity: 0.3;
