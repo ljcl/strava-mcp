@@ -107,7 +107,10 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
     [app, streamCache, loadingStreams, data.activities],
   );
 
-  const selectedRuns = data.activities.filter((a) => selectedRunIds.has(a.id));
+  const selectedRuns = useMemo(
+    () => data.activities.filter((a) => selectedRunIds.has(a.id)),
+    [data.activities, selectedRunIds],
+  );
 
   useModelContextSync(
     app ?? undefined,
@@ -117,7 +120,7 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
         activeView,
         selectedRuns,
       }),
-    [data.weeks, activeView, selectedRunIds, selectedRuns],
+    [data.weeks, activeView, selectedRuns],
   );
 
   return (
