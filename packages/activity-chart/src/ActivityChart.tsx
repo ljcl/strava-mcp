@@ -336,7 +336,7 @@ export function ActivityChart({
         hidden,
         smooth,
       }),
-    [meta.name, hidden, smooth],
+    [meta.name, hidden, smooth, availableMetrics],
   );
 
   const displayData = useMemo(
