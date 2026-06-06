@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getRecentActivities as fetchActivities } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 // Reverted SDK type imports
 
@@ -7,10 +8,10 @@ const GetRecentActivitiesInputSchema = z.object({
   perPage: z
     .number()
     .int()
-    .positive()
-    .optional()
+    .min(1)
+    .max(200)
     .default(30)
-    .describe("Number of activities to retrieve (default: 30)"),
+    .describe("Number of activities to return (1-200, default 30)"),
 });
 
 type GetRecentActivitiesInput = z.infer<typeof GetRecentActivitiesInputSchema>;
@@ -21,15 +22,10 @@ export const getRecentActivities = {
   description:
     "Fetches the most recent activities for the authenticated athlete.",
   inputSchema: GetRecentActivitiesInputSchema,
+  annotations: READ_ONLY,
   // Ensure the return type matches the expected structure, relying on inference
   execute: async ({ perPage }: GetRecentActivitiesInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    // --- DEBUGGING: Print the token being used ---
-    console.error(
-      `[DEBUG] Using STRAVA_ACCESS_TOKEN: ${token?.substring(0, 5)}...${token?.slice(-5)}`,
-    );
-    // ---------------------------------------------
 
     if (!token || token === "YOUR_STRAVA_ACCESS_TOKEN_HERE") {
       console.error("Missing or placeholder STRAVA_ACCESS_TOKEN in .env");

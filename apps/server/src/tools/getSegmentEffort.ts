@@ -4,6 +4,7 @@ import {
   getSegmentEffort as fetchSegmentEffort,
   type StravaDetailedSegmentEffort,
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 const GetSegmentEffortInputSchema = z.object({
   effortId: z
@@ -57,8 +58,9 @@ function formatSegmentEffort(effort: StravaDetailedSegmentEffort): string {
 export const getSegmentEffortTool = {
   name: "get-segment-effort",
   description:
-    "Fetches detailed information about a specific segment effort using its ID.",
+    "Fetch one specific segment effort by its effort id, including elapsed and moving time, PR rank, and KOM/QOM rank. Use when the user asks about a single recorded attempt on a segment. For all of an athlete's efforts on a segment use list-segment-efforts; for the segment's static stats use get-segment.",
   inputSchema: GetSegmentEffortInputSchema,
+  annotations: READ_ONLY,
   execute: async ({ effortId }: GetSegmentEffortInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

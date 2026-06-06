@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { formatRouteSummary } from "../formatters"; // Import shared formatter
 import { getRouteById /*, handleApiError */ } from "../stravaClient"; // Removed handleApiError import
+import { READ_ONLY } from "./_annotations";
 
 // Zod schema for input validation
 const GetRouteInputSchema = z.object({
@@ -17,8 +18,9 @@ type GetRouteInput = z.infer<typeof GetRouteInputSchema>;
 export const getRouteTool = {
   name: "get-route",
   description:
-    "Fetches detailed information about a specific route using its ID.",
+    "Fetch full detail for one saved route by id: name, distance, elevation gain, estimated moving time, and segment count. Use when the user wants details of a route from list-athlete-routes, or before exporting it with export-route-gpx or export-route-tcx.",
   inputSchema: GetRouteInputSchema,
+  annotations: READ_ONLY,
   execute: async (input: GetRouteInput) => {
     const { routeId } = input;
     const token = process.env.STRAVA_ACCESS_TOKEN;

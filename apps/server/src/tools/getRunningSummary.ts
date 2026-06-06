@@ -14,6 +14,8 @@ import {
   transformCadence,
   type ZoneBoundary,
 } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
+import { RunningSummaryOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-running-summary";
 
@@ -93,6 +95,8 @@ export const getRunningSummaryTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
+  outputSchema: RunningSummaryOutputSchema,
   execute: async ({ activityId }: GetRunningSummaryInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -186,15 +190,15 @@ export const getRunningSummaryTool = {
         type: activity.sport_type || activity.type,
 
         distance: {
-          meters: activity.distance,
+          meters: activity.distance ?? 0,
           km: Math.round((activity.distance ?? 0) / 10) / 100,
           miles: Math.round((activity.distance ?? 0) / 16.0934) / 100,
         },
 
         time: {
-          moving_seconds: activity.moving_time,
+          moving_seconds: activity.moving_time ?? 0,
           moving_formatted: formatDuration(activity.moving_time),
-          elapsed_seconds: activity.elapsed_time,
+          elapsed_seconds: activity.elapsed_time ?? 0,
           elapsed_formatted: formatDuration(activity.elapsed_time),
         },
 
@@ -317,14 +321,15 @@ export const getRunningSummaryTool = {
         `Successfully generated running summary for: ${activity.name}`,
       );
 
+      warnOnSchemaDrift(
+        "get-running-summary",
+        RunningSummaryOutputSchema,
+        summary,
+      );
+
       return {
-        content: [
-          { type: "text" as const, text: output },
-          {
-            type: "text" as const,
-            text: `\n**Raw Data:**\n${JSON.stringify(summary, null, 2)}`,
-          },
-        ],
+        content: [{ type: "text" as const, text: output }],
+        structuredContent: summary,
       };
     } catch (error) {
       const errorMessage =

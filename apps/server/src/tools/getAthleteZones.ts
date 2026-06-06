@@ -4,6 +4,8 @@ import {
   type StravaAthleteZones,
 } from "../stravaClient";
 import { formatDuration } from "../utils";
+import { READ_ONLY } from "./_annotations";
+import { AthleteZonesOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-athlete-zones";
 const description =
@@ -68,8 +70,10 @@ function formatAthleteZones(zonesData: StravaAthleteZones): string {
 
 export const getAthleteZonesTool = {
   name,
-  description: `${description}\n\nOutput includes both a formatted summary and the raw JSON data.`,
+  description: `${description}\n\nOutput includes a formatted summary plus structured data.`,
   inputSchema,
+  annotations: READ_ONLY,
+  outputSchema: AthleteZonesOutputSchema,
   execute: async (_input: GetAthleteZonesInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -93,16 +97,17 @@ export const getAthleteZonesTool = {
       // Format the summary
       const formattedText = formatAthleteZones(zonesData);
 
-      // Prepare the raw data
-      const rawDataText = `\n\nRaw Athlete Zone Data:\n${JSON.stringify(zonesData, null, 2)}`;
-
       console.error("Successfully fetched athlete zones.");
-      // Return both summary and raw data
+
+      warnOnSchemaDrift(
+        "get-athlete-zones",
+        AthleteZonesOutputSchema,
+        zonesData,
+      );
+
       return {
-        content: [
-          { type: "text" as const, text: formattedText },
-          { type: "text" as const, text: rawDataText },
-        ],
+        content: [{ type: "text" as const, text: formattedText }],
+        structuredContent: zonesData,
       };
     } catch (error) {
       const errorMessage =

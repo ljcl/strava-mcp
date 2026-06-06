@@ -9,6 +9,7 @@ import {
   metersPerSecToPace,
   transformCadence,
 } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
 
 const name = "get-activity-laps";
 
@@ -54,6 +55,7 @@ export const getActivityLapsTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
   execute: async ({ id }: GetActivityLapsInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

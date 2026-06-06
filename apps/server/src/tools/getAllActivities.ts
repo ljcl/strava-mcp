@@ -4,6 +4,7 @@ import {
   getAllActivities as fetchAllActivities,
   type StravaSummaryActivity,
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 const GetAllActivitiesInputSchema = z.object({
   startDate: z
@@ -100,6 +101,7 @@ export const getAllActivities = {
   description:
     "Fetches complete activity history with optional filtering by date range and activity type. Supports pagination to retrieve all activities.",
   inputSchema: GetAllActivitiesInputSchema,
+  annotations: READ_ONLY,
   execute: async (input: GetAllActivitiesInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

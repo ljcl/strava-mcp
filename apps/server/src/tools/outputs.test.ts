@@ -1,0 +1,258 @@
+import { describe, expect, it } from "vitest";
+import { z } from "zod";
+import { type StravaDetailedActivity, type StravaStats } from "../stravaClient";
+import {
+  ActivityDetailsOutputSchema,
+  AthleteStatsOutputSchema,
+  AthleteZonesOutputSchema,
+  BestEffortsOutputSchema,
+  buildActivityDetailsOutput,
+  buildAthleteStatsOutput,
+  CompareActivitiesOutputSchema,
+  RunningSummaryOutputSchema,
+  TrainingLoadOutputSchema,
+} from "./outputs";
+
+describe("buildActivityDetailsOutput", () => {
+  it("maps an activity to a JSON-safe, schema-valid object", () => {
+    const activity = {
+      id: 3503400000123456789n,
+      name: "Morning Run",
+      type: "Run",
+      sport_type: "Run",
+      start_date: "2026-05-01T06:00:00Z",
+      distance: 10000,
+      moving_time: 3000,
+      elapsed_time: 3100,
+      total_elevation_gain: 120,
+      average_speed: 3.33,
+      max_speed: 4.1,
+      average_heartrate: 150,
+      max_heartrate: 172,
+      average_cadence: 88,
+      average_watts: null,
+      max_watts: null,
+      calories: 600,
+      gear: { id: "g123", name: "Pegasus" },
+    } as unknown as StravaDetailedActivity;
+
+    const out = buildActivityDetailsOutput(activity);
+    expect(out.id).toBe("3503400000123456789");
+    expect(out.distance_m).toBe(10000);
+    expect(out.gear).toEqual({ id: "g123", name: "Pegasus" });
+    expect(ActivityDetailsOutputSchema.safeParse(out).success).toBe(true);
+  });
+
+  it("yields null for distance_m and moving_time_s when absent from source", () => {
+    const activity = {
+      id: 9999n,
+      name: "Stationary Workout",
+      type: "WeightTraining",
+      sport_type: "WeightTraining",
+      start_date: "2026-06-01T10:00:00Z",
+      elapsed_time: 1800,
+      total_elevation_gain: 0,
+    } as unknown as StravaDetailedActivity;
+
+    const out = buildActivityDetailsOutput(activity);
+    expect(out.distance_m).toBeNull();
+    expect(out.moving_time_s).toBeNull();
+    expect(ActivityDetailsOutputSchema.safeParse(out).success).toBe(true);
+  });
+});
+
+describe("buildAthleteStatsOutput", () => {
+  it("flattens totals to schema-valid shape", () => {
+    const stats = {
+      recent_run_totals: {
+        count: 4,
+        distance: 40000,
+        moving_time: 12000,
+        elevation_gain: 300,
+      },
+      biggest_ride_distance: 80000,
+    } as unknown as StravaStats;
+
+    const out = buildAthleteStatsOutput(stats);
+    expect(out.recent_run_totals).toEqual({
+      count: 4,
+      distance_m: 40000,
+      moving_time_s: 12000,
+      elevation_gain_m: 300,
+    });
+    expect(out.ytd_run_totals).toBeNull();
+    expect(out.biggest_ride_distance_m).toBe(80000);
+    expect(AthleteStatsOutputSchema.safeParse(out).success).toBe(true);
+  });
+});
+
+describe("schemas align with the real tool rawObjects", () => {
+  it("AthleteZonesOutputSchema matches the raw Strava athlete-zones object", () => {
+    // Mirrors StravaAthleteZones (the object getAthleteZones stringifies).
+    const zonesData = {
+      heart_rate: {
+        custom_zones: true,
+        zones: [{ min: 0, max: 123 }, { min: 123, max: 153 }, { min: 153 }],
+        distribution_buckets: [
+          { min: 0, max: 123, time: 600 },
+          { min: 123, max: -1, time: 1200 },
+        ],
+        resource_state: 3,
+        sensor_based: true,
+        points: 5,
+        type: "heartrate" as const,
+      },
+      power: {
+        zones: [{ min: 0, max: 100 }, { min: 100 }],
+        resource_state: 3,
+        sensor_based: false,
+        type: "power" as const,
+      },
+    };
+    expect(AthleteZonesOutputSchema.safeParse(zonesData).success).toBe(true);
+  });
+
+  it("TrainingLoadOutputSchema matches the training-load result object", () => {
+    const result = {
+      period: { days: 28, start_date: "2026-05-09", end_date: "2026-06-06" },
+      totals: { runs: 8, distance_km: 64.2, time_hours: 6.1, elevation_m: 420 },
+      averages: {
+        runs_per_week: 2,
+        distance_km_per_week: 16.05,
+        time_hours_per_week: 1.53,
+      },
+      trend: "stable",
+      weekly_breakdown: [
+        {
+          week_starting: "2026-05-11",
+          runs: 3,
+          distance_km: 24.1,
+          time_hours: 2.2,
+          time_formatted: "2h 12m",
+          elevation_m: 150,
+          activities: [
+            {
+              id: "123",
+              name: "Morning Run",
+              date: "2026-05-11",
+              distance_km: 8.03,
+            },
+          ],
+        },
+      ],
+      warnings: [
+        "Week of 2026-05-11: Volume increased 35% - consider injury risk",
+      ],
+    };
+    expect(TrainingLoadOutputSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("RunningSummaryOutputSchema matches the running-summary object", () => {
+    const summary = {
+      activity_id: 123456,
+      name: "Tempo Run",
+      date: "2026-05-11T06:00:00Z",
+      type: "Run",
+      distance: { meters: 10000, km: 10, miles: 6.21 },
+      time: {
+        moving_seconds: 3000,
+        moving_formatted: "50m 0s",
+        elapsed_seconds: 3100,
+        elapsed_formatted: "51m 40s",
+      },
+      pace: {
+        min_per_km: "5:00",
+        min_per_mile: "8:03",
+        display: "5:00 /km",
+      },
+      elevation: { gain_m: 120, gain_ft: 394 },
+      cadence: { average_spm: 176, assessment: "good" },
+      heart_rate: {
+        average: 150,
+        max: 172,
+        zones: { zones: { zone_1: { formatted: "1m", percentage: 2 } } },
+      },
+      power: { average_watts: 280, max_watts: 350 },
+      laps: [{ lap: 1, distance_km: 1, time: "5:00" }],
+      gear: "Pegasus",
+    };
+    expect(RunningSummaryOutputSchema.safeParse(summary).success).toBe(true);
+  });
+
+  it("CompareActivitiesOutputSchema matches the compare-activities object", () => {
+    const side = {
+      id: "111",
+      name: "Run A",
+      date: "2026-05-01",
+      type: "Run",
+      distance_km: 10,
+      time_formatted: "50m 0s",
+      pace: { min_per_km: "5:00", min_per_mile: "8:03", raw_min_per_km: 5 },
+      avg_hr: 150,
+      max_hr: 172,
+      cadence_spm: 176,
+      elevation_gain_m: 100,
+    };
+    const result = {
+      activity_1: side,
+      activity_2: { ...side, id: "222", name: "Run B" },
+      differences: {
+        distance_km: 0,
+        pace: { seconds_per_km: -10, interpretation: "faster" },
+        avg_hr: -2,
+        cadence_spm: 1,
+        elevation_gain_m: 5,
+      },
+      efficiency: {
+        activity_1: 3.333,
+        activity_2: 3.27,
+        change_percent: -1.9,
+        interpretation: "improved",
+        note: "Lower efficiency number = better fitness",
+      },
+      warnings: ["Activity 1 (Run A) is not a running activity (Ride)"],
+    };
+    expect(CompareActivitiesOutputSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("BestEffortsOutputSchema matches the best-efforts response object", () => {
+    const response = {
+      best_efforts: {
+        "5K": [
+          {
+            activity_id: "123",
+            activity_name: "5K Race",
+            date: "2026-05-01",
+            elapsed_time_seconds: 1080,
+            elapsed_time_formatted: "18m 0s",
+            moving_time_seconds: 1075,
+            moving_time_formatted: "17m 55s",
+            pace: { min_per_km: "3:36", min_per_mile: "5:48" },
+            pr_rank: 1,
+          },
+        ],
+      },
+      activities_analyzed: 42,
+      activities_with_efforts: 30,
+      note: "Times use elapsed time (includes stops), matching Strava's Best Efforts behavior",
+    };
+    expect(BestEffortsOutputSchema.safeParse(response).success).toBe(true);
+  });
+});
+
+describe("output schemas convert to JSON schema", () => {
+  const schemas = {
+    ActivityDetailsOutputSchema,
+    AthleteStatsOutputSchema,
+    AthleteZonesOutputSchema,
+    TrainingLoadOutputSchema,
+    RunningSummaryOutputSchema,
+    CompareActivitiesOutputSchema,
+    BestEffortsOutputSchema,
+  };
+  for (const [name, schema] of Object.entries(schemas)) {
+    it(`converts ${name}`, () => {
+      expect(() => z.toJSONSchema(schema)).not.toThrow();
+    });
+  }
+});

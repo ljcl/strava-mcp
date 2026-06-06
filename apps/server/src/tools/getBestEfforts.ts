@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { getActivityById, getAllActivities } from "../stravaClient";
 import { formatDuration, metersPerSecToPace } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
+import { BestEffortsOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-best-efforts";
 
@@ -27,6 +29,8 @@ Notes:
 - Use maxActivities to limit API calls for faster results
 - Times use elapsed time (includes stops), matching Strava's Best Efforts behavior
 - Only activities with best_efforts data from Strava are included
+
+Note: this scans recent running activities and fetches each activity's detail to read its best efforts, so it makes one API call per activity and can be slow over long histories; the maxActivities parameter (default 100) bounds the work.
 `;
 
 const inputSchema = z.object({
@@ -85,6 +89,8 @@ export const getBestEffortsTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
+  outputSchema: BestEffortsOutputSchema,
   execute: async ({ distance, limit, maxActivities }: GetBestEffortsInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -253,14 +259,11 @@ export const getBestEffortsTool = {
         `Successfully retrieved best efforts from ${activitiesWithEfforts} activities`,
       );
 
+      warnOnSchemaDrift("get-best-efforts", BestEffortsOutputSchema, response);
+
       return {
-        content: [
-          { type: "text" as const, text: output },
-          {
-            type: "text" as const,
-            text: `\n**Raw Data:**\n${JSON.stringify(response, null, 2)}`,
-          },
-        ],
+        content: [{ type: "text" as const, text: output }],
+        structuredContent: response,
       };
     } catch (error) {
       const errorMessage =

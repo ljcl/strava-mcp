@@ -15,6 +15,11 @@ import {
   transformCadence,
 } from "../utils/running";
 import { summarizeAchievements } from "../utils/segmentEfforts";
+import { READ_ONLY } from "./_annotations";
+import {
+  ActivityDetailsOutputSchema,
+  buildActivityDetailsOutput,
+} from "./outputs";
 
 // Zod schema for input validation
 const GetActivityDetailsInputSchema = z.object({
@@ -98,6 +103,8 @@ export const getActivityDetailsTool = {
   description:
     "Fetches detailed information about a specific activity using its ID.",
   inputSchema: GetActivityDetailsInputSchema,
+  outputSchema: ActivityDetailsOutputSchema,
+  annotations: READ_ONLY,
   execute: async ({ activityId }: GetActivityDetailsInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -125,6 +132,7 @@ export const getActivityDetailsTool = {
       );
       return {
         content: [{ type: "text" as const, text: activityDetailsText }],
+        structuredContent: buildActivityDetailsOutput(activity),
       };
     } catch (error) {
       const errorMessage =

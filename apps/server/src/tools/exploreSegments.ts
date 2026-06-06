@@ -4,6 +4,7 @@ import {
   getAuthenticatedAthlete,
   type StravaExplorerResponse,
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 const ExploreSegmentsInputSchema = z.object({
   bounds: z
@@ -47,8 +48,9 @@ type ExploreSegmentsInput = z.infer<typeof ExploreSegmentsInputSchema>;
 export const exploreSegments = {
   name: "explore-segments",
   description:
-    "Searches for popular segments within a given geographical area.",
+    "Search for popular segments inside a geographic bounding box (south-west and north-east lat/lng). Optionally filter by climb category. Returns matching segments with id, name, distance, and average grade. Use when the user wants to discover segments in an area rather than look up one they already know.",
   inputSchema: ExploreSegmentsInputSchema,
+  annotations: READ_ONLY,
   execute: async ({
     bounds,
     activityType,

@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { getAllActivities } from "../stravaClient";
 import { formatDuration } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
+import { TrainingLoadOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-training-load";
 
@@ -105,6 +107,8 @@ export const getTrainingLoadTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
+  outputSchema: TrainingLoadOutputSchema,
   execute: async ({ days, activityTypes }: GetTrainingLoadInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -285,14 +289,11 @@ export const getTrainingLoadTool = {
 
       console.error(`Successfully generated training load for ${days} days`);
 
+      warnOnSchemaDrift("get-training-load", TrainingLoadOutputSchema, result);
+
       return {
-        content: [
-          { type: "text" as const, text: output },
-          {
-            type: "text" as const,
-            text: `\n**Raw Data:**\n${JSON.stringify(result, null, 2)}`,
-          },
-        ],
+        content: [{ type: "text" as const, text: output }],
+        structuredContent: result,
       };
     } catch (error) {
       const errorMessage =

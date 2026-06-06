@@ -3,6 +3,8 @@ import {
   getAthleteStats as fetchAthleteStats,
   type StravaStats,
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
+import { AthleteStatsOutputSchema, buildAthleteStatsOutput } from "./outputs";
 
 // formatDuration is now local or in utils, not imported from server.ts
 
@@ -166,6 +168,8 @@ export const getAthleteStatsTool = {
   description:
     "Fetches the activity statistics (recent, YTD, all-time) for a specific athlete using their ID. Requires the athleteId obtained from the get-athlete-profile tool.",
   inputSchema: GetAthleteStatsInputSchema,
+  outputSchema: AthleteStatsOutputSchema,
+  annotations: READ_ONLY,
   execute: async ({ athleteId }: GetAthleteStatsInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 
@@ -188,7 +192,10 @@ export const getAthleteStatsTool = {
       const formattedStats = formatStats(stats);
 
       console.error(`Successfully fetched stats for athlete ${athleteId}.`);
-      return { content: [{ type: "text" as const, text: formattedStats }] };
+      return {
+        content: [{ type: "text" as const, text: formattedStats }],
+        structuredContent: buildAthleteStatsOutput(stats),
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

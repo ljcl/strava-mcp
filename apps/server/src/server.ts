@@ -6,6 +6,7 @@ import {
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
+  type ToolAnnotations,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { stravaApi } from "./fetchClient";
@@ -14,6 +15,7 @@ import {
   getActivityLaps,
   getAllActivities as getAllActivitiesFn,
 } from "./stravaClient";
+import { READ_ONLY } from "./tools/_annotations";
 import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
@@ -60,6 +62,8 @@ interface ToolDef {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  annotations?: ToolAnnotations;
   _meta?: Record<string, unknown>;
 }
 
@@ -96,20 +100,30 @@ const STRAVA_TOOLS = [
 
 /** Convert existing tool definitions to low-level TOOLS array */
 function buildToolDefs(): ToolDef[] {
-  const defs: ToolDef[] = STRAVA_TOOLS.map((tool) => ({
-    name: tool.name,
-    description: tool.description,
-    inputSchema: tool.inputSchema
-      ? z.toJSONSchema(tool.inputSchema)
-      : EMPTY_SCHEMA,
-  }));
+  const defs: ToolDef[] = STRAVA_TOOLS.map((tool) => {
+    const t = tool as {
+      name: string;
+      description: string;
+      inputSchema?: z.ZodType;
+      outputSchema?: z.ZodType;
+      annotations?: ToolAnnotations;
+    };
+    const def: ToolDef = {
+      name: t.name,
+      description: t.description,
+      inputSchema: t.inputSchema ? z.toJSONSchema(t.inputSchema) : EMPTY_SCHEMA,
+    };
+    if (t.annotations) def.annotations = t.annotations;
+    if (t.outputSchema) def.outputSchema = z.toJSONSchema(t.outputSchema);
+    return def;
+  });
 
   // Add MCP App tools
   defs.push({
     name: "view-activity-chart",
     description:
-      "Renders an interactive activity chart showing heart rate, power, pace, altitude, cadence, and grade over time. " +
-      "Useful for visualizing workout metrics and analyzing activity performance.",
+      "Open an interactive chart of one activity with selectable heart rate, power, pace, altitude, cadence, and grade overlays. " +
+      "Prefer this over a text summary when the user wants to see or explore how metrics change over the course of an activity. Takes the activity id.",
     inputSchema: {
       type: "object",
       properties: {
@@ -120,6 +134,7 @@ function buildToolDefs(): ToolDef[] {
       },
       required: ["activity_id"],
     },
+    annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://activity-chart/app.html" },
     },
@@ -128,8 +143,8 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "get-activity-streams-raw",
     description:
-      "Get raw activity stream data as JSON for the activity chart UI. " +
-      "Returns time, heartrate, watts, velocity_smooth, altitude, cadence, and grade_smooth arrays.",
+      "Internal data feed for the activity chart UI: returns raw per-sample arrays (time, heartrate, watts, velocity_smooth, altitude, cadence, grade_smooth, distance) as JSON for one activity. " +
+      "The view-activity-chart app calls this; not intended for direct model use.",
     inputSchema: {
       type: "object",
       properties: {
@@ -140,6 +155,7 @@ function buildToolDefs(): ToolDef[] {
       },
       required: ["activity_id"],
     },
+    annotations: READ_ONLY,
     _meta: {
       ui: {
         resourceUri: "ui://activity-chart/app.html",
@@ -151,8 +167,8 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "view-cadence-trends",
     description:
-      "Renders an interactive cadence trends chart showing running cadence progression over time, " +
-      "cadence-pace correlation, pace zone analysis, and per-run overlay comparison.",
+      "Open an interactive cadence dashboard across recent runs: trend timeline, cadence-versus-pace scatter, pace-zone breakdown, and per-run overlay comparison. " +
+      "Prefer this over text when the user wants to explore cadence patterns over time. Takes a number of weeks of history.",
     inputSchema: {
       type: "object",
       properties: {
@@ -162,6 +178,7 @@ function buildToolDefs(): ToolDef[] {
         },
       },
     },
+    annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://cadence-trends/app.html" },
     },
@@ -170,8 +187,8 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "get-cadence-trend-data",
     description:
-      "Get summary cadence and pace data for recent running activities. " +
-      "Returns per-run averages for the cadence trends UI.",
+      "Internal data feed for the cadence-trends UI: returns per-run summary cadence and pace for recent running activities as JSON. " +
+      "The view-cadence-trends app calls this; not intended for direct model use.",
     inputSchema: {
       type: "object",
       properties: {
@@ -181,6 +198,7 @@ function buildToolDefs(): ToolDef[] {
         },
       },
     },
+    annotations: READ_ONLY,
     _meta: {
       ui: {
         resourceUri: "ui://cadence-trends/app.html",
@@ -192,13 +210,14 @@ function buildToolDefs(): ToolDef[] {
   return defs;
 }
 
-const TOOLS = buildToolDefs();
+export const TOOLS = buildToolDefs();
 
 /** Map of tool name → execute function for existing Strava tools */
 const TOOL_EXECUTORS = new Map<
   string,
   (args: Record<string, unknown>) => Promise<{
     content: Array<{ type: string; text: string }>;
+    structuredContent?: unknown;
     isError?: boolean;
   }>
 >();

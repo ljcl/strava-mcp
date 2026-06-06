@@ -7,6 +7,7 @@ import {
   composeDescription,
   type UpdateActivityParams,
 } from "../utils/activityWrite";
+import { WRITE_DESTRUCTIVE } from "./_annotations";
 
 const UpdateActivityInputSchema = z.object({
   activityId: z
@@ -53,6 +54,7 @@ export const updateActivityTool = {
     "Description defaults to append (adds to existing notes); pass descriptionMode 'replace' to overwrite. " +
     "Requires the activity:write scope. Assign gear by passing a gearId from list-gear.",
   inputSchema: UpdateActivityInputSchema,
+  annotations: WRITE_DESTRUCTIVE,
   execute: async (input: UpdateActivityInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
     if (!token) {

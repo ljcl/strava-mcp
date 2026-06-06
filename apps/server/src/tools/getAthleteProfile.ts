@@ -1,4 +1,5 @@
 import { getAuthenticatedAthlete } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 // Export the tool definition directly
 export const getAthleteProfile = {
@@ -7,6 +8,7 @@ export const getAthleteProfile = {
     "Fetches the profile information for the authenticated athlete, including their unique numeric ID needed for other tools like get-athlete-stats.",
   // No input schema needed for this tool
   inputSchema: undefined,
+  annotations: READ_ONLY,
   execute: async () => {
     // No input parameters needed
     const token = process.env.STRAVA_ACCESS_TOKEN;
