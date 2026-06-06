@@ -22,6 +22,7 @@ export function Pill({ active, onClick, children }: PillProps) {
       onClick={onClick}
       className={styles.pill}
       data-active={active || undefined}
+      aria-pressed={active}
     >
       {children}
     </button>

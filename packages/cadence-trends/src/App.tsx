@@ -182,7 +182,11 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
               <span>
                 {run.name} · {new Date(run.date).toLocaleDateString()}
               </span>
-              <button type="button" onClick={() => removeRun(run.id)}>
+              <button
+                type="button"
+                onClick={() => removeRun(run.id)}
+                aria-label={`Remove ${run.name}`}
+              >
                 ×
               </button>
             </div>
