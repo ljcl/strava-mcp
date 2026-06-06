@@ -10,13 +10,13 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@modelcontextprotocol/ext-apps": "1.5.0",
+    "@modelcontextprotocol/ext-apps": "1.7.4",
     "@strava-mcp/design-system": "workspace:*",
-    "react": "19.2.5"
+    "react": "19.2.7"
   },
   "devDependencies": {
     "@strava-mcp/tsconfig": "workspace:*",
-    "@types/react": "19.2.14",
-    "typescript": "6.0.2"
+    "@types/react": "19.2.17",
+    "typescript": "6.0.3"
   }
 }
