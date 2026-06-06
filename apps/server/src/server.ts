@@ -15,6 +15,7 @@ import {
   getActivityLaps,
   getAllActivities as getAllActivitiesFn,
 } from "./stravaClient";
+import { READ_ONLY, VIEW } from "./tools/_annotations";
 import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
@@ -133,6 +134,7 @@ function buildToolDefs(): ToolDef[] {
       },
       required: ["activity_id"],
     },
+    annotations: VIEW,
     _meta: {
       ui: { resourceUri: "ui://activity-chart/app.html" },
     },
@@ -153,6 +155,7 @@ function buildToolDefs(): ToolDef[] {
       },
       required: ["activity_id"],
     },
+    annotations: READ_ONLY,
     _meta: {
       ui: {
         resourceUri: "ui://activity-chart/app.html",
@@ -175,6 +178,7 @@ function buildToolDefs(): ToolDef[] {
         },
       },
     },
+    annotations: VIEW,
     _meta: {
       ui: { resourceUri: "ui://cadence-trends/app.html" },
     },
@@ -194,6 +198,7 @@ function buildToolDefs(): ToolDef[] {
         },
       },
     },
+    annotations: READ_ONLY,
     _meta: {
       ui: {
         resourceUri: "ui://cadence-trends/app.html",

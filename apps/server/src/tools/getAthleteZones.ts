@@ -4,6 +4,7 @@ import {
   type StravaAthleteZones,
 } from "../stravaClient";
 import { formatDuration } from "../utils";
+import { READ_ONLY } from "./_annotations";
 
 const name = "get-athlete-zones";
 const description =
@@ -70,6 +71,7 @@ export const getAthleteZonesTool = {
   name,
   description: `${description}\n\nOutput includes both a formatted summary and the raw JSON data.`,
   inputSchema,
+  annotations: READ_ONLY,
   execute: async (_input: GetAthleteZonesInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

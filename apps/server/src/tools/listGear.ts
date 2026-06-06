@@ -1,6 +1,7 @@
 import { formatDistance } from "../formatters";
 import { getAuthenticatedAthlete } from "../stravaClient";
 import { type GearListItem, projectAthleteGear } from "../utils/gear";
+import { READ_ONLY } from "./_annotations";
 
 function formatGearLine(g: GearListItem): string {
   const label = g.nickname ? `${g.name} (${g.nickname})` : g.name;
@@ -17,6 +18,7 @@ export const listGearTool = {
     "Lists the authenticated athlete's gear (shoes and bikes) with their ids, " +
     "total distance, and primary/retired status. Use the returned id as gearId for update-activity.",
   inputSchema: undefined,
+  annotations: READ_ONLY,
   execute: async () => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
     if (!token) {

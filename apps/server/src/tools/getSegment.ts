@@ -5,6 +5,7 @@ import {
   // handleApiError, // Removed unused import
   type StravaDetailedSegment, // Type needed for formatter
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 // Input schema
 const GetSegmentInputSchema = z.object({
@@ -44,6 +45,7 @@ export const getSegmentTool = {
   description:
     "Fetches detailed information about a specific segment using its ID.",
   inputSchema: GetSegmentInputSchema,
+  annotations: READ_ONLY,
   execute: async ({ segmentId }: GetSegmentInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

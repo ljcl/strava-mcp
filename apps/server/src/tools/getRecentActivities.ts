@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getRecentActivities as fetchActivities } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 // Reverted SDK type imports
 
@@ -21,6 +22,7 @@ export const getRecentActivities = {
   description:
     "Fetches the most recent activities for the authenticated athlete.",
   inputSchema: GetRecentActivitiesInputSchema,
+  annotations: READ_ONLY,
   // Ensure the return type matches the expected structure, relying on inference
   execute: async ({ perPage }: GetRecentActivitiesInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;

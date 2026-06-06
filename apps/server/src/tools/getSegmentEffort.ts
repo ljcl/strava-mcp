@@ -4,6 +4,7 @@ import {
   getSegmentEffort as fetchSegmentEffort,
   type StravaDetailedSegmentEffort,
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 const GetSegmentEffortInputSchema = z.object({
   effortId: z
@@ -59,6 +60,7 @@ export const getSegmentEffortTool = {
   description:
     "Fetches detailed information about a specific segment effort using its ID.",
   inputSchema: GetSegmentEffortInputSchema,
+  annotations: READ_ONLY,
   execute: async ({ effortId }: GetSegmentEffortInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

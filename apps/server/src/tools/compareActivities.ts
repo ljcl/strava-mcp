@@ -6,6 +6,7 @@ import {
   metersPerSecToPace,
   transformCadence,
 } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
 
 const name = "compare-activities";
 
@@ -101,6 +102,7 @@ export const compareActivitiesTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
   execute: async ({ activityId1, activityId2 }: CompareActivitiesInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { formatRouteSummary } from "../formatters"; // Import shared formatter
 import { getRouteById /*, handleApiError */ } from "../stravaClient"; // Removed handleApiError import
+import { READ_ONLY } from "./_annotations";
 
 // Zod schema for input validation
 const GetRouteInputSchema = z.object({
@@ -19,6 +20,7 @@ export const getRouteTool = {
   description:
     "Fetches detailed information about a specific route using its ID.",
   inputSchema: GetRouteInputSchema,
+  annotations: READ_ONLY,
   execute: async (input: GetRouteInput) => {
     const { routeId } = input;
     const token = process.env.STRAVA_ACCESS_TOKEN;

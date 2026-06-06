@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getAllActivities } from "../stravaClient";
 import { formatDuration } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
 
 const name = "get-training-load";
 
@@ -105,6 +106,7 @@ export const getTrainingLoadTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
   execute: async ({ days, activityTypes }: GetTrainingLoadInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

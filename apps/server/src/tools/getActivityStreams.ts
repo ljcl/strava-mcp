@@ -2,6 +2,7 @@ import { z } from "zod";
 import { HttpError, stravaApi } from "../fetchClient";
 import { getActivityById } from "../stravaClient";
 import { isRunningActivity, metersPerSecToPace } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
 
 // Define stream types available in Strava API
 const STREAM_TYPES = [
@@ -169,6 +170,7 @@ export const getActivityStreamsTool = {
     "Running activities get pace (min/km) and cadence (steps/min). " +
     "Cycling activities get speed (km/h) and cadence (rpm).",
   inputSchema,
+  annotations: READ_ONLY,
   execute: async ({
     id,
     types,

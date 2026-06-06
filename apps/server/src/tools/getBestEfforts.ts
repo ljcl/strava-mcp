@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getActivityById, getAllActivities } from "../stravaClient";
 import { formatDuration, metersPerSecToPace } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
 
 const name = "get-best-efforts";
 
@@ -85,6 +86,7 @@ export const getBestEffortsTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
   execute: async ({ distance, limit, maxActivities }: GetBestEffortsInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

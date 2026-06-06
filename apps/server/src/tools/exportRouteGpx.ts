@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { z } from "zod";
 import { exportRouteGpx as fetchGpxData } from "../stravaClient";
+import { WRITE_IDEMPOTENT } from "./_annotations";
 
 // import { McpServerTool } from "@modelcontextprotocol/sdk/server/mcp"; // Type doesn't seem exported/needed
 // import { McpResponse } from "@modelcontextprotocol/sdk/server/mcp"; // Type doesn't seem exported
@@ -20,6 +21,7 @@ export const exportRouteGpx = {
   description:
     "Exports a specific Strava route in GPX format and saves it to a pre-configured local directory.",
   inputSchema: ExportRouteGpxInputSchema,
+  annotations: WRITE_IDEMPOTENT,
   execute: async ({ routeId }: ExportRouteGpxInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
     if (!token) {

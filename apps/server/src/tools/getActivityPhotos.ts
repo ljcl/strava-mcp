@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getActivityPhotos as getActivityPhotosClient } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 const name = "get-activity-photos";
 
@@ -50,6 +51,7 @@ export const getActivityPhotosTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
   execute: async ({ id, size }: GetActivityPhotosInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

@@ -5,6 +5,7 @@ import {
   // handleApiError, // Removed unused import
   type StravaDetailedSegmentEffort, // Type needed for formatter
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 // Zod schema for input validation
 const ListSegmentEffortsInputSchema = z.object({
@@ -60,6 +61,7 @@ export const listSegmentEffortsTool = {
   description:
     "Lists the authenticated athlete's efforts on a specific segment, optionally filtering by date.",
   inputSchema: ListSegmentEffortsInputSchema,
+  annotations: READ_ONLY,
   execute: async ({
     segmentId,
     startDateLocal,

@@ -4,6 +4,7 @@ import {
   getAuthenticatedAthlete,
   type StravaExplorerResponse,
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 const ExploreSegmentsInputSchema = z.object({
   bounds: z
@@ -49,6 +50,7 @@ export const exploreSegments = {
   description:
     "Searches for popular segments within a given geographical area.",
   inputSchema: ExploreSegmentsInputSchema,
+  annotations: READ_ONLY,
   execute: async ({
     bounds,
     activityType,

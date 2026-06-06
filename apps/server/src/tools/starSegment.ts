@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { starSegment as updateStarStatus } from "../stravaClient"; // Renamed import
+import { WRITE_IDEMPOTENT } from "./_annotations";
 
 const StarSegmentInputSchema = z.object({
   segmentId: z
@@ -20,6 +21,7 @@ export const starSegment = {
   description:
     "Stars or unstars a specific segment for the authenticated athlete.",
   inputSchema: StarSegmentInputSchema,
+  annotations: WRITE_IDEMPOTENT,
   execute: async ({ segmentId, starred }: StarSegmentInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

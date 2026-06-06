@@ -4,6 +4,7 @@ import {
   type StravaRoute,
   // StravaRoute is needed for the formatter
 } from "../stravaClient";
+import { READ_ONLY } from "./_annotations";
 
 // Remove the imported formatter since we're defining our own locally
 // import { formatRouteSummary } from "../formatters";
@@ -53,6 +54,7 @@ export const listAthleteRoutesTool = {
   description:
     "Lists the routes created by the authenticated athlete, with pagination.",
   inputSchema: ListAthleteRoutesInputSchema,
+  annotations: READ_ONLY,
   execute: async ({ page = 1, perPage = 20 }: ListAthleteRoutesInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

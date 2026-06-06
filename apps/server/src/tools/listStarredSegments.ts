@@ -2,6 +2,7 @@ import {
   listStarredSegments as fetchSegments,
   getAuthenticatedAthlete,
 } from "../stravaClient"; // Renamed import
+import { READ_ONLY } from "./_annotations";
 
 // Export the tool definition directly
 export const listStarredSegments = {
@@ -9,6 +10,7 @@ export const listStarredSegments = {
   description: "Lists the segments starred by the authenticated athlete.",
   // No input schema needed
   inputSchema: undefined,
+  annotations: READ_ONLY,
   execute: async () => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

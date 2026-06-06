@@ -1,10 +1,12 @@
 import { listAthleteClubs as fetchClubs } from "../stravaClient"; // Renamed import
+import { READ_ONLY } from "./_annotations";
 
 // Export the tool definition directly
 export const listAthleteClubs = {
   name: "list-athlete-clubs",
   description: "Lists the clubs the authenticated athlete is a member of.",
   inputSchema: undefined,
+  annotations: READ_ONLY,
   execute: async () => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

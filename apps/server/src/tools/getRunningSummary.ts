@@ -14,6 +14,7 @@ import {
   transformCadence,
   type ZoneBoundary,
 } from "../utils/running";
+import { READ_ONLY } from "./_annotations";
 
 const name = "get-running-summary";
 
@@ -93,6 +94,7 @@ export const getRunningSummaryTool = {
   name,
   description,
   inputSchema,
+  annotations: READ_ONLY,
   execute: async ({ activityId }: GetRunningSummaryInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

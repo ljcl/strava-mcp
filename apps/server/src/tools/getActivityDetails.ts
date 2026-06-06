@@ -15,6 +15,7 @@ import {
   transformCadence,
 } from "../utils/running";
 import { summarizeAchievements } from "../utils/segmentEfforts";
+import { READ_ONLY } from "./_annotations";
 
 // Zod schema for input validation
 const GetActivityDetailsInputSchema = z.object({
@@ -98,6 +99,7 @@ export const getActivityDetailsTool = {
   description:
     "Fetches detailed information about a specific activity using its ID.",
   inputSchema: GetActivityDetailsInputSchema,
+  annotations: READ_ONLY,
   execute: async ({ activityId }: GetActivityDetailsInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
 

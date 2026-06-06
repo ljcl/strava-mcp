@@ -2,6 +2,7 @@ import { z } from "zod";
 import { formatDistance, formatDuration } from "../formatters";
 import { getActivityById as fetchActivityById } from "../stravaClient";
 import { processSegmentEfforts } from "../utils/segmentEfforts";
+import { READ_ONLY } from "./_annotations";
 
 const GetActivitySegmentEffortsInputSchema = z.object({
   activityId: z
@@ -21,6 +22,7 @@ export const getActivitySegmentEffortsTool = {
     "Lists the segment efforts within an activity, highlighting personal records (PRs) " +
     "and top-10 leaderboard placings. Useful for seeing if you set any PRs during a run or ride.",
   inputSchema: GetActivitySegmentEffortsInputSchema,
+  annotations: READ_ONLY,
   execute: async ({ activityId }: GetActivitySegmentEffortsInput) => {
     const token = process.env.STRAVA_ACCESS_TOKEN;
     if (!token) {
