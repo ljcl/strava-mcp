@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Runtime token/data dir (keep only placeholders)
+data/*
+!data/.gitkeep
+!data/.gitignore
+
+# Turbo
+.turbo
+*.tsbuildinfo
+
+# Storybook
+storybook-static/
+
+# Test coverage
+coverage/
+
+# Git worktrees
+.worktrees/
+
+# Environment variables
+.env
+
+# Log files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor directories and files
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Cursor IDE files
+.cursor/
+*.mdc
+cursor_rules.json
+.mcpregistry_registry_token
+.mcpregistry_github_token

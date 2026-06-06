@@ -1,0 +1,5 @@
+.container {
+  width: 100%;
+  height: var(--chart-height, 320px);
+  font-family: var(--font-sans);
+}

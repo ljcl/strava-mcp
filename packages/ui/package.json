@@ -1,0 +1,22 @@
+{
+  "name": "@strava-mcp/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/ext-apps": "1.7.4",
+    "@strava-mcp/design-system": "workspace:*",
+    "react": "19.2.7"
+  },
+  "devDependencies": {
+    "@strava-mcp/tsconfig": "workspace:*",
+    "@types/react": "19.2.17",
+    "typescript": "6.0.3"
+  }
+}

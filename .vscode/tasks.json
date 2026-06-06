@@ -1,0 +1,78 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Biome - Full Lint",
+      "type": "shell",
+      "command": "bunx",
+      "args": [
+        "biome",
+        "check",
+        "--write",
+        "--reporter=github",
+        "--max-diagnostics=10000"
+      ],
+      "problemMatcher": [
+        {
+          "owner": "biome",
+          "fileLocation": ["absolute"],
+          "pattern": {
+            "regexp": "::(\\w+) title=(.+?),file=(.+?),line=(\\d+),endLine=(\\d+),col=(\\d+),endColumn=(\\d+)::(.*?)((?=::)|$)",
+            "file": 3,
+            "line": 4,
+            "column": 6,
+            "severity": 1,
+            "code": 2,
+            "message": 8
+          }
+        }
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": false,
+        "reveal": "never",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false,
+        "close": true,
+        "revealProblems": "onProblem"
+      },
+      "isBackground": false
+    },
+    {
+      "label": "TypeScript - Typecheck",
+      "type": "shell",
+      "command": "bun",
+      "args": ["run", "typecheck"],
+      "problemMatcher": {
+        "owner": "typecheck",
+        "fileLocation": ["search", { "include": ["${workspaceFolder}/**"] }],
+        "pattern": {
+          "regexp": "^(?:@[^:]+:typecheck:\\s+)?(.+?)\\((\\d+),(\\d+)\\):\\s+(error|warning)\\s+(TS\\d+)\\s*:\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "code": 5,
+          "message": 6
+        }
+      },
+      "group": "build",
+      "presentation": {
+        "echo": false,
+        "reveal": "never",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": false,
+        "clear": false,
+        "close": true,
+        "revealProblems": "onProblem"
+      },
+      "isBackground": false
+    }
+  ]
+}

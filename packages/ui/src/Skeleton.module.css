@@ -1,0 +1,71 @@
+@import "@strava-mcp/design-system/tokens.css";
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  width: 100%;
+  padding: var(--space-4);
+  font-family: var(--font-sans);
+}
+
+.chartArea {
+  width: 100%;
+  aspect-ratio: 1.8;
+  background: linear-gradient(
+    90deg,
+    var(--color-background-secondary) 25%,
+    var(--color-background-tertiary) 50%,
+    var(--color-background-secondary) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--border-radius-md);
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton[data-variant="chart"] .chartArea {
+  margin-bottom: var(--space-3);
+}
+
+.chartFooter {
+  display: flex;
+  justify-content: space-between;
+}
+
+.pillRow {
+  display: flex;
+  gap: var(--space-1-5);
+}
+
+.pillGhost {
+  width: 56px;
+  height: 28px;
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-full);
+}
+
+.barRow {
+  display: flex;
+  gap: var(--space-6);
+  padding: var(--space-3) 0;
+}
+
+.barItem {
+  width: 72px;
+  height: 36px;
+  background: linear-gradient(
+    90deg,
+    var(--color-background-secondary) 25%,
+    var(--color-background-tertiary) 50%,
+    var(--color-background-secondary) 75%
+  );
+  background-size: 200% 100%;
+  border-radius: var(--border-radius-sm);
+  animation: shimmer 1.5s ease-in-out infinite;
+}

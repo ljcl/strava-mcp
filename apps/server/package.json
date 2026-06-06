@@ -1,0 +1,29 @@
+{
+  "name": "@strava-mcp/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch run src/index.ts",
+    "start": "bun run src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "test:coverage": "vitest run --coverage",
+    "setup-auth": "bun run scripts/setup-auth.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@strava-mcp/activity-chart": "workspace:*",
+    "@strava-mcp/cadence-trends": "workspace:*",
+    "dotenv": "17.4.2",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@strava-mcp/tsconfig": "workspace:*",
+    "@types/bun": "1.3.14",
+    "@vitest/coverage-v8": "4.1.8",
+    "typescript": "6.0.3",
+    "vitest": "4.1.8"
+  }
+}

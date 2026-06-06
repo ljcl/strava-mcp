@@ -1,0 +1,16 @@
+{
+  "name": "@strava-mcp/data",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/ext-apps": "1.7.4",
+    "@strava-mcp/tsconfig": "workspace:*",
+    "typescript": "6.0.3"
+  }
+}

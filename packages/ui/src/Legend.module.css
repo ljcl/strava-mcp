@@ -1,0 +1,56 @@
+@import "@strava-mcp/design-system/tokens.css";
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: var(--font-text-xs-size);
+  color: var(--color-text-secondary);
+}
+
+.legend[data-size="touch"] {
+  gap: var(--space-1-5);
+  font-size: var(--font-text-sm-size);
+}
+
+.legendButton {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  background: none;
+  border: none;
+}
+
+.legend[data-size="touch"] .legendButton {
+  /* off-scale: intentional touch-mode tweak */
+  gap: 5px;
+  padding: var(--space-2) 1px;
+}
+
+.legendButton[data-hidden] {
+  text-decoration: line-through;
+  opacity: 0.3;
+}
+
+.legendButton[data-faded] {
+  opacity: 0.5;
+}
+
+.legendButton[data-hidden][data-faded] {
+  opacity: 0.25;
+}
+
+.swatch {
+  flex-shrink: 0;
+  width: 16px;
+  height: 3px;
+  border-radius: var(--border-radius-xs);
+}

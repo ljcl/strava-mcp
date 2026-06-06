@@ -1,0 +1,60 @@
+{
+  "$schema": "https://turborepo.dev/schema.v2.json",
+  "globalEnv": ["NODE_ENV"],
+  "globalPassThroughEnv": [
+    "STRAVA_CLIENT_ID",
+    "STRAVA_CLIENT_SECRET",
+    "PUBLIC_URL",
+    "PORT",
+    "STRAVA_ACCESS_TOKEN",
+    "STRAVA_REFRESH_TOKEN",
+    "ROUTE_EXPORT_PATH",
+    "TOKEN_DATA_DIR"
+  ],
+  "globalDependencies": [".env", ".env.local"],
+  "boundaries": {
+    "tags": {
+      "app": { "dependencies": { "deny": ["app"] } },
+      "mcp-app": { "dependencies": { "deny": ["app", "mcp-app"] } },
+      "shared-ui": {
+        "dependencies": { "allow": ["design-system", "config"] }
+      },
+      "shared-data": { "dependencies": { "allow": ["config"] } },
+      "design-system": { "dependencies": { "allow": ["config"] } }
+    }
+  },
+  "tasks": {
+    "topo": { "dependsOn": ["^topo"] },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.stories.{ts,tsx,mdx}"]
+    },
+    "build:storybook": {},
+    "test": { "dependsOn": ["topo"] },
+    "typecheck": { "dependsOn": ["topo"] },
+    "//#lint": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "biome.json",
+        ".gitignore",
+        "!**/dist/**",
+        "!**/storybook-static/**"
+      ]
+    },
+    "//#knip": {
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "knip.config.ts",
+        "apps/*/package.json",
+        "packages/*/package.json",
+        "!**/dist/**"
+      ]
+    },
+    "dev": {
+      "persistent": true,
+      "cache": false
+    },
+    "storybook": { "persistent": true, "cache": false }
+  }
+}

@@ -1,0 +1,32 @@
+@import "@strava-mcp/design-system/tokens.css";
+
+.pillGroup {
+  display: inline-flex;
+  gap: var(--space-0-5);
+  padding: var(--space-1);
+  background: var(--color-background-secondary);
+  border-radius: var(--border-radius-full);
+}
+
+.pill {
+  padding: var(--space-1-5) var(--space-3);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: var(--font-text-xs-size);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-tertiary);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  background: none;
+  border: none;
+  border-radius: var(--border-radius-full);
+}
+
+.pill[data-active] {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+  box-shadow: var(--shadow-sm);
+}

@@ -1,0 +1,64 @@
+/* ── Chart layout ─────────────────────────────── */
+.activityChart {
+  font-family: var(--font-sans);
+}
+
+.header {
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-sans);
+}
+
+.title {
+  font-size: var(--font-heading-sm-size);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--font-text-sm-size);
+  color: var(--color-text-secondary);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0 var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.footerControls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+/* Compact mode: stack footer vertically and let the legend fill
+   the full card width so it can wrap into multiple rows. */
+.activityChart[data-compact] .footer {
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.activityChart[data-compact] .footerControls {
+  justify-content: flex-start;
+}
+
+.activityChart[data-compact] .header {
+  padding: 0 var(--space-1);
+}
+
+.activityChart[data-compact] .title {
+  font-size: var(--font-text-sm-size);
+}
+
+.activityChart[data-compact] .subtitle {
+  font-size: var(--font-text-xs-size);
+}
