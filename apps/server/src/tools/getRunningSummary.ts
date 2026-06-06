@@ -190,15 +190,15 @@ export const getRunningSummaryTool = {
         type: activity.sport_type || activity.type,
 
         distance: {
-          meters: activity.distance,
+          meters: activity.distance ?? 0,
           km: Math.round((activity.distance ?? 0) / 10) / 100,
           miles: Math.round((activity.distance ?? 0) / 16.0934) / 100,
         },
 
         time: {
-          moving_seconds: activity.moving_time,
+          moving_seconds: activity.moving_time ?? 0,
           moving_formatted: formatDuration(activity.moving_time),
-          elapsed_seconds: activity.elapsed_time,
+          elapsed_seconds: activity.elapsed_time ?? 0,
           elapsed_formatted: formatDuration(activity.elapsed_time),
         },
 
