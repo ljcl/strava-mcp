@@ -4,6 +4,10 @@ import * as readline from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import * as dotenv from "dotenv";
 
+function mask(token: string): string {
+  return token.length <= 4 ? "****" : `****${token.slice(-4)}`;
+}
+
 // Define required scopes for all current and planned tools
 // Explicitly request profile and activity read access.
 const REQUIRED_SCOPES =
@@ -166,8 +170,15 @@ async function main() {
     }
 
     console.log("\n✅ Successfully obtained tokens!");
-    console.log(`Access Token: ${access_token}`);
-    console.log(`Refresh Token: ${refresh_token}`);
+    console.log(
+      `Access Token:  ${mask(access_token)} (full value saved to the token file)`,
+    );
+    console.log(
+      `Refresh Token: ${mask(refresh_token)} (full value saved to the token file)`,
+    );
+    console.log(
+      "Tokens written to the token store; do not share terminal output.",
+    );
     console.log(
       `Access Token Expires At: ${new Date(expires_at * 1000).toLocaleString()}`,
     );
