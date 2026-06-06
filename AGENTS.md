@@ -324,3 +324,17 @@ curl -X POST http://localhost:3000/mcp \
 | `PORT` | No | Server port (default: `3000`) |
 
 *Required for Docker/web-based OAuth. Not needed when using `bun run setup-auth` locally.
+
+## Releases
+
+Releases are automated by release-please (`.github/workflows/release-please.yml`).
+
+- Use Conventional Commits on `main`: `fix:` gives a patch bump, `feat:` a minor bump,
+  `feat!:` or a `BREAKING CHANGE:` footer a major bump. `chore:`, `docs:`, `refactor:`,
+  and `ci:` produce no release.
+- release-please opens a `chore: release X.Y.Z` PR that bumps root `package.json`,
+  both `server.json` version fields, and `CHANGELOG.md`.
+- Merging that PR pushes the `vX.Y.Z` tag (via the `RELEASE_PLEASE_PAT` secret), which
+  triggers `docker.yml` to publish `ghcr.io/ljcl/strava-mcp:X.Y.Z` and `:X.Y`.
+- Manual `git tag vX.Y.Z` still works as a fallback; `docker.yml` triggers on `v*` tags
+  regardless of how they are created.
