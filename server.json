@@ -1,42 +1,76 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-07-09/server.schema.json",
-  "name": "ljcl/strava-mcp",
-  "description": "MCP server for accessing Strava API",
+  "name": "io.github.ljcl/strava-mcp",
+  "description": "Remote MCP server for your Strava activities, segments, and routes",
   "status": "active",
   "repository": {
     "url": "https://github.com/ljcl/strava-mcp",
     "source": "github"
   },
   "version": "1.0.0",
+  "website_url": "https://github.com/ljcl/strava-mcp#readme",
   "packages": [
     {
-      "registry_type": "npm",
-      "registry_base_url": "https://registry.npmjs.org",
-      "identifier": "strava-mcp-server",
+      "registry_type": "oci",
+      "registry_base_url": "https://ghcr.io",
+      "identifier": "ljcl/strava-mcp",
       "version": "1.0.0",
+      "runtime_hint": "docker",
       "transport": {
-        "type": "stdio"
+        "type": "streamable-http",
+        "url": "http://localhost:3000/mcp"
       },
       "environment_variables": [
         {
           "name": "STRAVA_CLIENT_ID",
-          "description": "Your Strava API client ID",
+          "description": "Strava API client ID",
           "is_required": true,
           "format": "string"
         },
         {
           "name": "STRAVA_CLIENT_SECRET",
-          "description": "Your Strava API client secret",
+          "description": "Strava API client secret",
           "is_required": true,
-          "format": "string",
-          "is_secret": true
+          "is_secret": true,
+          "format": "string"
+        },
+        {
+          "name": "PUBLIC_URL",
+          "description": "Public HTTPS URL used for the Strava OAuth callback",
+          "is_required": true,
+          "format": "string"
         },
         {
           "name": "STRAVA_ACCESS_TOKEN",
-          "description": "Your Strava API access token",
-          "is_required": true,
-          "format": "string",
-          "is_secret": true
+          "description": "Optional initial access token from setup-auth",
+          "is_required": false,
+          "is_secret": true,
+          "format": "string"
+        },
+        {
+          "name": "STRAVA_REFRESH_TOKEN",
+          "description": "Optional initial refresh token from setup-auth",
+          "is_required": false,
+          "is_secret": true,
+          "format": "string"
+        },
+        {
+          "name": "PORT",
+          "description": "Server port (default 3000)",
+          "is_required": false,
+          "format": "number"
+        },
+        {
+          "name": "TOKEN_DATA_DIR",
+          "description": "Override token storage directory (default ./data)",
+          "is_required": false,
+          "format": "string"
+        },
+        {
+          "name": "ROUTE_EXPORT_PATH",
+          "description": "Absolute directory for exported route files",
+          "is_required": false,
+          "format": "filepath"
         }
       ]
     }
