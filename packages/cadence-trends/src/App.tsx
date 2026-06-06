@@ -1,9 +1,10 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { type HostLayout } from "@strava-mcp/data";
-import { Pill, PillGroup } from "@strava-mcp/ui";
+import { Pill, PillGroup, useModelContextSync } from "@strava-mcp/ui";
 import { useCallback, useMemo, useState } from "react";
 import styles from "./App.module.css";
+import { buildCadenceContextSummary } from "./contextSummary";
 import {
   computeSummaryStats,
   smoothOverlayPoints,
@@ -107,6 +108,17 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
   );
 
   const selectedRuns = data.activities.filter((a) => selectedRunIds.has(a.id));
+
+  useModelContextSync(
+    app ?? undefined,
+    () =>
+      buildCadenceContextSummary({
+        weeks: data.weeks,
+        activeView,
+        selectedRuns,
+      }),
+    [data.weeks, activeView, selectedRunIds, selectedRuns],
+  );
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
