@@ -329,9 +329,14 @@ curl -X POST http://localhost:3000/mcp \
 
 Releases are automated by release-please (`.github/workflows/release-please.yml`).
 
-- Use Conventional Commits on `main`: `fix:` gives a patch bump, `feat:` a minor bump,
+- PRs are squash-merged, so the **PR title becomes the only commit on `main`**. The PR
+  title therefore must be a Conventional Commit, or release-please sees no releasable
+  change and silently skips (the run still reports success). The `pr-title.yml` workflow
+  enforces this on every PR, and the repo squash setting is pinned to `PR_TITLE` so the
+  title is always what lands. Branch commits can be messy; only the PR title matters.
+- Use Conventional Commits: `fix:` gives a patch bump, `feat:` a minor bump,
   `feat!:` or a `BREAKING CHANGE:` footer a major bump. `chore:`, `docs:`, `refactor:`,
-  and `ci:` produce no release.
+  and `ci:` are valid titles but produce no release.
 - release-please opens a `chore: release X.Y.Z` PR that bumps root `package.json`,
   both `server.json` version fields, and `CHANGELOG.md`.
 - Merging that PR pushes the `vX.Y.Z` tag (via the `RELEASE_PLEASE_PAT` secret), which
