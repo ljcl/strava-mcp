@@ -7,7 +7,8 @@ import { READ_ONLY } from "./_annotations";
 // Export the tool definition directly
 export const listStarredSegments = {
   name: "list-starred-segments",
-  description: "Lists the segments starred by the authenticated athlete.",
+  description:
+    "List the segments the athlete has starred. Returns each segment's id, name, distance, average grade, and climb category so the model can pick one to inspect with get-segment or list efforts with list-segment-efforts. Use when the user refers to their saved or favorite segments.",
   // No input schema needed
   inputSchema: undefined,
   annotations: READ_ONLY,

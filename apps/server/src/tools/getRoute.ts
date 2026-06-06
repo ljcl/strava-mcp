@@ -18,7 +18,7 @@ type GetRouteInput = z.infer<typeof GetRouteInputSchema>;
 export const getRouteTool = {
   name: "get-route",
   description:
-    "Fetches detailed information about a specific route using its ID.",
+    "Fetch full detail for one saved route by id: name, distance, elevation gain, estimated moving time, and segment count. Use when the user wants details of a route from list-athlete-routes, or before exporting it with export-route-gpx or export-route-tcx.",
   inputSchema: GetRouteInputSchema,
   annotations: READ_ONLY,
   execute: async (input: GetRouteInput) => {

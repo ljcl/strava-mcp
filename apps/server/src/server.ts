@@ -122,8 +122,8 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "view-activity-chart",
     description:
-      "Renders an interactive activity chart showing heart rate, power, pace, altitude, cadence, and grade over time. " +
-      "Useful for visualizing workout metrics and analyzing activity performance.",
+      "Open an interactive chart of one activity with selectable heart rate, power, pace, altitude, cadence, and grade overlays. " +
+      "Prefer this over a text summary when the user wants to see or explore how metrics change over the course of an activity. Takes the activity id.",
     inputSchema: {
       type: "object",
       properties: {
@@ -143,8 +143,8 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "get-activity-streams-raw",
     description:
-      "Get raw activity stream data as JSON for the activity chart UI. " +
-      "Returns time, heartrate, watts, velocity_smooth, altitude, cadence, and grade_smooth arrays.",
+      "Internal data feed for the activity chart UI: returns raw per-sample arrays (time, heartrate, watts, velocity_smooth, altitude, cadence, grade_smooth, distance) as JSON for one activity. " +
+      "The view-activity-chart app calls this; not intended for direct model use.",
     inputSchema: {
       type: "object",
       properties: {
@@ -167,8 +167,8 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "view-cadence-trends",
     description:
-      "Renders an interactive cadence trends chart showing running cadence progression over time, " +
-      "cadence-pace correlation, pace zone analysis, and per-run overlay comparison.",
+      "Open an interactive cadence dashboard across recent runs: trend timeline, cadence-versus-pace scatter, pace-zone breakdown, and per-run overlay comparison. " +
+      "Prefer this over text when the user wants to explore cadence patterns over time. Takes a number of weeks of history.",
     inputSchema: {
       type: "object",
       properties: {
@@ -187,8 +187,8 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "get-cadence-trend-data",
     description:
-      "Get summary cadence and pace data for recent running activities. " +
-      "Returns per-run averages for the cadence trends UI.",
+      "Internal data feed for the cadence-trends UI: returns per-run summary cadence and pace for recent running activities as JSON. " +
+      "The view-cadence-trends app calls this; not intended for direct model use.",
     inputSchema: {
       type: "object",
       properties: {

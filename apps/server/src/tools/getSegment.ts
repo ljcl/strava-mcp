@@ -43,7 +43,7 @@ function formatSegmentDetails(segment: StravaDetailedSegment): string {
 export const getSegmentTool = {
   name: "get-segment",
   description:
-    "Fetches detailed information about a specific segment using its ID.",
+    "Fetch full detail for one segment by id: distance, average and maximum grade, total elevation gain, climb category, location, and starred state. Use after finding a segment via explore-segments or list-starred-segments when the user wants its difficulty or stats. Obtain the id from those tools.",
   inputSchema: GetSegmentInputSchema,
   annotations: READ_ONLY,
   execute: async ({ segmentId }: GetSegmentInput) => {
