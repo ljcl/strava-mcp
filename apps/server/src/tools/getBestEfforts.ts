@@ -29,6 +29,8 @@ Notes:
 - Use maxActivities to limit API calls for faster results
 - Times use elapsed time (includes stops), matching Strava's Best Efforts behavior
 - Only activities with best_efforts data from Strava are included
+
+Note: this scans recent running activities and fetches each activity's detail to read its best efforts, so it makes one API call per activity and can be slow over long histories; the maxActivities parameter (default 100) bounds the work.
 `;
 
 const inputSchema = z.object({

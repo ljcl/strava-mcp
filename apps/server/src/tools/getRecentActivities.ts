@@ -8,10 +8,10 @@ const GetRecentActivitiesInputSchema = z.object({
   perPage: z
     .number()
     .int()
-    .positive()
-    .optional()
+    .min(1)
+    .max(200)
     .default(30)
-    .describe("Number of activities to retrieve (default: 30)"),
+    .describe("Number of activities to return (1-200, default 30)"),
 });
 
 type GetRecentActivitiesInput = z.infer<typeof GetRecentActivitiesInputSchema>;
