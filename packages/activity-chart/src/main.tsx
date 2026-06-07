@@ -1,8 +1,13 @@
-import { type McpUiHostContext } from "@modelcontextprotocol/ext-apps";
-import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
+import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getHostLayout } from "@strava-mcp/data";
-import { type HostCtx, Skeleton, useMobileMode } from "@strava-mcp/ui";
+import {
+  type AppMode,
+  AppShell,
+  type HostCtx,
+  Skeleton,
+  useHostRoot,
+} from "@strava-mcp/ui";
 import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { ActivityChart } from "./ActivityChart";
@@ -33,7 +38,7 @@ interface AppContentProps {
   app: ReturnType<typeof useApp>["app"];
   toolArgs: ToolArgs;
   hostCtx: HostCtx;
-  mode: "mobile" | "desktop";
+  mode: AppMode;
 }
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
@@ -72,50 +77,26 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
     void fetchStreams();
   }, [fetchStreams]);
 
-  const safeAreaInsets = hostCtx.safeAreaInsets;
-  const basePad = mode === "mobile" ? { y: 16, x: 14 } : { y: 24, x: 20 };
-  // Small outer margin on mobile so the card's border isn't clipped by
-  // the host iframe edge (seen on Claude iOS where the chat card gives
-  // the app iframe zero surrounding padding).
-  const outerMargin = mode === "mobile" ? 3 : 0;
-
-  const cardStyle: React.CSSProperties = {
-    boxSizing: "border-box",
-    // Always fill the iframe minus the outer margin so nothing inside
-    // can force the card wider than the host viewport (the cause of
-    // the horizontal scroll we saw on Claude iOS).
-    width: `calc(100% - ${outerMargin * 2}px)`,
-    margin: outerMargin,
-    background: "var(--color-background-primary)",
-    border: "1px solid var(--color-border-tertiary)",
-    borderRadius: "var(--border-radius-lg)",
-    paddingBottom: `calc(${basePad.y}px + ${safeAreaInsets?.bottom ?? 0}px)`,
-    paddingLeft: `calc(${basePad.x}px + ${safeAreaInsets?.left ?? 0}px)`,
-    paddingRight: `calc(${basePad.x}px + ${safeAreaInsets?.right ?? 0}px)`,
-    paddingTop: `calc(${basePad.y}px + ${safeAreaInsets?.top ?? 0}px)`,
-    overflow: "hidden",
-  };
-
   if (loading) {
     return (
-      <div style={cardStyle}>
+      <AppShell hostCtx={hostCtx} mode={mode}>
         <Skeleton variant="chart" />
-      </div>
+      </AppShell>
     );
   }
 
   if (error || !data || !meta) {
     return (
-      <div style={cardStyle}>
+      <AppShell hostCtx={hostCtx} mode={mode}>
         <div style={{ color: "var(--color-text-danger, #c00)" }}>
           {error ?? "No activity data available"}
         </div>
-      </div>
+      </AppShell>
     );
   }
 
   return (
-    <div style={cardStyle}>
+    <AppShell hostCtx={hostCtx} mode={mode}>
       <ActivityChart
         data={data}
         meta={meta}
@@ -124,56 +105,18 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
         mode={mode}
         app={app ?? undefined}
       />
-    </div>
+    </AppShell>
   );
 }
 
 function Root() {
-  const [toolArgs, setToolArgs] = useState<ToolArgs | null>(null);
-  const [hostCtx, setHostCtx] = useState<HostCtx>({});
-
-  const { app, error: connectError } = useApp({
+  const { app, hostCtx, mode, toolArgs, connectError } = useHostRoot<ToolArgs>({
     appInfo: { name: "Activity Chart", version: "1.0.0" },
-    capabilities: {
-      availableDisplayModes: ["inline", "fullscreen"],
-    },
-    onAppCreated: (createdApp) => {
-      createdApp.ontoolinput = (input) => {
-        const args = input.arguments as ToolArgs | undefined;
-        if (args?.activity_id) {
-          setToolArgs(args);
-        }
-      };
-      createdApp.onhostcontextchanged = (ctx: McpUiHostContext) => {
-        setHostCtx({
-          platform: ctx.platform,
-          containerDimensions: ctx.containerDimensions,
-          safeAreaInsets: ctx.safeAreaInsets,
-          deviceCapabilities: ctx.deviceCapabilities,
-          userAgent: ctx.userAgent,
-        });
-      };
-      createdApp.onerror = console.error;
+    parseToolInput: (args) => {
+      const next = args as ToolArgs | undefined;
+      return next?.activity_id ? next : null;
     },
   });
-
-  useHostStyles(app, app?.getHostContext());
-
-  useEffect(() => {
-    const ctx = app?.getHostContext();
-    if (ctx) {
-      setHostCtx({
-        platform: ctx.platform,
-        containerDimensions: ctx.containerDimensions,
-        safeAreaInsets: ctx.safeAreaInsets,
-        deviceCapabilities: ctx.deviceCapabilities,
-        userAgent: ctx.userAgent,
-      });
-    }
-  }, [app]);
-
-  const isMobile = useMobileMode(hostCtx);
-  const mode: "mobile" | "desktop" = isMobile ? "mobile" : "desktop";
 
   if (connectError)
     return (
