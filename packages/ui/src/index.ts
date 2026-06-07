@@ -1,3 +1,11 @@
+export {
+  type AppMode,
+  AppShell,
+  type AppShellProps,
+  type HostRoot,
+  type UseHostRootOptions,
+  useHostRoot,
+} from "./AppShell";
 export { Legend, LegendItem } from "./Legend";
 export { Pill, PillGroup } from "./Pill";
 export { Skeleton } from "./Skeleton";
