@@ -117,13 +117,14 @@ export const getActivityZonesTool = {
 
       const zones = await getActivityZonesClient(token, id);
 
-      // No zone data when the activity has neither HR nor power, or buckets are empty.
+      // No usable data when no zone set has any distribution buckets (e.g. the
+      // activity had neither an HR nor a power sensor). Covers the empty-array case.
       const hasData = zones.some(
         (zone) =>
           zone.distribution_buckets && zone.distribution_buckets.length > 0,
       );
 
-      if (!zones || zones.length === 0 || !hasData) {
+      if (!hasData) {
         return {
           content: [
             {
