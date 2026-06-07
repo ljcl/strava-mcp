@@ -325,6 +325,22 @@ curl -X POST http://localhost:3000/mcp \
 
 *Required for Docker/web-based OAuth. Not needed when using `bun run setup-auth` locally.
 
+## Backlog and issue tracking
+
+Improvements and changes are tracked as GitHub Issues and triaged on the
+"strava-mcp backlog" Project board (https://github.com/users/ljcl/projects/1).
+
+- File issues via the templates (Improvement, Bug report); blank issues are allowed.
+- Labels: `type:*` mirrors Conventional Commit types (feat, fix, perf, refactor,
+  docs, test, chore, ci); `area:*` maps to monorepo packages (server, mcp-app,
+  data, ui, design-system, ci-release, docker, repo). Bot and community labels
+  (dependencies, autorelease:*, good first issue) are managed automatically.
+- Priority (P1/P2/P3), Effort (S/M/L), and Status live as Project board fields,
+  not labels, so triage data is not duplicated across two systems.
+- New issues auto-add to the board (Backlog). Link PRs with `closes #N` so a
+  merge closes the issue; the PR title is the Conventional Commit that
+  release-please turns into a release.
+
 ## Releases
 
 Releases are automated by release-please (`.github/workflows/release-please.yml`).
