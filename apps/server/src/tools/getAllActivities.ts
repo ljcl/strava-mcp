@@ -138,7 +138,7 @@ export const getAllActivities = {
         : undefined;
 
       // Validate date inputs
-      if (before && Number.isNaN(before)) {
+      if (before !== undefined && Number.isNaN(before)) {
         return {
           content: [
             {
@@ -149,7 +149,7 @@ export const getAllActivities = {
           isError: true,
         };
       }
-      if (after && Number.isNaN(after)) {
+      if (after !== undefined && Number.isNaN(after)) {
         return {
           content: [
             {
