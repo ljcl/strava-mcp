@@ -1707,6 +1707,80 @@ export async function getAthleteZones(
   }
 }
 
+// --- Activity Zones Schema ---
+// GET /activities/{id}/zones returns an array of zone objects (heartrate /
+// power), each carrying `distribution_buckets` describing how long was spent in
+// each zone band (the final bucket uses max: -1 for "and above").
+// Based on https://developers.strava.com/docs/reference/#api-models-ActivityZone
+export const ActivityZoneSchema = z
+  .object({
+    type: z.enum(["heartrate", "power"]).optional(),
+    score: z.number().optional().nullable(),
+    sensor_based: z.boolean().optional().nullable(),
+    points: z.number().int().optional().nullable(),
+    custom_zones: z.boolean().optional().nullable(),
+    max: z.number().optional().nullable(),
+    resource_state: z.number().int().optional(),
+    distribution_buckets: z.array(DistributionBucketSchema),
+  })
+  .passthrough();
+
+export type StravaActivityZone = z.infer<typeof ActivityZoneSchema>;
+const StravaActivityZonesResponseSchema = z.array(ActivityZoneSchema);
+
+/**
+ * Retrieves the time-in-zone distribution for a specific activity.
+ *
+ * `GET /activities/{id}/zones` returns one entry per zone type the activity
+ * recorded (heart rate and/or power), each with `distribution_buckets`
+ * describing how long was spent in each zone band. Private activities require
+ * the `activity:read_all` scope.
+ *
+ * @param accessToken - The Strava API access token.
+ * @param activityId - The ID of the activity.
+ * @returns A promise resolving to an array of activity zone objects.
+ */
+export async function getActivityZones(
+  accessToken: string,
+  activityId: number | string,
+): Promise<StravaActivityZone[]> {
+  if (!accessToken) {
+    throw new Error("Strava access token is required.");
+  }
+
+  try {
+    const response = await stravaApi.get(`/activities/${activityId}/zones`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const validationResult = StravaActivityZonesResponseSchema.safeParse(
+      response.data,
+    );
+
+    if (!validationResult.success) {
+      console.error(
+        `Strava API validation failed (getActivityZones: ${activityId}):`,
+        validationResult.error,
+      );
+      throw new Error(
+        `Invalid data format received from Strava API: ${validationResult.error.message}`,
+      );
+    }
+
+    return validationResult.data;
+  } catch (error) {
+    return await handleApiError<StravaActivityZone[]>(
+      error,
+      `getActivityZones(${activityId})`,
+      async () => {
+        // Use new token from environment after refresh
+        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+        return getActivityZones(newToken, activityId);
+      },
+    );
+  }
+}
+
 /**
  * Fetches photos associated with a specific activity.
  *

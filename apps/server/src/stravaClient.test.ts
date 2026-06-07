@@ -3,6 +3,7 @@ import * as fixtures from "./__fixtures__";
 import { parseJsonWithLargeInts } from "./fetchClient";
 import {
   ActivityStatsSchema,
+  ActivityZoneSchema,
   AthleteGearSchema,
   DetailedActivitySchema,
   DetailedAthleteSchema,
@@ -105,6 +106,23 @@ describe("ActivityStatsSchema", () => {
       fixtures.activityStatsWithNulls,
     );
     expect(result.success).toBe(true);
+  });
+});
+
+describe("ActivityZoneSchema", () => {
+  it("parses heart rate and power zone entries", () => {
+    for (const zone of fixtures.activityZones) {
+      expect(ActivityZoneSchema.safeParse(zone).success).toBe(true);
+    }
+  });
+
+  it("accepts the final 'and above' bucket (max: -1)", () => {
+    const result = ActivityZoneSchema.safeParse(fixtures.activityZones[0]);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      const last = result.data.distribution_buckets.at(-1);
+      expect(last?.max).toBe(-1);
+    }
   });
 });
 

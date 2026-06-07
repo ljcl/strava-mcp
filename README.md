@@ -231,6 +231,7 @@ The server exposes the following MCP tools:
 | `get-activity-segment-efforts` | Segment efforts in an activity, with PRs and top-10s highlighted |
 | `get-activity-streams` | Get time-series data (HR, power, GPS, etc.) |
 | `get-activity-laps` | Get lap data for an activity |
+| `get-activity-zones` | Time spent in each HR and power zone for an activity |
 | `get-activity-photos` | Get photos from an activity |
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
 | `get-training-load` | Training load summary with trend analysis |

@@ -103,6 +103,34 @@ export const activityWithBestEfforts = {
   ],
 };
 
+export const activityZones = [
+  {
+    type: "heartrate",
+    sensor_based: true,
+    points: 5,
+    custom_zones: false,
+    resource_state: 3,
+    distribution_buckets: [
+      { min: 0, max: 115, time: 300 },
+      { min: 115, max: 152, time: 1200 },
+      { min: 152, max: 171, time: 600 },
+      { min: 171, max: 190, time: 120 },
+      { min: 190, max: -1, time: 0 },
+    ],
+  },
+  {
+    type: "power",
+    sensor_based: true,
+    points: 3,
+    resource_state: 3,
+    distribution_buckets: [
+      { min: 0, max: 100, time: 200 },
+      { min: 100, max: 250, time: 1500 },
+      { min: 250, max: -1, time: 520 },
+    ],
+  },
+];
+
 export const activityWithSegmentEfforts = {
   ...basicRunActivity,
   id: 12345683,
