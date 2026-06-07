@@ -1,44 +1,55 @@
+# syntax=docker/dockerfile:1
+# Requires BuildKit (RUN --mount=type=cache, multi-stage COPY --from).
+
+# Shell base: bun + a shell, used by every build-time stage
 FROM oven/bun:1.3.6 AS base
 WORKDIR /app
-RUN bun add -g turbo@2.9.6
+
+# turbo isolated here so it never reaches the runner; pinned to match root package.json
+FROM base AS toolchain
+RUN bun add -g turbo@2.9.16
 
 # 1) Prune the monorepo to the subset @strava-mcp/server needs.
-#    Produces /app/out/json (package.json files only), /app/out/full (sources),
+#    Produces /app/out/json (package.json files), /app/out/full (sources),
 #    and /app/out/bun.lock (subset lockfile).
-FROM base AS pruner
+FROM toolchain AS pruner
 COPY . .
 RUN turbo prune @strava-mcp/server --docker
 
-# 2) Build: install full deps (dev + prod) then run turbo build.
-#    Because server depends on activity-chart and cadence-trends, turbo ^build
-#    runs their vite builds first, producing packages/*/dist/app.html.
-FROM base AS builder
+# 2) Build: full deps then turbo build of the server's dependencies, which
+#    runs the activity-chart and cadence-trends vite builds (packages/*/dist/app.html).
+FROM toolchain AS builder
 COPY --from=pruner /app/out/json/ ./
 COPY --from=pruner /app/out/bun.lock ./bun.lock
-RUN bun install --frozen-lockfile
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile
 COPY --from=pruner /app/out/full/ ./
 RUN turbo run build --filter=@strava-mcp/server^...
 
-# 3) Runner: lean image with prod-only deps plus built app.html resources.
-#    Prod install links workspace deps by symlink; we fill in the built
-#    dist/ from the builder stage so createRequire(...).resolve(...) works
-#    at runtime.
-FROM base AS runner
+# 3) Prod-only deps plus the data dir, prepared in a SHELL stage.
+#    Distroless cannot RUN, so the install, mkdir, and chown happen here.
+FROM base AS prod-deps
 COPY --from=pruner /app/out/json/ ./
 COPY --from=pruner /app/out/bun.lock ./bun.lock
-RUN bun install --frozen-lockfile --production
-COPY --from=builder /app/apps/server/src ./apps/server/src
-COPY --from=builder /app/apps/server/scripts ./apps/server/scripts
-COPY --from=builder /app/packages/activity-chart/dist ./packages/activity-chart/dist
-COPY --from=builder /app/packages/cadence-trends/dist ./packages/cadence-trends/dist
+RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lockfile --production
+RUN mkdir -p /app/data && chown -R 65534:65534 /app
 
-RUN mkdir -p /app/data && chown -R bun:bun /app
-USER bun
+# 4) Distroless runner: COPY only. nonroot (65534), no shell, ENTRYPOINT is bun.
+FROM oven/bun:1.3.6-distroless AS runner
+WORKDIR /app
+COPY --from=prod-deps --chown=65534:65534 /app ./
+COPY --from=builder  --chown=65534:65534 /app/apps/server/src ./apps/server/src
+COPY --from=builder  --chown=65534:65534 /app/apps/server/scripts ./apps/server/scripts
+COPY --from=builder  --chown=65534:65534 /app/packages/activity-chart/dist ./packages/activity-chart/dist
+COPY --from=builder  --chown=65534:65534 /app/packages/cadence-trends/dist ./packages/cadence-trends/dist
 
+USER 65534:65534
 ENV NODE_ENV=production
 EXPOSE 3000
 
+# Exec-form healthcheck: no shell, no wget. Full bun path because HEALTHCHECK
+# does not route through ENTRYPOINT.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+    CMD ["/usr/local/bin/bun","--eval","fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
 
-CMD ["bun", "run", "apps/server/src/index.ts"]
+# ENTRYPOINT is already /usr/local/bin/bun, so CMD omits the leading "bun".
+CMD ["run","apps/server/src/index.ts"]

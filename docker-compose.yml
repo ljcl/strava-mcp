@@ -22,20 +22,6 @@ services:
       - ./data:/app/data
       # Optional: persist exported routes
       - strava-exports:/app/strava-exports
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "wget",
-          "--no-verbose",
-          "--tries=1",
-          "--spider",
-          "http://localhost:3000/health",
-        ]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 5s
 
 volumes:
   strava-exports:
