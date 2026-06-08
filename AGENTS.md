@@ -299,6 +299,23 @@ Do NOT change root `lint` to `turbo run lint` (would create an infinite loop). B
 
 Built via `turbo prune @strava-mcp/server --docker`. The Dockerfile's build step uses `--filter=@strava-mcp/server^...` to build only the server's workspace dependencies (the two MCP App packages), excluding the server itself since it is JIT. Adding a new workspace package does not require editing the Dockerfile; turbo prune derives the package set from the workspace graph. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/activity-chart/app.html")` so each app package must declare an `./app.html` export and a `dist/` build output.
 
+## Storybook and Chromatic
+
+Storybook (`apps/storybook`) renders the UI packages. Two deploys:
+
+- `main` is published to GitHub Pages (`storybook.yml`) and to Chromatic.
+- Each PR that touches a UI package is published to Chromatic (`chromatic.yml`), which posts two PR checks: `Storybook Publish` (a link to that branch's hosted Storybook) and `UI Tests` (visual diffs against the `main` baseline). It is a review aid, not a merge gate (`exitZeroOnChanges`); `autoAcceptChanges: main` advances the baseline as changes land.
+
+TurboSnap (`onlyChanged`) only snapshots stories affected by the diff, to conserve the free-plan budget. It relies on `preview-stats.json` (emitted by `--stats-json` in `build:storybook`) and `storybookBaseDir: apps/storybook`. Stories are co-located in `packages/*`, so when tracing cannot resolve a change it snapshots conservatively rather than missing a regression. Requires `CHROMATIC_PROJECT_TOKEN` as a repo secret.
+
+### Agent access
+
+- A PR's hosted Storybook URL and diff status: `gh pr checks <PR>` (the `Storybook Publish` and `UI Tests` rows).
+- Storybook ships a Model Context Protocol server (via `@storybook/addon-mcp`) with story, docs, and test tools. Endpoints are pre-wired in `.mcp.json`:
+  - `storybook`: `http://localhost:6006/mcp` (while `bun run storybook` is running)
+  - `storybook-chromatic`: `https://main--6a261929a3cb4ac107f3c06d.chromatic.com/mcp` (the hosted `main` build; live after the first main publish)
+- Publish on demand: `CHROMATIC_PROJECT_TOKEN=... bunx chromatic --storybook-build-dir apps/storybook/storybook-static`.
+
 ## Testing the MCP endpoint
 
 ```bash

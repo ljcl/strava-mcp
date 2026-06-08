@@ -3,6 +3,10 @@
     "storybook": {
       "type": "http",
       "url": "http://localhost:6006/mcp"
+    },
+    "storybook-chromatic": {
+      "type": "http",
+      "url": "https://main--6a261929a3cb4ac107f3c06d.chromatic.com/mcp"
     }
   }
 }

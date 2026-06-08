@@ -50,6 +50,13 @@ jobs:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
           # Reuse the artifact turbo just built; do not let Chromatic rebuild.
           storybookBuildDir: apps/storybook/storybook-static
+          # TurboSnap: only snapshot stories affected by the diff (conserves the
+          # free-plan snapshot budget). Relies on preview-stats.json, emitted by
+          # the --stats-json flag in apps/storybook build:storybook.
+          onlyChanged: true
+          # Monorepo: Storybook lives under apps/storybook, so map repo-root git
+          # paths to the module paths recorded in preview-stats.json.
+          storybookBaseDir: apps/storybook
           # This is a review aid, not a merge gate: visual changes should not fail
           # the PR. The Chromatic check still surfaces the link and the diffs.
           exitZeroOnChanges: true
