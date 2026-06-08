@@ -189,6 +189,16 @@ When the server gains a tool that needs a new OAuth scope (for example `activity
 
 Both flows use `approval_prompt=force`, so Strava re-prompts and issues a token with the current scope set.
 
+## Rate Limits & Resilience
+
+The HTTP layer (`apps/server/src/fetchClient.ts`) handles Strava's rate limits and transient failures centrally, so every tool benefits without per-tool code:
+
+- **Rate-limit awareness**: Every response's `X-RateLimit-*` / `X-ReadRateLimit-*` (15-minute and daily windows) and `Retry-After` headers are parsed. Strava allows 100 requests / 15 min and 1000 / day by default ([docs](https://developers.strava.com/docs/rate-limits/)).
+- **429 backoff**: On a rate-limit response the client honours `Retry-After` and retries (bounded, so a tool call never blocks on a full 15-minute window). When the limit is genuinely exhausted the model gets a structured message naming which window is gone and when it resets.
+- **Transient retry**: `5xx` (500/502/503/504) and network faults are retried with bounded exponential backoff. Only idempotent reads (`GET`) are retried; writes (`update-activity`, `star-segment`) are never blindly retried.
+
+This is passive — there's nothing to configure.
+
 ## Natural Language Examples
 
 Ask your AI assistant questions like these:

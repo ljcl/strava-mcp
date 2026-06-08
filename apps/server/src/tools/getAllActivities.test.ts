@@ -200,13 +200,19 @@ describe("getAllActivities.execute", () => {
     );
   });
 
-  it("maps a 429 to a rate-limit message", async () => {
-    mockedFetch.mockRejectedValueOnce(new Error("Request failed with 429"));
+  it("surfaces the structured rate-limit message from the client", async () => {
+    // The fetch layer now honours Retry-After and stravaClient builds the
+    // actionable message; the tool just passes it through (no 429 string match).
+    mockedFetch.mockRejectedValueOnce(
+      new Error(
+        "Strava rate limit exceeded in getAllActivities. 15-minute rate limit reached (100/100 requests).",
+      ),
+    );
 
     const result = await run({});
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Rate limit reached");
+    expect(result.content[0]?.text).toContain("rate limit");
   });
 
   it("surfaces other API errors", async () => {

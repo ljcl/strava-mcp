@@ -296,19 +296,9 @@ export const getAllActivities = {
         error instanceof Error ? error.message : "An unknown error occurred";
       console.error("Error in get-all-activities tool:", errorMessage);
 
-      // Check for rate limiting
-      if (errorMessage.includes("429")) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: "⚠️ Rate limit reached. Please wait a few minutes before trying again.\n\nStrava API limits: 100 requests per 15 minutes, 1000 per day.",
-            },
-          ],
-          isError: true,
-        };
-      }
-
+      // Rate-limit handling (429, Retry-After, exhausted-window detail) now
+      // lives in the fetch layer and is surfaced as a structured message by
+      // stravaClient's handleApiError, so we just pass the message through.
       return {
         content: [
           { type: "text" as const, text: `❌ API Error: ${errorMessage}` },

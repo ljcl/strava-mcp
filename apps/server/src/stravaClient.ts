@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { z } from "zod";
-import { HttpError, stravaApi } from "./fetchClient";
+import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
 import { saveTokens, type TokenData } from "./tokenManager";
 import {
   buildUpdateActivityBody,
@@ -592,6 +592,17 @@ async function handleApiError<T>(
       );
       // Fall through to normal error handling if refresh fails
     }
+  }
+
+  // Rate limit exhausted (429). The fetch layer has already honoured any
+  // Retry-After and retried where it could; by the time it surfaces here the
+  // window is genuinely exhausted. Return a structured, actionable message
+  // (which window, when it resets) instead of the raw "Strava API Error (429)".
+  if (error instanceof RateLimitError) {
+    console.error(`⏳ Strava rate limit hit in ${context}: ${error.message}`);
+    throw new Error(
+      `Strava rate limit exceeded in ${context}. ${error.message}`,
+    );
   }
 
   // Check for subscription error (402)
