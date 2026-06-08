@@ -8,6 +8,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - **Transport**: Streamable HTTP on port 3000 (`/mcp` endpoint)
 - **Deployment**: Docker container, exposed via HTTPS tunnel or reverse proxy
 - **Monorepo**: Bun workspaces with Turborepo (`apps/*` + `packages/*`)
+- **HTTP layer**: `apps/server/src/fetchClient.ts` owns all rate-limit awareness and backoff. It parses Strava's `X-RateLimit-*` / `Retry-After` headers (snapshot via `stravaApi.getRateLimitSnapshot()`), retries 429s honouring `Retry-After`, and retries transient 5xx / network faults with bounded exponential backoff — GET/HEAD only, never writes. Add retry/limit logic here, not per-tool. Exhausted-limit 429s surface as a structured `RateLimitError` that `handleApiError` (`stravaClient.ts`) turns into an actionable message.
 
 ## Key Directories
 
