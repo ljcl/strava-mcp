@@ -1,8 +1,6 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { z } from "zod";
 import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
-import { saveTokens, type TokenData } from "./tokenManager";
+import { refreshAccessToken } from "./tokenManager";
 import {
   buildUpdateActivityBody,
   type UpdateActivityParams,
@@ -433,127 +431,9 @@ export {
 };
 
 // --- Token Refresh Functionality ---
-// Calculate path to .env file — monorepo root is 3 levels up from apps/server/src/
-const projectRoot = path.resolve(import.meta.dirname, "..", "..", "..");
-const envPath = path.join(projectRoot, ".env");
-
-/**
- * Updates the .env file with new access and refresh tokens
- * @param accessToken - The new access token
- * @param refreshToken - The new refresh token
- */
-async function updateTokensInEnvFile(
-  accessToken: string,
-  refreshToken: string,
-): Promise<void> {
-  try {
-    const envContent = await fs.readFile(envPath, "utf-8");
-    const lines = envContent.split("\n");
-    const newLines: string[] = [];
-    let accessTokenUpdated = false;
-    let refreshTokenUpdated = false;
-
-    for (const line of lines) {
-      if (line.startsWith("STRAVA_ACCESS_TOKEN=")) {
-        newLines.push(`STRAVA_ACCESS_TOKEN=${accessToken}`);
-        accessTokenUpdated = true;
-      } else if (line.startsWith("STRAVA_REFRESH_TOKEN=")) {
-        newLines.push(`STRAVA_REFRESH_TOKEN=${refreshToken}`);
-        refreshTokenUpdated = true;
-      } else if (line.trim() !== "") {
-        newLines.push(line);
-      }
-    }
-
-    if (!accessTokenUpdated) {
-      newLines.push(`STRAVA_ACCESS_TOKEN=${accessToken}`);
-    }
-    if (!refreshTokenUpdated) {
-      newLines.push(`STRAVA_REFRESH_TOKEN=${refreshToken}`);
-    }
-
-    await fs.writeFile(envPath, `${newLines.join("\n").trim()}\n`);
-    console.error("✅ Tokens successfully refreshed and updated in .env file.");
-  } catch (error) {
-    console.error("Failed to update tokens in .env file:", error);
-    // Continue execution even if file update fails
-  }
-}
-
-/**
- * Refreshes the Strava API access token using the refresh token
- * @returns The new access token
- */
-async function refreshAccessToken(): Promise<string> {
-  const refreshToken = process.env.STRAVA_REFRESH_TOKEN;
-  const clientId = process.env.STRAVA_CLIENT_ID;
-  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
-
-  if (!refreshToken || !clientId || !clientSecret) {
-    throw new Error(
-      "Missing refresh credentials in .env (STRAVA_REFRESH_TOKEN, STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET)",
-    );
-  }
-
-  try {
-    console.error("🔄 Refreshing Strava access token...");
-    const response = await fetch("https://www.strava.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type: "refresh_token",
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
-    }
-
-    const data = await response.json();
-
-    // Update tokens in environment variables for the current process
-    const newAccessToken = data.access_token;
-    const newRefreshToken = data.refresh_token;
-    const expiresAt = data.expires_at;
-
-    if (!newAccessToken || !newRefreshToken) {
-      throw new Error("Refresh response missing required tokens");
-    }
-
-    process.env.STRAVA_ACCESS_TOKEN = newAccessToken;
-    process.env.STRAVA_REFRESH_TOKEN = newRefreshToken;
-
-    // Save to persistent token storage (for Docker)
-    const tokenData: TokenData = {
-      access_token: newAccessToken,
-      refresh_token: newRefreshToken,
-      expires_at: expiresAt,
-    };
-    await saveTokens(tokenData);
-
-    // Also update .env file for backwards compatibility (non-Docker use)
-    await updateTokensInEnvFile(newAccessToken, newRefreshToken);
-
-    console.error(
-      `✅ Token refreshed. New token expires: ${new Date(
-        expiresAt * 1000,
-      ).toLocaleString()}`,
-    );
-    return newAccessToken;
-  } catch (error) {
-    console.error("Failed to refresh access token:", error);
-    throw new Error(
-      `Failed to refresh Strava access token: ${
-        error instanceof Error ? error.message : String(error)
-      }`,
-    );
-  }
-}
+// Token refresh lives entirely in tokenManager, which owns the single,
+// concurrency-safe refresh path (one in-flight exchange shared across callers)
+// and atomic persistence of tokens.json. handleApiError delegates to it on 401.
 
 /**
  * Helper function to handle API errors with token refresh capability

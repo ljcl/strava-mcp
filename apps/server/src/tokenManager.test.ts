@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import fsp from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -276,5 +277,141 @@ describe("saveTokens", () => {
     const written = JSON.parse(fs.readFileSync(tokenFile, "utf-8"));
     expect(written.access_token).toBe("a");
     expect(written.athlete_id).toBe(1);
+  });
+
+  it("writes atomically via a temp file + rename (no partial file on crash)", async () => {
+    const writeSpy = vi.spyOn(fsp, "writeFile");
+    const renameSpy = vi.spyOn(fsp, "rename");
+
+    const { saveTokens } = await importTokenManager();
+    await saveTokens({
+      access_token: "a",
+      refresh_token: "r",
+      expires_at: 123,
+      athlete_id: 1,
+    });
+
+    // The write targets a sibling .tmp file, then is renamed over the target.
+    // rename is atomic on the same filesystem, so a crash mid-write can never
+    // leave a half-written tokens.json behind.
+    expect(writeSpy).toHaveBeenCalledTimes(1);
+    const [writtenPath] = writeSpy.mock.calls[0] as unknown as [string];
+    expect(writtenPath).toBe(`${tokenFile}.tmp`);
+    expect(renameSpy).toHaveBeenCalledWith(`${tokenFile}.tmp`, tokenFile);
+
+    // The final file has the content and no temp file is left behind.
+    const written = JSON.parse(fs.readFileSync(tokenFile, "utf-8"));
+    expect(written.access_token).toBe("a");
+    expect(fs.existsSync(`${tokenFile}.tmp`)).toBe(false);
+  });
+});
+
+describe("refreshAccessToken (concurrency + token rotation)", () => {
+  it("coalesces concurrent refreshes onto a single /oauth/token exchange", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "old-acc",
+        refresh_token: "old-ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+        athlete_id: 99,
+      }),
+    );
+
+    // Gate the fetch so both callers are in-flight before it resolves. Without
+    // coalescing, the second caller would POST the already-rotated refresh
+    // token and Strava would reject it.
+    let resolveFetch!: (r: Response) => void;
+    const fetchGate = new Promise<Response>((resolve) => {
+      resolveFetch = resolve;
+    });
+    const fetchMock = vi.fn(() => fetchGate);
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const { refreshAccessToken } = await importTokenManager();
+
+    const p1 = refreshAccessToken();
+    const p2 = refreshAccessToken();
+
+    resolveFetch(
+      new Response(
+        JSON.stringify({
+          access_token: "new-acc",
+          refresh_token: "new-ref",
+          expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    const [t1, t2] = await Promise.all([p1, p2]);
+
+    // Exactly one network exchange despite two concurrent callers.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(t1).toEqual(t2);
+    expect(t1.access_token).toBe("new-acc");
+    expect(t1.refresh_token).toBe("new-ref");
+
+    // The rotated tokens are persisted once.
+    const written = JSON.parse(fs.readFileSync(tokenFile, "utf-8"));
+    expect(written.access_token).toBe("new-acc");
+    expect(written.refresh_token).toBe("new-ref");
+  });
+
+  it("preserves athlete_id across a refresh that omits the athlete", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "old-acc",
+        refresh_token: "old-ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+        athlete_id: 4242,
+      }),
+    );
+
+    // Strava's refresh_token grant response does not echo the athlete.
+    mockFetchOnceJson({
+      access_token: "new-acc",
+      refresh_token: "new-ref",
+      expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+    });
+
+    const { refreshAccessToken } = await importTokenManager();
+    const tokens = await refreshAccessToken();
+
+    expect(tokens.athlete_id).toBe(4242);
+    const written = JSON.parse(fs.readFileSync(tokenFile, "utf-8"));
+    expect(written.athlete_id).toBe(4242);
+  });
+
+  it("clears the in-flight lock so a later refresh exchanges again", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "old-acc",
+        refresh_token: "old-ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+      }),
+    );
+
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            access_token: "acc",
+            refresh_token: "ref",
+            expires_at: Math.floor(Date.now() / 1000) + 60 * 60,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+    );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const { refreshAccessToken } = await importTokenManager();
+    await refreshAccessToken();
+    await refreshAccessToken();
+
+    // Sequential refreshes are independent exchanges (lock resets between them).
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
