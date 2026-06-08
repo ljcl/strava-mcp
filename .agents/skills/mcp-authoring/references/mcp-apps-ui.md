@@ -45,6 +45,7 @@ const toolMeta = {
 - States: always handle loading, empty, and error states explicitly; never render a blank box while data is pending.
 - Accessibility: label inputs (`<label htmlFor>`), give icon-only buttons `aria-label`, support keyboard activation (Enter/Space) and visible focus, and add `alt` text to images.
 - Typography and spacing: consistent scale; readable body sizes; consistent spacing units.
+- Headless primitives: for any non-trivial interactive control (menus, dialogs, popovers, selects, comboboxes, sliders, toggle groups) reach for a headless library — this repo standardizes on [Base UI](https://base-ui.com/) (`@base-ui/react`) — instead of hand-rolling focus management, positioning, dismissal, and roving tabindex. Style the unstyled primitives with CSS Modules and `data-*` selectors (Base UI exposes `data-pressed`, `data-disabled`, etc.). Skip primitives for purely presentational components.
 
 ## UI security
 

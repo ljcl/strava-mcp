@@ -107,6 +107,25 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 - Shared Recharts numeric tokens live in `packages/design-system/src/chart-tokens.ts`. Use `getChartTokens(mode)` in any new chart view; per-chart layout margins stay local
 - `MOBILE_BREAKPOINT_PX` lives in design-system and is re-exported from `packages/ui`
 
+### Headless primitives (Base UI)
+
+[Base UI](https://base-ui.com/) (`@base-ui/react`, pinned in `packages/ui`) is the headless
+primitive of record for any non-trivial interactive control — anything that needs focus
+management, positioning, dismissal, or roving tabindex (Select, Menu, Dialog, Popover, Combobox,
+Slider, ToggleGroup, etc.). Reach for it before hand-rolling these. Keep all styling in CSS Modules
+with `data-*` selectors (Base UI exposes `data-pressed`, `data-disabled`, etc.; you can also keep
+passing your own `data-*` where the existing selectors expect them). Use `@base-ui/react`, not the
+frozen `@base-ui-components/react`.
+
+- `Pill` / `PillGroup` and `Legend` / `LegendItem` (`packages/ui`) are built on Base UI
+  `Toggle` / `ToggleGroup`: the group provides `role="group"`, arrow-key roving focus, and a single
+  Tab stop. The group's pressed `value` array is derived from the children's `active` / `hidden`
+  props and an index value is injected per child, so the public component props are unchanged.
+- Not every component needs a primitive. `Tooltip` (rendered inside Recharts' tooltip, which owns
+  positioning), `Skeleton`, and `AppShell` are presentational and stay hand-rolled.
+- Chart descriptions / `accessibilityLayer` are tracked separately in #28; this convention owns the
+  interactive-control migration.
+
 ## MCP App (Activity Chart)
 
 https://modelcontextprotocol.io/docs/extensions/apps
@@ -298,6 +317,23 @@ Do NOT change root `lint` to `turbo run lint` (would create an infinite loop). B
 ## Docker
 
 Built via `turbo prune @strava-mcp/server --docker`. The Dockerfile's build step uses `--filter=@strava-mcp/server^...` to build only the server's workspace dependencies (the two MCP App packages), excluding the server itself since it is JIT. Adding a new workspace package does not require editing the Dockerfile; turbo prune derives the package set from the workspace graph. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/activity-chart/app.html")` so each app package must declare an `./app.html` export and a `dist/` build output.
+
+## Storybook and Chromatic
+
+Storybook (`apps/storybook`) renders the UI packages. Two deploys:
+
+- `main` is published to GitHub Pages (`storybook.yml`) and to Chromatic.
+- Each PR that touches a UI package is published to Chromatic (`chromatic.yml`), which posts two PR checks: `Storybook Publish` (a link to that branch's hosted Storybook) and `UI Tests` (visual diffs against the `main` baseline). It is a review aid, not a merge gate (`exitZeroOnChanges`); `autoAcceptChanges: main` advances the baseline as changes land.
+
+TurboSnap (`onlyChanged`) only snapshots stories affected by the diff, to conserve the free-plan budget. It relies on `preview-stats.json` (emitted by `--stats-json` in `build:storybook`) and `storybookBaseDir: apps/storybook`. Stories are co-located in `packages/*`, so when tracing cannot resolve a change it snapshots conservatively rather than missing a regression. Requires `CHROMATIC_PROJECT_TOKEN` as a repo secret.
+
+### Agent access
+
+- A PR's hosted Storybook URL and diff status: `gh pr checks <PR>` (the `Storybook Publish` and `UI Tests` rows).
+- Storybook ships a Model Context Protocol server (via `@storybook/addon-mcp`) with story, docs, and test tools. Endpoints are pre-wired in `.mcp.json`:
+  - `storybook`: `http://localhost:6006/mcp` (while `bun run storybook` is running)
+  - `storybook-chromatic`: `https://main--6a261929a3cb4ac107f3c06d.chromatic.com/mcp` (the hosted `main` build; live after the first main publish)
+- Publish on demand: `CHROMATIC_PROJECT_TOKEN=... bunx chromatic --storybook-build-dir apps/storybook/storybook-static`.
 
 ## Testing the MCP endpoint
 
