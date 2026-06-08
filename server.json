@@ -7,14 +7,14 @@
     "url": "https://github.com/ljcl/strava-mcp",
     "source": "github"
   },
-  "version": "1.1.0",
+  "version": "1.2.0",
   "website_url": "https://github.com/ljcl/strava-mcp#readme",
   "packages": [
     {
       "registry_type": "oci",
       "registry_base_url": "https://ghcr.io",
       "identifier": "ljcl/strava-mcp",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "runtime_hint": "docker",
       "transport": {
         "type": "streamable-http",
