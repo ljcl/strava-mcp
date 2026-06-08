@@ -93,7 +93,13 @@ export async function saveTokens(tokens: TokenData): Promise<void> {
   await ensureDataDir();
 
   try {
-    await fs.writeFile(tokenFilePath, JSON.stringify(tokens, null, 2), "utf-8");
+    // Write to a temp file then atomically rename over the target. A plain
+    // writeFile leaves a window where a crash mid-write corrupts tokens.json;
+    // rename is atomic on the same filesystem, so readers see either the old
+    // file or the fully-written new one, never a partial.
+    const tempFilePath = `${tokenFilePath}.tmp`;
+    await fs.writeFile(tempFilePath, JSON.stringify(tokens, null, 2), "utf-8");
+    await fs.rename(tempFilePath, tokenFilePath);
     console.error(`[TokenManager] Tokens saved to ${tokenFilePath}`);
     console.error(
       `[TokenManager] New expiration: ${new Date(
@@ -173,6 +179,9 @@ async function refreshTokens(tokens: TokenData): Promise<TokenData> {
       access_token: data.access_token,
       refresh_token: data.refresh_token,
       expires_at: data.expires_at,
+      // Strava's refresh_token grant response does not echo the athlete, so
+      // carry the existing athlete_id forward (falling back to one if present).
+      athlete_id: data.athlete?.id ?? tokens.athlete_id,
     };
 
     // Update process.env for the rest of the app
@@ -191,6 +200,43 @@ async function refreshTokens(tokens: TokenData): Promise<TokenData> {
         error instanceof Error ? error.message : String(error)
       }`,
     );
+  }
+}
+
+/**
+ * Tracks an in-flight refresh so concurrent callers coalesce onto one exchange.
+ *
+ * Strava rotates the refresh token on every `/oauth/token` exchange and
+ * invalidates the previous one. Two concurrent refreshes would each POST the
+ * same refresh token; the first rotates it, the second then sends an
+ * already-invalidated token and can fail — permanently locking the server out.
+ * Coalescing guarantees exactly one exchange while a refresh is pending.
+ */
+let inFlightRefresh: Promise<TokenData> | null = null;
+
+/**
+ * Refreshes the access token, coalescing concurrent callers onto a single
+ * in-flight exchange. Loads the current tokens (for the refresh token and
+ * athlete_id), refreshes, persists, and updates process.env. This is the single
+ * refresh path; both startup expiry checks and 401 recovery route through here.
+ */
+export async function refreshAccessToken(): Promise<TokenData> {
+  if (inFlightRefresh) {
+    return inFlightRefresh;
+  }
+
+  inFlightRefresh = (async () => {
+    const tokens = await loadTokens();
+    if (!tokens) {
+      throw new Error("No tokens available to refresh");
+    }
+    return refreshTokens(tokens);
+  })();
+
+  try {
+    return await inFlightRefresh;
+  } finally {
+    inFlightRefresh = null;
   }
 }
 
@@ -215,7 +261,7 @@ export async function ensureValidToken(): Promise<void> {
     console.error(
       "[TokenManager] Token expired or expiring soon, refreshing...",
     );
-    await refreshTokens(tokens);
+    await refreshAccessToken();
   } else {
     const expiresIn = tokens.expires_at - Math.floor(Date.now() / 1000);
     console.error(
