@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.3.1](https://github.com/ljcl/strava-mcp/compare/v1.3.0...v1.3.1) (2026-06-08)
+
+
+### Bug Fixes
+
+* make get-athlete-stats athleteId optional (default to authenticated athlete) ([#67](https://github.com/ljcl/strava-mcp/issues/67)) ([1259e0a](https://github.com/ljcl/strava-mcp/commit/1259e0a4ec281a9a55c667faa9ed4e8fc12648e8))
+
+
+### Performance Improvements
+
+* cache immutable Strava responses (activity detail, streams, profile) ([#63](https://github.com/ljcl/strava-mcp/issues/63)) ([4c0102a](https://github.com/ljcl/strava-mcp/commit/4c0102a678f47681bc6d5dd0e5cb93df16e18f64))
+
 ## [1.3.0](https://github.com/ljcl/strava-mcp/compare/v1.2.0...v1.3.0) (2026-06-08)
 
 
