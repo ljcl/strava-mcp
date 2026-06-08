@@ -107,6 +107,25 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 - Shared Recharts numeric tokens live in `packages/design-system/src/chart-tokens.ts`. Use `getChartTokens(mode)` in any new chart view; per-chart layout margins stay local
 - `MOBILE_BREAKPOINT_PX` lives in design-system and is re-exported from `packages/ui`
 
+### Headless primitives (Base UI)
+
+[Base UI](https://base-ui.com/) (`@base-ui/react`, pinned in `packages/ui`) is the headless
+primitive of record for any non-trivial interactive control — anything that needs focus
+management, positioning, dismissal, or roving tabindex (Select, Menu, Dialog, Popover, Combobox,
+Slider, ToggleGroup, etc.). Reach for it before hand-rolling these. Keep all styling in CSS Modules
+with `data-*` selectors (Base UI exposes `data-pressed`, `data-disabled`, etc.; you can also keep
+passing your own `data-*` where the existing selectors expect them). Use `@base-ui/react`, not the
+frozen `@base-ui-components/react`.
+
+- `Pill` / `PillGroup` and `Legend` / `LegendItem` (`packages/ui`) are built on Base UI
+  `Toggle` / `ToggleGroup`: the group provides `role="group"`, arrow-key roving focus, and a single
+  Tab stop. The group's pressed `value` array is derived from the children's `active` / `hidden`
+  props and an index value is injected per child, so the public component props are unchanged.
+- Not every component needs a primitive. `Tooltip` (rendered inside Recharts' tooltip, which owns
+  positioning), `Skeleton`, and `AppShell` are presentational and stay hand-rolled.
+- Chart descriptions / `accessibilityLayer` are tracked separately in #28; this convention owns the
+  interactive-control migration.
+
 ## MCP App (Activity Chart)
 
 https://modelcontextprotocol.io/docs/extensions/apps

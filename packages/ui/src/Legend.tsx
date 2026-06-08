@@ -1,4 +1,12 @@
-import { type ReactNode } from "react";
+import { Toggle } from "@base-ui/react/toggle";
+import { ToggleGroup } from "@base-ui/react/toggle-group";
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import styles from "./Legend.module.css";
 
 interface LegendProps {
@@ -8,10 +16,26 @@ interface LegendProps {
 }
 
 export function Legend({ children, size = "default" }: LegendProps) {
+  // Base UI's ToggleGroup provides roving tabindex + arrow-key navigation and
+  // `role="group"`. A series toggle is "pressed" when it is visible (the
+  // inverse of `hidden`), matching the previous aria-pressed={!hidden}. We
+  // build the controlled value array from the children and inject a stable
+  // index value into each LegendItem. The public API stays unchanged.
+  const items = Children.toArray(children).filter(
+    isValidElement,
+  ) as ReactElement<LegendItemProps>[];
+  const value = items.flatMap((item, i) =>
+    item.props.hidden ? [] : [String(i)],
+  );
   return (
-    <div className={styles.legend} data-size={size}>
-      {children}
-    </div>
+    <ToggleGroup
+      value={value}
+      multiple
+      className={styles.legend}
+      data-size={size}
+    >
+      {items.map((item, i) => cloneElement(item, { value: String(i) }))}
+    </ToggleGroup>
   );
 }
 
@@ -23,6 +47,8 @@ interface LegendItemProps {
   onClick?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  /** Injected by Legend to identify the toggle within the group. */
+  value?: string;
 }
 
 export function LegendItem({
@@ -33,17 +59,18 @@ export function LegendItem({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  value,
 }: LegendItemProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <Toggle
+      value={value}
+      pressed={!hidden}
+      onPressedChange={() => onClick?.()}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={styles.legendButton}
       data-hidden={hidden || undefined}
       data-faded={faded || undefined}
-      aria-pressed={!hidden}
       aria-label={`Toggle ${label}`}
     >
       <div
@@ -52,6 +79,6 @@ export function LegendItem({
         aria-hidden="true"
       />
       <span>{label}</span>
-    </button>
+    </Toggle>
   );
 }
