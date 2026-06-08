@@ -15,6 +15,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `apps/server/` — MCP server (tools, auth, token management)
 - `packages/activity-chart/` — React + Recharts MCP App for interactive activity charts
 - `packages/cadence-trends/` — React + Recharts MCP App for cadence trend analysis
+- `packages/route-map/` — React (pure SVG, no Recharts) MCP App for activity/route GPS maps
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
@@ -92,6 +93,8 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | `get-activity-streams-raw` | Raw stream data for the activity chart UI (app-only) |
 | `view-cadence-trends` | Interactive cadence trends with timeline, scatter, zones, and overlay views (MCP App) |
 | `get-cadence-trend-data` | Summary cadence/pace data for the cadence trends UI (app-only) |
+| `view-route-map` | Interactive map of an activity or route GPS track, fit to bounds with start/finish markers (MCP App) |
+| `get-route-map-data` | Decoded `[lat, lng]` coordinates for the route map UI (app-only) |
 
 ## Styling
 
@@ -148,6 +151,17 @@ The `view-cadence-trends` tool renders an interactive cadence analysis dashboard
 - Calls `get-cadence-trend-data` (app-only) to fetch summary data on mount
 - Calls `get-activity-streams-raw` (app-only) for per-second overlay data on demand
 - Four views: Trend timeline, Scatter plot, Pace Zones, Overlay comparison
+
+## MCP App (Route Map)
+
+The `view-route-map` tool renders an activity's or saved route's GPS track as a self-contained map in MCP-compatible hosts.
+
+- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useApp`, `useHostStyles`)
+- Bundled as single HTML file via `vite-plugin-singlefile`; pure SVG, **no Recharts** and **no map tiles / network at render**
+- Served as MCP resource at `ui://route-map/app.html`
+- Calls `get-route-map-data` (app-only) on mount with the `activity_id` or `route_id`
+- Geometry is a Google encoded polyline; the server decodes it to `[lat, lng]` pairs in `apps/server/src/polyline.ts` (unit-tested next to the zod schemas) so the bundle stays lean
+- Projection math (`src/normalize.ts`, unit-tested) fits the track to bounds with padding, scales longitude by `cos(latitude)` to avoid east–west stretch, and flips latitude so north is up. Start/finish markers, distance + elevation summary; neutral grid background, no basemap imagery
 
 ## Targeting Mobile for MCP Apps
 
@@ -296,6 +310,9 @@ INPUT=app.html bunx vite build  # Rebuild single-file HTML
 cd packages/cadence-trends
 INPUT=app.html bunx vite build  # Rebuild single-file HTML
 
+cd packages/route-map
+INPUT=app.html bunx vite build  # Rebuild single-file HTML
+
 # Docker
 docker compose build
 docker compose up -d
@@ -304,7 +321,7 @@ docker compose logs -f
 
 ## Turborepo
 
-The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only `activity-chart` and `cadence-trends` produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
+The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only `activity-chart`, `cadence-trends`, and `route-map` produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
 
 Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough to run at root per the Turborepo docs. Knip is a whole-graph analyzer that cannot be decomposed per-package.
 
@@ -316,7 +333,7 @@ Do NOT change root `lint` to `turbo run lint` (would create an infinite loop). B
 
 ## Docker
 
-Built via `turbo prune @strava-mcp/server --docker`. The Dockerfile's build step uses `--filter=@strava-mcp/server^...` to build only the server's workspace dependencies (the two MCP App packages), excluding the server itself since it is JIT. Adding a new workspace package does not require editing the Dockerfile; turbo prune derives the package set from the workspace graph. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/activity-chart/app.html")` so each app package must declare an `./app.html` export and a `dist/` build output.
+Built via `turbo prune @strava-mcp/server --docker`. The Dockerfile's build step uses `--filter=@strava-mcp/server^...` to build only the server's workspace dependencies (the MCP App packages), excluding the server itself since it is JIT. The build (prune) stage derives the package set from the workspace graph, so it needs no edit per package. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/<app>/app.html")`, so each app package must declare an `./app.html` export and a `dist/` build output — and the distroless **runner** stage `COPY`s each app's `dist/` explicitly, so adding an MCP App means adding one `COPY --from=builder .../packages/<app>/dist` line there.
 
 ## Storybook and Chromatic
 

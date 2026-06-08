@@ -199,6 +199,10 @@ const SummaryGearSchema = z
 const MapSchema = z
   .object({
     id: z.string(),
+    // Detailed resources (activity, route) also carry the full-resolution
+    // `polyline`; summaries only carry `summary_polyline`. Both are Google
+    // encoded-polyline strings — see apps/server/src/polyline.ts.
+    polyline: z.string().optional().nullable(),
     summary_polyline: z.string().optional().nullable(),
     resource_state: z.number().int(),
   })

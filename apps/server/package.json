@@ -16,6 +16,7 @@
     "@modelcontextprotocol/sdk": "1.29.0",
     "@strava-mcp/activity-chart": "workspace:*",
     "@strava-mcp/cadence-trends": "workspace:*",
+    "@strava-mcp/route-map": "workspace:*",
     "dotenv": "17.4.2",
     "zod": "4.4.3"
   },
