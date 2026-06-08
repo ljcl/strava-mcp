@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/ljcl/strava-mcp/compare/v1.2.0...v1.3.0) (2026-06-08)
+
+
+### Features
+
+* add route-map MCP App ([#53](https://github.com/ljcl/strava-mcp/issues/53)) ([c7a1963](https://github.com/ljcl/strava-mcp/commit/c7a1963ef394fde421a3c68c24cfb7a9c71bf9c9)), closes [#26](https://github.com/ljcl/strava-mcp/issues/26)
+
 ## [1.2.0](https://github.com/ljcl/strava-mcp/compare/v1.1.0...v1.2.0) (2026-06-08)
 
 
