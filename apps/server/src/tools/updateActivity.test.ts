@@ -93,7 +93,10 @@ describe("updateActivityTool.execute", () => {
       description: "New line",
     });
 
-    expect(mockedFetch).toHaveBeenCalledWith("test-token", 555);
+    // The append read bypasses the cache so it never appends onto stale notes.
+    expect(mockedFetch).toHaveBeenCalledWith("test-token", 555, {
+      skipCache: true,
+    });
     expect(mockedPut).toHaveBeenCalledWith(
       "test-token",
       555,

@@ -110,7 +110,11 @@ export const updateActivityTool = {
         const mode = descriptionMode ?? "append";
         appliedMode = mode;
         if (mode === "append") {
-          const current = await fetchActivityById(token, activityId);
+          // Read fresh: appending onto a stale cached description would drop
+          // edits made since the cache was populated.
+          const current = await fetchActivityById(token, activityId, {
+            skipCache: true,
+          });
           resolvedDescription = composeDescription(
             current.description,
             description,
