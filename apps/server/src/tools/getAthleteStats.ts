@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   getAthleteStats as fetchAthleteStats,
+  getAuthenticatedAthlete,
   type StravaStats,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
@@ -8,14 +9,15 @@ import { AthleteStatsOutputSchema, buildAthleteStatsOutput } from "./outputs";
 
 // formatDuration is now local or in utils, not imported from server.ts
 
-// Input schema: Now requires athleteId
+// Input schema: athleteId is optional and defaults to the authenticated athlete.
 const GetAthleteStatsInputSchema = z.object({
   athleteId: z
     .number()
     .int()
     .positive()
+    .optional()
     .describe(
-      "The unique identifier of the athlete to fetch stats for. Obtain this ID first by calling the get-athlete-profile tool.",
+      "Optional. The unique identifier of the athlete to fetch stats for. Defaults to the authenticated athlete when omitted (Strava only returns meaningful totals for the authenticated athlete).",
     ),
 });
 
@@ -166,7 +168,7 @@ function formatStats(stats: StravaStats): string {
 export const getAthleteStatsTool = {
   name: "get-athlete-stats",
   description:
-    "Fetches the activity statistics (recent, YTD, all-time) for a specific athlete using their ID. Requires the athleteId obtained from the get-athlete-profile tool.",
+    "Fetches the activity statistics (recent, YTD, all-time) for an athlete. Defaults to the authenticated athlete; pass athleteId to target a specific athlete.",
   inputSchema: GetAthleteStatsInputSchema,
   outputSchema: AthleteStatsOutputSchema,
   annotations: READ_ONLY,
@@ -186,12 +188,24 @@ export const getAthleteStatsTool = {
       };
     }
 
+    let resolvedAthleteId = athleteId;
+
     try {
-      console.error(`Fetching stats for athlete ${athleteId}...`);
-      const stats = await fetchAthleteStats(token, athleteId);
+      if (resolvedAthleteId === undefined) {
+        console.error(
+          "No athleteId provided; resolving authenticated athlete...",
+        );
+        const athlete = await getAuthenticatedAthlete(token);
+        resolvedAthleteId = Number(athlete.id);
+      }
+
+      console.error(`Fetching stats for athlete ${resolvedAthleteId}...`);
+      const stats = await fetchAthleteStats(token, resolvedAthleteId);
       const formattedStats = formatStats(stats);
 
-      console.error(`Successfully fetched stats for athlete ${athleteId}.`);
+      console.error(
+        `Successfully fetched stats for athlete ${resolvedAthleteId}.`,
+      );
       return {
         content: [{ type: "text" as const, text: formattedStats }],
         structuredContent: buildAthleteStatsOutput(stats),
@@ -200,13 +214,17 @@ export const getAthleteStatsTool = {
       const errorMessage =
         error instanceof Error ? error.message : String(error);
       console.error(
-        `Error fetching stats for athlete ${athleteId}: ${errorMessage}`,
+        `Error fetching stats for athlete ${resolvedAthleteId ?? "(authenticated)"}: ${errorMessage}`,
       );
+      const athleteLabel =
+        resolvedAthleteId !== undefined
+          ? `athlete ${resolvedAthleteId}`
+          : "the authenticated athlete";
       const userFriendlyMessage =
         errorMessage.includes("Record Not Found") ||
         errorMessage.includes("404")
-          ? `Athlete with ID ${athleteId} not found (when fetching stats).`
-          : `An unexpected error occurred while fetching stats for athlete ${athleteId}. Details: ${errorMessage}`;
+          ? `Athlete ${resolvedAthleteId !== undefined ? `with ID ${resolvedAthleteId} ` : ""}not found (when fetching stats).`
+          : `An unexpected error occurred while fetching stats for ${athleteLabel}. Details: ${errorMessage}`;
       return {
         content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
         isError: true,

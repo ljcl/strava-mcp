@@ -5,7 +5,7 @@ import { READ_ONLY } from "./_annotations";
 export const getAthleteProfile = {
   name: "get-athlete-profile",
   description:
-    "Fetches the profile information for the authenticated athlete, including their unique numeric ID needed for other tools like get-athlete-stats.",
+    "Fetches the profile information for the authenticated athlete, including their unique numeric ID.",
   // No input schema needed for this tool
   inputSchema: undefined,
   annotations: READ_ONLY,
