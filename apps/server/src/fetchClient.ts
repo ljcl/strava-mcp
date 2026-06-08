@@ -1,3 +1,5 @@
+import { TtlLruCache } from "./cache";
+
 export class HttpError extends Error {
   response: {
     status: number;
@@ -205,6 +207,31 @@ interface FetchConfig {
   data?: unknown;
   method?: string;
   responseType?: "json" | "text";
+  /**
+   * Skip the response cache for this request entirely — neither read a cached
+   * value nor store the result. Used by write paths that need a guaranteed-fresh
+   * read (e.g. composing an appended activity description), so they never act on
+   * a stale cached copy.
+   */
+  skipCache?: boolean;
+}
+
+/**
+ * Configures the {@link FetchClient} response cache. Caching is opt-in: without
+ * a `ttlForPath`, the client never caches. The policy maps a request *path*
+ * (URL minus base and query string) to a TTL in ms, or `null` to skip caching
+ * that path — so only the resources you explicitly mark are cached.
+ */
+export interface ResponseCacheOptions {
+  /**
+   * Returns the cache TTL (ms) for a cacheable GET path, or `null` to not cache
+   * it. Only GET/HEAD responses are ever cached.
+   */
+  ttlForPath: (path: string) => number | null;
+  /** Max cached entries before LRU eviction (default 200). */
+  maxEntries?: number;
+  /** Injectable clock (ms) shared with the cache; tests override it. */
+  now?: () => number;
 }
 
 /** Tunable backoff/retry behaviour for {@link FetchClient}. */
@@ -222,6 +249,11 @@ export interface RetryOptions {
   maxRetryAfterMs?: number;
   /** Sleep implementation; injectable so tests can run instantly. */
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Opt-in response cache for immutable-ish GETs. Omit to disable caching
+   * entirely (the default for ad-hoc clients and most tests).
+   */
+  cache?: ResponseCacheOptions;
 }
 
 interface RequestInterceptor {
@@ -279,6 +311,10 @@ export class FetchClient {
   private readonly maxRetryAfterMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
 
+  /** Response cache + its policy, or `null` when caching is disabled. */
+  private readonly responseCache: TtlLruCache<unknown> | null;
+  private readonly ttlForPath: ((path: string) => number | null) | null;
+
   constructor(baseURL: string, options: RetryOptions = {}) {
     this.baseURL = baseURL;
     this.maxRetries = options.maxRetries ?? 2;
@@ -288,6 +324,37 @@ export class FetchClient {
     this.sleep =
       options.sleep ??
       ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
+
+    if (options.cache) {
+      this.responseCache = new TtlLruCache<unknown>({
+        maxEntries: options.cache.maxEntries,
+        now: options.cache.now,
+      });
+      this.ttlForPath = options.cache.ttlForPath;
+    } else {
+      this.responseCache = null;
+      this.ttlForPath = null;
+    }
+  }
+
+  /**
+   * Reduces a request URL to the path used for cache policy + invalidation
+   * matching: strips the base URL and any query string. Keeping the cache *key*
+   * as the full URL (query included) keeps differently-parameterised reads
+   * (e.g. stream resolutions) distinct, while the path drives TTL and write
+   * invalidation.
+   */
+  private toPath(url: string): string {
+    const noBase = url.startsWith(this.baseURL)
+      ? url.slice(this.baseURL.length)
+      : url;
+    const queryIndex = noBase.indexOf("?");
+    return queryIndex === -1 ? noBase : noBase.slice(0, queryIndex);
+  }
+
+  /** Clears the entire response cache (no-op when caching is disabled). */
+  clearResponseCache(): void {
+    this.responseCache?.clear();
   }
 
   /**
@@ -365,6 +432,27 @@ export class FetchClient {
     // blindly retried, since a transient failure may still have mutated state.
     const method = (fetchOptions.method ?? "GET").toUpperCase();
     const isRetriable = method === "GET" || method === "HEAD";
+
+    // Response cache: serve immutable-ish GETs from memory, and invalidate a
+    // resource's cached reads after it is written. The key is the full URL
+    // (query included, so different stream resolutions stay distinct); TTL and
+    // write invalidation match on the query-stripped path.
+    const cacheKey = requestConfig.url;
+    let cacheTtl: number | null = null;
+    if (
+      this.responseCache &&
+      this.ttlForPath &&
+      isRetriable &&
+      !requestConfig.skipCache
+    ) {
+      cacheTtl = this.ttlForPath(this.toPath(requestConfig.url));
+      if (cacheTtl !== null) {
+        const cached = this.responseCache.get(cacheKey);
+        if (cached !== undefined) {
+          return { data: cached as T };
+        }
+      }
+    }
 
     // Retry loop: transient (5xx / network) faults back off exponentially; a 429
     // honours Retry-After. All backoff lives here so every tool benefits.
@@ -450,6 +538,23 @@ export class FetchClient {
         }
       }
 
+      if (this.responseCache) {
+        // Cache a freshly-fetched cacheable GET.
+        if (cacheTtl !== null) {
+          this.responseCache.set(cacheKey, data, cacheTtl);
+        }
+        // A successful write invalidates every cached read under the same
+        // resource path (e.g. updating an activity drops its cached detail,
+        // streams, zones and laps so the next read re-fetches fresh).
+        if (!isRetriable) {
+          const writePath = this.toPath(requestConfig.url);
+          this.responseCache.deleteMatching((key) => {
+            const keyPath = this.toPath(key);
+            return keyPath === writePath || keyPath.startsWith(`${writePath}/`);
+          });
+        }
+      }
+
       return { data };
     }
   }
@@ -479,8 +584,37 @@ export class FetchClient {
   }
 }
 
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+
+/**
+ * Cache TTL policy for Strava GET endpoints, keyed by request path. Returns a
+ * TTL in ms for cacheable resources, or `null` to never cache (the default for
+ * anything not listed — lists, segments, routes, exports, etc., which are
+ * mutable or paginated).
+ *
+ * Immutable-once-recorded resources (a completed activity's detail and its data
+ * streams) get long TTLs; identity/aggregate resources that drift (profile,
+ * stats) get short ones. Activity detail is additionally invalidated whenever
+ * the activity is written (see {@link updateActivity}), so its TTL only bounds
+ * staleness from edits made outside this server.
+ */
+export function stravaCacheTtl(path: string): number | null {
+  // Activity data streams — immutable once the activity is recorded.
+  if (/^\/activities\/\d+\/streams\//.test(path)) return 6 * HOUR_MS;
+  // Detailed activity — immutable-ish; invalidated on update-activity writes.
+  if (/^\/activities\/\d+$/.test(path)) return HOUR_MS;
+  // Authenticated athlete profile — short; name/weight/gear can change.
+  if (path === "/athlete") return 5 * MINUTE_MS;
+  // Athlete stats — short; totals accumulate with each new activity.
+  if (/^\/athletes\/\d+\/stats$/.test(path)) return 5 * MINUTE_MS;
+  return null;
+}
+
 // Create an instance for Strava API
-export const stravaApi = new FetchClient("https://www.strava.com/api/v3");
+export const stravaApi = new FetchClient("https://www.strava.com/api/v3", {
+  cache: { ttlForPath: stravaCacheTtl },
+});
 
 // Add request interceptor
 stravaApi.interceptors.request.use(

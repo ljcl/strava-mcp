@@ -792,12 +792,15 @@ export async function getAthleteStats(
  *
  * @param accessToken - The Strava API access token.
  * @param activityId - The ID of the activity to fetch.
+ * @param options - `skipCache: true` forces a fresh fetch, bypassing the
+ *   response cache (used by write paths that must read current state).
  * @returns A promise that resolves to the detailed activity data.
  * @throws Throws an error if the API request fails or the response format is unexpected.
  */
 export async function getActivityById(
   accessToken: string,
   activityId: number | string,
+  options: { skipCache?: boolean } = {},
 ): Promise<StravaDetailedActivity> {
   if (!accessToken) {
     throw new Error("Strava access token is required.");
@@ -809,6 +812,7 @@ export async function getActivityById(
   try {
     const response = await stravaApi.get<unknown>(`/activities/${activityId}`, {
       headers: { Authorization: `Bearer ${accessToken}` },
+      skipCache: options.skipCache,
     });
 
     const validationResult = ExtendedDetailedActivitySchema.safeParse(
@@ -832,7 +836,7 @@ export async function getActivityById(
       async () => {
         // Use new token from environment after refresh
         const newToken = process.env.STRAVA_ACCESS_TOKEN!;
-        return getActivityById(newToken, activityId);
+        return getActivityById(newToken, activityId, options);
       },
     );
   }

@@ -6,6 +6,7 @@ import {
   parseJsonWithLargeInts,
   parseRateLimitHeaders,
   RateLimitError,
+  stravaCacheTtl,
 } from "./fetchClient";
 
 describe("HttpError", () => {
@@ -384,5 +385,170 @@ describe("FetchClient retry and rate-limit behaviour", () => {
 
     await expect(client.get("/thing")).rejects.toBeInstanceOf(HttpError);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("stravaCacheTtl policy", () => {
+  it("caches activity streams the longest (immutable)", () => {
+    expect(stravaCacheTtl("/activities/123/streams/time,heartrate")).toBe(
+      6 * 60 * 60_000,
+    );
+  });
+
+  it("caches detailed activity for an hour", () => {
+    expect(stravaCacheTtl("/activities/123")).toBe(60 * 60_000);
+  });
+
+  it("caches profile and stats briefly", () => {
+    expect(stravaCacheTtl("/athlete")).toBe(5 * 60_000);
+    expect(stravaCacheTtl("/athletes/999/stats")).toBe(5 * 60_000);
+  });
+
+  it("does not cache list, segment, or sub-resource endpoints", () => {
+    expect(stravaCacheTtl("/athlete/activities")).toBeNull();
+    expect(stravaCacheTtl("/athlete/clubs")).toBeNull();
+    expect(stravaCacheTtl("/activities/123/zones")).toBeNull();
+    expect(stravaCacheTtl("/activities/123/laps")).toBeNull();
+    expect(stravaCacheTtl("/segments/55")).toBeNull();
+    expect(stravaCacheTtl("/routes/77")).toBeNull();
+  });
+});
+
+describe("FetchClient response cache", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  // A cacheable path + an uncacheable one, plus an injectable clock for expiry.
+  const newCachingClient = (now: () => number = () => 0) =>
+    new FetchClient("https://example.test", {
+      maxRetries: 0,
+      sleep: async () => {},
+      cache: {
+        ttlForPath: (path) => (path.startsWith("/activities/") ? 1000 : null),
+        now,
+      },
+    });
+
+  it("serves a repeat cacheable GET from cache (hit) without re-fetching", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"id":1,"name":"first"}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    const a = await client.get<{ name: string }>("/activities/1");
+    const b = await client.get<{ name: string }>("/activities/1");
+
+    expect(a.data.name).toBe("first");
+    expect(b.data.name).toBe("first");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not cache paths the policy declines (miss every time)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    await client.get("/athlete/activities");
+    await client.get("/athlete/activities");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("distinguishes cache entries by query string", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    await client.get("/activities/1/streams/heartrate");
+    await client.get("/activities/1/streams/heartrate");
+    await client.get("/activities/1/streams/watts");
+
+    // Two distinct URLs => two fetches; the repeat of the first is cached.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("re-fetches once the TTL has expired", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    let time = 0;
+    const client = newCachingClient(() => time);
+    await client.get("/activities/1");
+    time = 1000; // reach the TTL boundary
+    await client.get("/activities/1");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("skipCache bypasses both reading and writing the cache", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    // Warm the cache, then a skipCache read must still hit the network...
+    await client.get("/activities/1");
+    await client.get("/activities/1", { skipCache: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates cached reads under a written resource path", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    // Cache the detail and a sub-resource stream.
+    await client.get("/activities/1");
+    await client.get("/activities/1/streams/heartrate");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // A write to the activity drops both cached reads.
+    await client.put("/activities/1", { name: "renamed" });
+
+    await client.get("/activities/1");
+    await client.get("/activities/1/streams/heartrate");
+    // 2 initial + 1 write + 2 re-fetches after invalidation.
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+  });
+
+  it("does not invalidate sibling resources on a write (path boundary)", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    await client.get("/activities/12"); // sibling of /activities/1
+    await client.put("/activities/1", { name: "x" });
+    await client.get("/activities/12"); // still cached
+
+    // 1 initial GET + 1 write; the second GET is a cache hit (no extra fetch).
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("clearResponseCache() forces the next read to re-fetch", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    await client.get("/activities/1");
+    client.clearResponseCache();
+    await client.get("/activities/1");
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
