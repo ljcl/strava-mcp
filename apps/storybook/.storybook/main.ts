@@ -13,6 +13,10 @@ export default defineMain({
       directory: "../../../packages/cadence-trends/src/",
     },
     {
+      titlePrefix: "Route Map",
+      directory: "../../../packages/route-map/src/",
+    },
+    {
       directory: "../../../packages/design-system/stories/",
     },
     { titlePrefix: "UI", directory: "../../../packages/ui/src/" },

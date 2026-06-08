@@ -286,6 +286,8 @@ The server exposes the following MCP tools:
 | `get-activity-streams-raw` | Raw stream data for the activity chart UI (app-only) |
 | `view-cadence-trends` | Interactive cadence trends with timeline, scatter, zones, and overlay views (MCP App) |
 | `get-cadence-trend-data` | Summary cadence/pace data for the cadence trends UI (app-only) |
+| `view-route-map` | Interactive map of an activity or route GPS track, fit to bounds with start/finish markers (MCP App) |
+| `get-route-map-data` | Decoded `[lat, lng]` coordinates for the route map UI (app-only) |
 
 ## Project Structure
 
@@ -294,6 +296,7 @@ apps/server/               MCP server (tools, auth, token management)
 apps/storybook/            Storybook for UI development
 packages/activity-chart/   Interactive activity chart (MCP App)
 packages/cadence-trends/   Cadence trend analysis (MCP App)
+packages/route-map/        Activity/route GPS map (MCP App)
 packages/data/             Shared pure data utilities
 packages/ui/               Shared presentational React components
 packages/design-system/    Design tokens, color constants, Storybook preview

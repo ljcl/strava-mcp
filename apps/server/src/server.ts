@@ -10,10 +10,12 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { stravaApi } from "./fetchClient";
+import { decodePolyline } from "./polyline";
 import {
   getActivityById,
   getActivityLaps,
   getAllActivities as getAllActivitiesFn,
+  getRouteById,
 } from "./stravaClient";
 import { READ_ONLY } from "./tools/_annotations";
 import { compareActivitiesTool } from "./tools/compareActivities";
@@ -57,6 +59,9 @@ const ACTIVITY_CHART_HTML_PATH = createRequire(import.meta.url).resolve(
 );
 const CADENCE_TRENDS_HTML_PATH = createRequire(import.meta.url).resolve(
   "@strava-mcp/cadence-trends/app.html",
+);
+const ROUTE_MAP_HTML_PATH = createRequire(import.meta.url).resolve(
+  "@strava-mcp/route-map/app.html",
 );
 
 interface ToolDef {
@@ -204,6 +209,57 @@ function buildToolDefs(): ToolDef[] {
     _meta: {
       ui: {
         resourceUri: "ui://cadence-trends/app.html",
+        visibility: ["app"],
+      },
+    },
+  });
+
+  defs.push({
+    name: "view-route-map",
+    description:
+      "Open an interactive map of one activity's or saved route's GPS track, fit to bounds with start and finish markers and a distance/elevation summary. " +
+      "Prefer this over a text summary when the user wants to see where an activity or route went. Takes either an activity_id or a route_id (provide exactly one).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        activity_id: {
+          type: "string",
+          description: "The Strava activity ID to map",
+        },
+        route_id: {
+          type: "string",
+          description: "The Strava route ID to map",
+        },
+      },
+    },
+    annotations: READ_ONLY,
+    _meta: {
+      ui: { resourceUri: "ui://route-map/app.html" },
+    },
+  });
+
+  defs.push({
+    name: "get-route-map-data",
+    description:
+      "Internal data feed for the route-map UI: returns decoded [lat, lng] coordinates plus start/end points, distance, and elevation gain for one activity or route as JSON. " +
+      "The view-route-map app calls this; not intended for direct model use.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        activity_id: {
+          type: "string",
+          description: "The Strava activity ID",
+        },
+        route_id: {
+          type: "string",
+          description: "The Strava route ID",
+        },
+      },
+    },
+    annotations: READ_ONLY,
+    _meta: {
+      ui: {
+        resourceUri: "ui://route-map/app.html",
         visibility: ["app"],
       },
     },
@@ -412,6 +468,104 @@ async function handleViewCadenceTrends(
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
 
+interface RouteMapData {
+  source: "activity" | "route";
+  id: string;
+  name: string;
+  activityType: string | null;
+  distance: number;
+  elevationGain: number;
+  coordinates: Array<[number, number]>;
+  start: [number, number] | null;
+  end: [number, number] | null;
+}
+
+/** 1 = ride, 2 = run in Strava's route `type` enum. */
+function routeTypeLabel(type: number): string {
+  return type === 2 ? "Run" : "Ride";
+}
+
+/**
+ * Resolve an activity_id or route_id into a decoded, render-ready payload.
+ * Geometry arrives only as a Google encoded polyline, so we decode here (next
+ * to the zod schemas and unit tests) and hand the app plain [lat, lng] pairs.
+ */
+async function loadRouteMapData(
+  args: Record<string, unknown>,
+  token: string,
+): Promise<RouteMapData> {
+  const activityId = args.activity_id ? String(args.activity_id) : undefined;
+  const routeId = args.route_id ? String(args.route_id) : undefined;
+
+  if (!activityId && !routeId) {
+    throw new Error("Provide either activity_id or route_id.");
+  }
+
+  if (activityId) {
+    const activity = await getActivityById(token, activityId);
+    const encoded =
+      activity.map?.polyline || activity.map?.summary_polyline || "";
+    const coordinates = decodePolyline(encoded);
+    return {
+      source: "activity",
+      id: String(activity.id),
+      name: activity.name,
+      activityType: activity.type ?? null,
+      distance: activity.distance ?? 0,
+      elevationGain: activity.total_elevation_gain ?? 0,
+      coordinates,
+      start: coordinates[0] ?? null,
+      end: coordinates[coordinates.length - 1] ?? null,
+    };
+  }
+
+  const route = await getRouteById(token, routeId as string);
+  const encoded = route.map?.polyline || route.map?.summary_polyline || "";
+  const coordinates = decodePolyline(encoded);
+  return {
+    source: "route",
+    id: String(route.id),
+    name: route.name,
+    activityType: routeTypeLabel(route.type),
+    distance: route.distance,
+    elevationGain: route.elevation_gain ?? 0,
+    coordinates,
+    start: coordinates[0] ?? null,
+    end: coordinates[coordinates.length - 1] ?? null,
+  };
+}
+
+async function handleGetRouteMapData(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+  }
+  const data = await loadRouteMapData(args, token);
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
+}
+
+async function handleViewRouteMap(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+  }
+  const data = await loadRouteMapData(args, token);
+  const lines = [
+    `${data.source === "route" ? "Route" : "Activity"}: ${data.name}`,
+    `Distance: ${(data.distance / 1000).toFixed(2)} km`,
+    `Elevation gain: ${Math.round(data.elevationGain)} m`,
+  ];
+  if (data.coordinates.length === 0) {
+    lines.push("No GPS track is available, so the map will be empty.");
+  }
+  lines.push("", "[Interactive route map rendered above]");
+  return { content: [{ type: "text", text: lines.join("\n") }] };
+}
+
 export function createServer(): Server {
   const server = new Server(
     { name: "Strava MCP Server", version: "1.0.0" },
@@ -474,6 +628,30 @@ export function createServer(): Server {
       }
     }
 
+    if (name === "view-route-map") {
+      try {
+        return await handleViewRouteMap(args ?? {});
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Tool error: ${message}` }],
+        };
+      }
+    }
+
+    if (name === "get-route-map-data") {
+      try {
+        return await handleGetRouteMapData(args ?? {});
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Tool error: ${message}` }],
+        };
+      }
+    }
+
     // Handle existing Strava tools
     const executor = TOOL_EXECUTORS.get(name);
     if (!executor) {
@@ -508,6 +686,12 @@ export function createServer(): Server {
         mimeType: "text/html;profile=mcp-app",
         _meta: { ui: { prefersBorder: false } },
       },
+      {
+        uri: "ui://route-map/app.html",
+        name: "Route Map",
+        mimeType: "text/html;profile=mcp-app",
+        _meta: { ui: { prefersBorder: false } },
+      },
     ],
   }));
 
@@ -528,6 +712,19 @@ export function createServer(): Server {
     }
     if (uri === "ui://cadence-trends/app.html") {
       const html = await fs.readFile(CADENCE_TRENDS_HTML_PATH, "utf-8");
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "text/html;profile=mcp-app",
+            text: html,
+            _meta: { ui: { prefersBorder: false } },
+          },
+        ],
+      };
+    }
+    if (uri === "ui://route-map/app.html") {
+      const html = await fs.readFile(ROUTE_MAP_HTML_PATH, "utf-8");
       return {
         contents: [
           {

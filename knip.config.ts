@@ -9,9 +9,14 @@ export default {
       ignoreDependencies: [
         "@strava-mcp/activity-chart",
         "@strava-mcp/cadence-trends",
+        "@strava-mcp/route-map",
       ],
     },
     "packages/activity-chart": {
+      entry: ["src/main.tsx"],
+      project: ["src/**/*.{ts,tsx}"],
+    },
+    "packages/route-map": {
       entry: ["src/main.tsx"],
       project: ["src/**/*.{ts,tsx}"],
     },
@@ -33,6 +38,7 @@ export default {
           ".storybook/{manager,preview,index,vitest.setup}.{js,jsx,ts,tsx}",
           "../../packages/activity-chart/src/**/*.stories.@(ts|tsx)",
           "../../packages/cadence-trends/src/**/*.stories.@(ts|tsx)",
+          "../../packages/route-map/src/**/*.stories.@(ts|tsx)",
           "../../packages/design-system/stories/**/*.stories.@(ts|tsx)",
           "../../packages/ui/src/**/*.stories.@(ts|tsx)",
         ],
@@ -44,6 +50,7 @@ export default {
       ignoreDependencies: [
         "@strava-mcp/activity-chart",
         "@strava-mcp/cadence-trends",
+        "@strava-mcp/route-map",
         "@strava-mcp/ui",
       ],
     },

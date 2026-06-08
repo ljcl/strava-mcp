@@ -1,0 +1,136 @@
+.container {
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+/* ── Header ───────────────────────────────────── */
+.header {
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  font-size: var(--font-heading-sm-size);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--font-text-sm-size);
+  color: var(--color-text-secondary);
+}
+
+.container[data-compact] .header {
+  padding: 0 var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.container[data-compact] .title {
+  font-size: var(--font-text-sm-size);
+}
+
+.container[data-compact] .subtitle {
+  font-size: var(--font-text-xs-size);
+}
+
+/* ── Map ──────────────────────────────────────── */
+.mapWrap {
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+.svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  padding: var(--space-6);
+  color: var(--color-text-tertiary);
+  text-align: center;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+/* ── Footer ───────────────────────────────────── */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  padding: var(--space-3) var(--space-2) 0;
+}
+
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+.container[data-compact] .stats {
+  gap: var(--space-4);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.label {
+  font-size: var(--font-text-xs-size);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.value {
+  font-size: var(--font-text-md-size);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.container[data-compact] .value {
+  font-size: var(--font-text-sm-size);
+}
+
+/* ── Legend ───────────────────────────────────── */
+.legend {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.legendItem {
+  display: inline-flex;
+  gap: var(--space-1);
+  align-items: center;
+  font-size: var(--font-text-xs-size);
+  color: var(--color-text-secondary);
+}
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: var(--border-radius-full);
+}
+
+.dot[data-marker="start"] {
+  background: var(--color-text-success);
+}
+
+.dot[data-marker="end"] {
+  background: var(--color-text-danger);
+}

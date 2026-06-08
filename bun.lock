@@ -17,6 +17,7 @@
         "@modelcontextprotocol/sdk": "1.29.0",
         "@strava-mcp/activity-chart": "workspace:*",
         "@strava-mcp/cadence-trends": "workspace:*",
+        "@strava-mcp/route-map": "workspace:*",
         "dotenv": "17.4.2",
         "zod": "4.4.3",
       },
@@ -34,6 +35,7 @@
         "@strava-mcp/activity-chart": "workspace:*",
         "@strava-mcp/cadence-trends": "workspace:*",
         "@strava-mcp/design-system": "workspace:*",
+        "@strava-mcp/route-map": "workspace:*",
         "@strava-mcp/ui": "workspace:*",
       },
       "devDependencies": {
@@ -114,6 +116,27 @@
         "react": "19.2.7",
         "react-dom": "19.2.7",
         "typescript": "6.0.3",
+        "vitest": "4.1.8",
+      },
+    },
+    "packages/route-map": {
+      "name": "@strava-mcp/route-map",
+      "version": "1.0.0",
+      "dependencies": {
+        "@modelcontextprotocol/ext-apps": "1.7.4",
+        "@modelcontextprotocol/sdk": "1.29.0",
+        "@strava-mcp/design-system": "workspace:*",
+        "@strava-mcp/ui": "workspace:*",
+        "react": "19.2.7",
+        "react-dom": "19.2.7",
+      },
+      "devDependencies": {
+        "@strava-mcp/tsconfig": "workspace:*",
+        "@strava-mcp/vite-config": "workspace:*",
+        "@types/react": "19.2.17",
+        "@types/react-dom": "19.2.3",
+        "typescript": "6.0.3",
+        "vite": "8.0.16",
         "vitest": "4.1.8",
       },
     },
@@ -488,6 +511,8 @@
     "@strava-mcp/data": ["@strava-mcp/data@workspace:packages/data"],
 
     "@strava-mcp/design-system": ["@strava-mcp/design-system@workspace:packages/design-system"],
+
+    "@strava-mcp/route-map": ["@strava-mcp/route-map@workspace:packages/route-map"],
 
     "@strava-mcp/server": ["@strava-mcp/server@workspace:apps/server"],
 
