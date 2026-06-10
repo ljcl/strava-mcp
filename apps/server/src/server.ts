@@ -790,6 +790,20 @@ async function handleViewRouteMap(
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
 
+/**
+ * Basemap spike (#60): allowlist the OpenFreeMap tile origin so the route-map
+ * app can attempt an external tile fetch through the host's sandbox CSP.
+ * Tiles, styles, glyphs, and sprites are all served from this one origin.
+ * MapLibre loads everything via fetch (connect-src); the origin is mirrored
+ * into resourceDomains in case a host routes images through img-src instead.
+ * Declared on BOTH the resource descriptor and the ReadResource content —
+ * hosts may read either.
+ */
+const ROUTE_MAP_CSP = {
+  connectDomains: ["https://tiles.openfreemap.org"],
+  resourceDomains: ["https://tiles.openfreemap.org"],
+} as const;
+
 export function createServer(): Server {
   const server = new Server(
     { name: "Strava MCP Server", version: "1.0.0" },
@@ -914,7 +928,7 @@ export function createServer(): Server {
         uri: "ui://route-map/app.html",
         name: "Route Map",
         mimeType: "text/html;profile=mcp-app",
-        _meta: { ui: { prefersBorder: false } },
+        _meta: { ui: { prefersBorder: false, csp: ROUTE_MAP_CSP } },
       },
     ],
   }));
@@ -955,7 +969,7 @@ export function createServer(): Server {
             uri,
             mimeType: "text/html;profile=mcp-app",
             text: html,
-            _meta: { ui: { prefersBorder: false } },
+            _meta: { ui: { prefersBorder: false, csp: ROUTE_MAP_CSP } },
           },
         ],
       };
