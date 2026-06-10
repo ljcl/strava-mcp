@@ -35,8 +35,9 @@ interface RouteMapProps {
   data: RouteMapData;
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
-  /** Start with the basemap on (stories/tests); defaults to the offline grid. */
-  defaultBasemap?: boolean;
+  /** Set false to force the offline grid view (stories/Chromatic — the
+   * basemap renders live tiles, which can't be snapshotted deterministically). */
+  basemapEnabled?: boolean;
 }
 
 /** Frame geometry per layout. All values are SVG viewBox units. */
@@ -101,7 +102,7 @@ export function RouteMap({
   data,
   mode = "desktop",
   app,
-  defaultBasemap = false,
+  basemapEnabled = true,
 }: RouteMapProps) {
   const isMobile = mode === "mobile";
   const dims = isMobile ? DIMS.mobile : DIMS.desktop;
@@ -141,13 +142,12 @@ export function RouteMap({
     [activeSeries, data.coordinates.length],
   );
 
-  /* ── Basemap toggle ──────────────────────────────────────────── */
+  /* ── Basemap ─────────────────────────────────────────────────── */
 
-  // Off by default: the offline grid keeps the app's no-network-at-render
-  // property; tiles only load once the user opts in. A failed tile load
-  // bounces the toggle back off (offline grid is the fallback).
-  const [basemapOn, setBasemapOn] = useState(defaultBasemap);
-  const showBasemap = basemapOn && projected !== null;
+  // The basemap is the default view; a failed style load (blocked origin,
+  // offline host, …) quietly falls back to the offline SVG grid.
+  const [basemapFailed, setBasemapFailed] = useState(false);
+  const showBasemap = basemapEnabled && !basemapFailed && projected !== null;
 
   const profile = useMemo(() => {
     const altitude = data.streams?.altitude;
@@ -419,6 +419,19 @@ export function RouteMap({
   const markerAt = (index: number): Point | null =>
     projected?.points[index] ?? null;
 
+  // Shared scrub tooltip content: the grid view positions it by viewport
+  // fraction, the basemap by projected pixel point.
+  const scrubTipContent =
+    scrubValue != null && activeSeries ? (
+      <UiTooltip timestamp={scrubPosition}>
+        <TooltipEntry
+          color={colorForValue(activeSeries, scrubValue)}
+          label={activeSeries.label}
+          value={activeSeries.format(scrubValue)}
+        />
+      </UiTooltip>
+    ) : null;
+
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
       <div className={styles.header}>
@@ -432,12 +445,21 @@ export function RouteMap({
             key={data.id}
             coordinates={data.coordinates}
             colorRuns={colorRuns}
+            splitMarkers={splitMarkers}
+            segments={data.annotations?.segments ?? []}
+            photoMarkers={photoMarkers}
+            visibility={{
+              splits: layerVisible("splits"),
+              segments: layerVisible("segments"),
+              photos: layerVisible("photos"),
+            }}
             mode={mode}
             scrubIndex={scrubIndex}
             onScrub={(index) => {
               if (canScrub) setScrubIndex(index);
             }}
-            onFail={() => setBasemapOn(false)}
+            scrubTip={scrubTipContent}
+            onFail={() => setBasemapFailed(true)}
           />
         </div>
       )}
@@ -628,7 +650,7 @@ export function RouteMap({
             </svg>
           </div>
 
-          {scrubInView && scrubValue != null && activeSeries && (
+          {scrubInView && scrubTipContent && (
             <div
               className={styles.scrubTip}
               data-flip={scrubFraction.x > 0.55 || undefined}
@@ -637,13 +659,7 @@ export function RouteMap({
                 top: `${scrubFraction.y * 100}%`,
               }}
             >
-              <UiTooltip timestamp={scrubPosition}>
-                <TooltipEntry
-                  color={colorForValue(activeSeries, scrubValue)}
-                  label={activeSeries.label}
-                  value={activeSeries.format(scrubValue)}
-                />
-              </UiTooltip>
+              {scrubTipContent}
             </div>
           )}
         </div>
@@ -701,7 +717,7 @@ export function RouteMap({
         </svg>
       )}
 
-      {projected && (
+      {projected && (series.length > 0 || (zoomed && !showBasemap)) && (
         <div className={styles.controls}>
           {series.length > 1 && (
             <PillGroup>
@@ -716,11 +732,6 @@ export function RouteMap({
               ))}
             </PillGroup>
           )}
-          <PillGroup>
-            <Pill active={showBasemap} onClick={() => setBasemapOn((b) => !b)}>
-              {isMobile ? "Map" : "Basemap"}
-            </Pill>
-          </PillGroup>
           {zoomed && !showBasemap && (
             <PillGroup>
               <Pill active onClick={() => setView(base)}>
@@ -768,8 +779,7 @@ export function RouteMap({
               <span className={styles.dot} data-marker="end" />
               Finish
             </span>
-            {/* Annotation layers render only on the offline grid view. */}
-            {layers.length > 0 && !showBasemap && (
+            {layers.length > 0 && (
               <Legend size={isMobile ? "touch" : "default"}>
                 {layers.map((layer) => (
                   <LegendItem

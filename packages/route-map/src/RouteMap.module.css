@@ -82,6 +82,12 @@
 
 /* ── Basemap (MapLibre) ───────────────────────── */
 
+/* Positioning context for the scrub tooltip over the map canvas. */
+.basemapWrap {
+  position: relative;
+  width: 100%;
+}
+
 /* Same frame as the SVG map; MapLibre needs an explicit box, which the
  * aspect-ratio (matching the SVG viewBox) provides. */
 .basemap {

@@ -1,22 +1,30 @@
 /**
  * MapLibre basemap renderer (#61): OpenFreeMap's Liberty style behind the
- * track, used when the basemap toggle is on. The offline SVG renderer remains
- * the default; this view owns its own camera (MapLibre's native zoom/pan with
- * cooperative gestures so the conversation keeps scrolling) and draws the
- * track as GeoJSON line features colored per metric run. Scrub stays in sync
- * with the elevation strip through the shared scrub index.
+ * track, the default view when tiles are reachable (the offline SVG grid is
+ * the silent fallback). Owns its own camera — MapLibre's native zoom/pan with
+ * cooperative gestures so the conversation keeps scrolling — and renders the
+ * full feature set as map layers: the metric-colored track (GeoJSON line
+ * features per color run), segment-effort halos, lap/km split dots, photo
+ * pins (hover popups for their titles), and the scrub marker + value tooltip
+ * shared with the elevation strip through the scrub index.
  */
 
 import maplibregl from "maplibre-gl";
-import { useEffect, useMemo, useRef } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type PhotoMarker, type SplitMarker } from "./annotations";
 import {
+  BASEMAP_COLORS,
   nearestLatLngIndex,
   type PointFeatureCollection,
+  photosToGeoJson,
+  segmentsToGeoJson,
+  splitsToGeoJson,
   trackBounds,
   trackToGeoJson,
 } from "./basemapData";
 import { type ColorRun } from "./metrics";
 import styles from "./RouteMap.module.css";
+import { type RouteAnnotations } from "./types";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
@@ -26,13 +34,34 @@ const LOAD_TIMEOUT_MS = 12000;
 /** Plain-track color when no metric is selected (matches the SVG view). */
 const FALLBACK_TRACK_COLOR = "#3b82f6";
 
+/** Annotation layer ids, in render order (halos under markers). */
+const SEGMENTS_LAYER = "segment-halos";
+const SPLITS_LAYER = "splits";
+const PHOTOS_LAYER = "photos";
+const PHOTOS_DOT_LAYER = "photos-dot";
+
+export interface BasemapLayerVisibility {
+  splits: boolean;
+  segments: boolean;
+  photos: boolean;
+}
+
 interface BasemapViewProps {
   coordinates: Array<[number, number]>;
   colorRuns: ColorRun[];
+  /** Resolved annotation markers (already index-anchored). */
+  splitMarkers: SplitMarker[];
+  segments: NonNullable<RouteAnnotations["segments"]>;
+  photoMarkers: PhotoMarker[];
+  /** Footer legend toggles, applied as layer visibility. */
+  visibility: BasemapLayerVisibility;
   mode: "mobile" | "desktop";
   scrubIndex: number | null;
-  /** Scrub from map hover; null clears. No-op when scrubbing is unavailable. */
+  /** Scrub from map hover/tap; null clears. */
   onScrub: (index: number | null) => void;
+  /** Value tooltip content for the current scrub index, rendered at the
+   * scrubbed point; the caller owns the content, this view owns position. */
+  scrubTip?: ReactNode;
   /** Tiles failed to load — the caller falls back to the offline grid. */
   onFail: () => void;
 }
@@ -59,21 +88,31 @@ function scrubPointGeoJson(
 export function BasemapView({
   coordinates,
   colorRuns,
+  splitMarkers,
+  segments,
+  photoMarkers,
+  visibility,
   mode,
   scrubIndex,
   onScrub,
+  scrubTip,
   onFail,
 }: BasemapViewProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
+  const [loaded, setLoaded] = useState(false);
   const loadedRef = useRef(false);
+  // Tooltip anchor in container pixels, recomputed on scrub and camera moves.
+  const [tipPoint, setTipPoint] = useState<{ x: number; y: number } | null>(
+    null,
+  );
 
   const track = useMemo(
     () => trackToGeoJson(coordinates, colorRuns, FALLBACK_TRACK_COLOR),
     [coordinates, colorRuns],
   );
 
-  // Latest callbacks/coords for handlers bound once at map creation.
+  // Latest values for handlers bound once at map creation.
   const onScrubRef = useRef(onScrub);
   onScrubRef.current = onScrub;
   const onFailRef = useRef(onFail);
@@ -82,6 +121,10 @@ export function BasemapView({
   coordinatesRef.current = coordinates;
   const trackRef = useRef(track);
   trackRef.current = track;
+  const scrubIndexRef = useRef(scrubIndex);
+  scrubIndexRef.current = scrubIndex;
+  const annotationsRef = useRef({ splitMarkers, segments, photoMarkers });
+  annotationsRef.current = { splitMarkers, segments, photoMarkers };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -116,9 +159,35 @@ export function BasemapView({
       }
     });
 
+    const popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 10,
+    });
+
     map.on("load", () => {
       loadedRef.current = true;
       clearTimeout(failTimer);
+
+      const coords = coordinatesRef.current;
+      const { splitMarkers, segments, photoMarkers } = annotationsRef.current;
+
+      // Segment halos go under the track, like the grid view.
+      map.addSource("segments", {
+        type: "geojson",
+        data: segmentsToGeoJson(coords, segments),
+      });
+      map.addLayer({
+        id: SEGMENTS_LAYER,
+        type: "line",
+        source: "segments",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": ["get", "color"],
+          "line-width": 10,
+          "line-opacity": 0.45,
+        },
+      });
 
       map.addSource("track", { type: "geojson", data: trackRef.current });
       map.addLayer({
@@ -140,7 +209,44 @@ export function BasemapView({
         paint: { "line-color": ["get", "color"], "line-width": 3.5 },
       });
 
-      const coords = coordinatesRef.current;
+      map.addSource("splits", {
+        type: "geojson",
+        data: splitsToGeoJson(coords, splitMarkers),
+      });
+      map.addLayer({
+        id: SPLITS_LAYER,
+        type: "circle",
+        source: "splits",
+        paint: {
+          "circle-radius": 4,
+          "circle-color": "#ffffff",
+          "circle-stroke-color": BASEMAP_COLORS.split,
+          "circle-stroke-width": 2,
+        },
+      });
+
+      map.addSource("photos", {
+        type: "geojson",
+        data: photosToGeoJson(coords, photoMarkers),
+      });
+      map.addLayer({
+        id: PHOTOS_LAYER,
+        type: "circle",
+        source: "photos",
+        paint: {
+          "circle-radius": 5.5,
+          "circle-color": BASEMAP_COLORS.photo,
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 2,
+        },
+      });
+      map.addLayer({
+        id: PHOTOS_DOT_LAYER,
+        type: "circle",
+        source: "photos",
+        paint: { "circle-radius": 1.75, "circle-color": "#ffffff" },
+      });
+
       const endpoints: PointFeatureCollection = {
         type: "FeatureCollection",
         features: [
@@ -182,7 +288,7 @@ export function BasemapView({
 
       map.addSource("scrub", {
         type: "geojson",
-        data: scrubPointGeoJson(coords, null),
+        data: scrubPointGeoJson(coords, scrubIndexRef.current),
       });
       map.addLayer({
         id: "scrub",
@@ -195,45 +301,109 @@ export function BasemapView({
           "circle-stroke-width": 2,
         },
       });
+
+      // Hover popups for the annotation markers ("Lap 2", "Climb · PR", …).
+      for (const layerId of [SPLITS_LAYER, PHOTOS_LAYER, SEGMENTS_LAYER]) {
+        map.on("mousemove", layerId, (e) => {
+          const title = e.features?.[0]?.properties?.title;
+          if (typeof title !== "string" || title.length === 0) return;
+          map.getCanvas().style.cursor = "pointer";
+          popup.setLngLat(e.lngLat).setText(title).addTo(map);
+        });
+        map.on("mouseleave", layerId, () => {
+          map.getCanvas().style.cursor = "";
+          popup.remove();
+        });
+      }
+
+      setLoaded(true);
     });
 
-    map.on("mousemove", (e) => {
+    const scrubAt = (lngLat: maplibregl.LngLat) => {
       if (!loadedRef.current) return;
       onScrubRef.current(
-        nearestLatLngIndex(coordinatesRef.current, e.lngLat.lat, e.lngLat.lng),
+        nearestLatLngIndex(coordinatesRef.current, lngLat.lat, lngLat.lng),
       );
-    });
+    };
+    map.on("mousemove", (e) => scrubAt(e.lngLat));
+    // Touch drags pan the map; a tap is the touch scrub gesture.
+    map.on("click", (e) => scrubAt(e.lngLat));
     map.on("mouseout", () => onScrubRef.current(null));
+
+    // Keep the tooltip glued to the scrubbed point while the camera moves.
+    const repositionTip = () => {
+      const index = scrubIndexRef.current;
+      const pair = index != null ? coordinatesRef.current[index] : undefined;
+      setTipPoint(pair ? map.project([pair[1], pair[0]]) : null);
+    };
+    map.on("move", repositionTip);
 
     return () => {
       clearTimeout(failTimer);
       mapRef.current = null;
       loadedRef.current = false;
+      popup.remove();
       map.remove();
     };
-    // The map is created once per mount; track/coords changes remount via key.
+    // The map is created once per mount; data changes remount via key.
   }, []);
 
   // Keep the track + scrub sources in sync without recreating the map.
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !loadedRef.current) return;
-    const source = map.getSource<maplibregl.GeoJSONSource>("track");
+    if (!loaded) return;
+    const source = mapRef.current?.getSource<maplibregl.GeoJSONSource>("track");
     source?.setData(track);
-  }, [track]);
+  }, [track, loaded]);
 
   useEffect(() => {
+    if (!loaded) return;
     const map = mapRef.current;
-    if (!map || !loadedRef.current) return;
-    const source = map.getSource<maplibregl.GeoJSONSource>("scrub");
-    source?.setData(scrubPointGeoJson(coordinates, scrubIndex));
-  }, [scrubIndex, coordinates]);
+    if (!map) return;
+    map
+      .getSource<maplibregl.GeoJSONSource>("scrub")
+      ?.setData(scrubPointGeoJson(coordinates, scrubIndex));
+    const pair = scrubIndex != null ? coordinates[scrubIndex] : undefined;
+    setTipPoint(pair ? map.project([pair[1], pair[0]]) : null);
+  }, [scrubIndex, coordinates, loaded]);
+
+  // Footer legend toggles map onto layer visibility.
+  useEffect(() => {
+    if (!loaded) return;
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = (layerIds: string[], visible: boolean) => {
+      for (const id of layerIds) {
+        if (map.getLayer(id)) {
+          map.setLayoutProperty(id, "visibility", visible ? "visible" : "none");
+        }
+      }
+    };
+    apply([SPLITS_LAYER], visibility.splits);
+    apply([SEGMENTS_LAYER], visibility.segments);
+    apply([PHOTOS_LAYER, PHOTOS_DOT_LAYER], visibility.photos);
+  }, [visibility, loaded]);
+
+  const containerWidth = containerRef.current?.clientWidth ?? 0;
 
   return (
-    <div
-      ref={containerRef}
-      className={styles.basemap}
-      data-compact={mode === "mobile" || undefined}
-    />
+    <div className={styles.basemapWrap}>
+      <div
+        ref={containerRef}
+        className={styles.basemap}
+        data-compact={mode === "mobile" || undefined}
+      />
+      {scrubTip && tipPoint && (
+        <div
+          className={styles.scrubTip}
+          data-flip={
+            (containerWidth > 0 && tipPoint.x > containerWidth * 0.55) ||
+            undefined
+          }
+          style={{ left: tipPoint.x, top: tipPoint.y }}
+        >
+          {scrubTip}
+        </div>
+      )}
+    </div>
   );
 }

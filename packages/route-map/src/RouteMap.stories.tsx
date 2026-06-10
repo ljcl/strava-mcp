@@ -11,17 +11,22 @@ import { RouteMap } from "./RouteMap";
 
 const meta = preview.meta({ component: RouteMap });
 
+/* The basemap is the app's default view, but it renders live OpenFreeMap
+ * tiles which Chromatic cannot snapshot deterministically. The grid stories
+ * pin `basemapEnabled: false` (exactly the app's tiles-unavailable fallback);
+ * the two Basemap stories exercise the real default with snapshots disabled. */
+
 export const ActivityLoop = meta.story({
-  args: { data: loopActivity },
+  args: { data: loopActivity, basemapEnabled: false },
 });
 
 export const MetricColoredTrack = meta.story({
-  args: { data: streamLoopActivity },
+  args: { data: streamLoopActivity, basemapEnabled: false },
 });
 
 export const DarkMetricColoredTrack = meta.story({
   globals: { backgrounds: { value: "dark" } },
-  args: { data: streamLoopActivity },
+  args: { data: streamLoopActivity, basemapEnabled: false },
   decorators: [
     (StoryFn) => (
       <div data-theme="dark">
@@ -32,12 +37,12 @@ export const DarkMetricColoredTrack = meta.story({
 });
 
 export const SavedRoute = meta.story({
-  args: { data: pointToPointRoute },
+  args: { data: pointToPointRoute, basemapEnabled: false },
 });
 
 export const DarkActivityLoop = meta.story({
   globals: { backgrounds: { value: "dark" } },
-  args: { data: loopActivity },
+  args: { data: loopActivity, basemapEnabled: false },
   decorators: [
     (StoryFn) => (
       <div data-theme="dark">
@@ -48,11 +53,11 @@ export const DarkActivityLoop = meta.story({
 });
 
 export const NoGeometry = meta.story({
-  args: { data: noGeometryActivity },
+  args: { data: noGeometryActivity, basemapEnabled: false },
 });
 
 export const MobileActivityLoop = meta.story({
-  args: { data: loopActivity, mode: "mobile" },
+  args: { data: loopActivity, mode: "mobile", basemapEnabled: false },
   globals: { viewport: { value: "claudeIosCard" } },
   parameters: { layout: "fullscreen" },
   decorators: [
@@ -65,18 +70,16 @@ export const MobileActivityLoop = meta.story({
 });
 
 export const AnnotatedTrack = meta.story({
-  args: { data: annotatedActivity },
+  args: { data: annotatedActivity, basemapEnabled: false },
 });
 
-/* The basemap stories fetch live OpenFreeMap tiles, so Chromatic must not
- * snapshot them — tile rendering would diff on every run. */
 export const Basemap = meta.story({
-  args: { data: streamLoopActivity, defaultBasemap: true },
+  args: { data: annotatedActivity },
   parameters: { chromatic: { disableSnapshot: true } },
 });
 
 export const MobileBasemap = meta.story({
-  args: { data: streamLoopActivity, mode: "mobile", defaultBasemap: true },
+  args: { data: annotatedActivity, mode: "mobile" },
   globals: { viewport: { value: "claudeIosCard" } },
   parameters: { layout: "fullscreen", chromatic: { disableSnapshot: true } },
   decorators: [
@@ -89,7 +92,7 @@ export const MobileBasemap = meta.story({
 });
 
 export const MobileAnnotatedTrack = meta.story({
-  args: { data: annotatedActivity, mode: "mobile" },
+  args: { data: annotatedActivity, mode: "mobile", basemapEnabled: false },
   globals: { viewport: { value: "claudeIosCard" } },
   parameters: { layout: "fullscreen" },
   decorators: [
@@ -102,7 +105,7 @@ export const MobileAnnotatedTrack = meta.story({
 });
 
 export const MobileMetricColoredTrack = meta.story({
-  args: { data: streamLoopActivity, mode: "mobile" },
+  args: { data: streamLoopActivity, mode: "mobile", basemapEnabled: false },
   globals: { viewport: { value: "claudeIosCard" } },
   parameters: { layout: "fullscreen" },
   decorators: [
@@ -115,7 +118,7 @@ export const MobileMetricColoredTrack = meta.story({
 });
 
 export const MobileSavedRoute = meta.story({
-  args: { data: pointToPointRoute, mode: "mobile" },
+  args: { data: pointToPointRoute, mode: "mobile", basemapEnabled: false },
   globals: { viewport: { value: "claudeIosCard" } },
   parameters: { layout: "fullscreen" },
   decorators: [
