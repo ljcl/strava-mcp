@@ -87,13 +87,21 @@ describe("buildMetricSeries", () => {
         grade_smooth: [1, 2, -1, 0],
       },
     });
-    const keys = buildMetricSeries(data).map((s) => s.key);
-    expect(keys).toEqual([
+    const series = buildMetricSeries(data);
+    expect(series.map((s) => s.key)).toEqual([
       "pace",
       "heartrate",
       "power",
       "altitude",
       "gradient",
+    ]);
+    // Mobile pill labels stay compact so five pills fit a 360px card row.
+    expect(series.map((s) => s.shortLabel)).toEqual([
+      "Pace",
+      "HR",
+      "Power",
+      "Elev",
+      "Grade",
     ]);
   });
 

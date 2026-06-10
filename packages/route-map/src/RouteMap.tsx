@@ -363,7 +363,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
                   active={s.key === activeSeries?.key}
                   onClick={() => setMetricKey(s.key)}
                 >
-                  {s.label}
+                  {isMobile ? s.shortLabel : s.label}
                 </Pill>
               ))}
             </PillGroup>

@@ -22,6 +22,8 @@ export interface MetricSeries {
   key: MetricKey;
   /** Pill / tooltip label ("Pace" or "Speed" for the pace key). */
   label: string;
+  /** Compact pill label for mobile, where five pills must share a card row. */
+  shortLabel: string;
   /** Raw per-point values used for coloring, aligned with coordinates. */
   values: number[];
   /** Color domain (percentile-clamped so outliers don't flatten the ramp). */
@@ -119,6 +121,7 @@ export function buildMetricSeries(data: RouteMapData): MetricSeries[] {
     series.push({
       key: "pace",
       label: running ? "Pace" : "Speed",
+      shortLabel: running ? "Pace" : "Speed",
       values: velocity,
       ...percentileDomain(velocity),
       format: running ? formatSpeedAsPace : formatSpeedAsKmh,
@@ -130,6 +133,7 @@ export function buildMetricSeries(data: RouteMapData): MetricSeries[] {
     series.push({
       key: "heartrate",
       label: "Heart rate",
+      shortLabel: "HR",
       values: heartrate,
       ...percentileDomain(heartrate),
       format: (v) => `${Math.round(v)} bpm`,
@@ -141,6 +145,7 @@ export function buildMetricSeries(data: RouteMapData): MetricSeries[] {
     series.push({
       key: "power",
       label: "Power",
+      shortLabel: "Power",
       values: watts,
       ...percentileDomain(watts),
       format: (v) => `${Math.round(v)} W`,
@@ -152,6 +157,7 @@ export function buildMetricSeries(data: RouteMapData): MetricSeries[] {
     series.push({
       key: "altitude",
       label: "Elevation",
+      shortLabel: "Elev",
       values: altitude,
       ...percentileDomain(altitude),
       format: (v) => `${Math.round(v)} m`,
@@ -163,6 +169,7 @@ export function buildMetricSeries(data: RouteMapData): MetricSeries[] {
     series.push({
       key: "gradient",
       label: "Gradient",
+      shortLabel: "Grade",
       values: grade,
       ...percentileDomain(grade),
       format: (v) => `${v.toFixed(1)} %`,

@@ -95,6 +95,12 @@
   padding: var(--space-3) var(--space-2) 0;
 }
 
+/* Five metric pills can exceed a narrow card's width; wrap inside the group
+ * rather than clipping at the card edge. */
+.controls > [role="group"] {
+  flex-wrap: wrap;
+}
+
 .scale {
   display: inline-flex;
   gap: var(--space-2);
