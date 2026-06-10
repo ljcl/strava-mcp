@@ -7,6 +7,8 @@ export interface RouteMapContextInput {
   distanceKm: number;
   elevationGain: number;
   hasGeometry: boolean;
+  /** Label of the metric the track is colored by, when streams are present. */
+  colorMetric?: string | null;
 }
 
 /**
@@ -16,8 +18,15 @@ export interface RouteMapContextInput {
 export function buildRouteMapContextSummary(
   input: RouteMapContextInput,
 ): string | null {
-  const { name, source, activityType, distanceKm, elevationGain, hasGeometry } =
-    input;
+  const {
+    name,
+    source,
+    activityType,
+    distanceKm,
+    elevationGain,
+    hasGeometry,
+    colorMetric,
+  } = input;
   if (!name) return null;
 
   const label = source === "route" ? "route" : "activity";
@@ -28,6 +37,9 @@ export function buildRouteMapContextSummary(
     parts.push(`Distance ${distanceKm.toFixed(1)} km.`);
     if (elevationGain > 0) {
       parts.push(`Elevation gain ${Math.round(elevationGain)} m.`);
+    }
+    if (colorMetric) {
+      parts.push(`The track is coloured by ${colorMetric.toLowerCase()}.`);
     }
   } else {
     parts.push("No GPS track is available for it.");
