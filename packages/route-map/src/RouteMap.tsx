@@ -15,9 +15,11 @@ import {
   buildSplitMarkers,
   type SplitMarker,
 } from "./annotations";
+import { BasemapView } from "./BasemapView";
 import { buildRouteMapContextSummary } from "./contextSummary";
 import { buildElevationProfile, nearestXIndex } from "./elevationProfile";
 import {
+  buildColorRuns,
   buildMetricSeries,
   buildTrackSegments,
   colorForValue,
@@ -33,6 +35,8 @@ interface RouteMapProps {
   data: RouteMapData;
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
+  /** Start with the basemap on (stories/tests); defaults to the offline grid. */
+  defaultBasemap?: boolean;
 }
 
 /** Frame geometry per layout. All values are SVG viewBox units. */
@@ -93,7 +97,12 @@ function pathThrough(points: Point[]): string {
     .join(" ");
 }
 
-export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
+export function RouteMap({
+  data,
+  mode = "desktop",
+  app,
+  defaultBasemap = false,
+}: RouteMapProps) {
   const isMobile = mode === "mobile";
   const dims = isMobile ? DIMS.mobile : DIMS.desktop;
   const distanceKm = data.distance / 1000;
@@ -124,6 +133,21 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
         : [],
     [projected, activeSeries],
   );
+
+  // Same color binning as the SVG segments, as index runs for the basemap.
+  const colorRuns = useMemo(
+    () =>
+      activeSeries ? buildColorRuns(activeSeries, data.coordinates.length) : [],
+    [activeSeries, data.coordinates.length],
+  );
+
+  /* ── Basemap toggle ──────────────────────────────────────────── */
+
+  // Off by default: the offline grid keeps the app's no-network-at-render
+  // property; tiles only load once the user opts in. A failed tile load
+  // bounces the toggle back off (offline grid is the fallback).
+  const [basemapOn, setBasemapOn] = useState(defaultBasemap);
+  const showBasemap = basemapOn && projected !== null;
 
   const profile = useMemo(() => {
     const altitude = data.streams?.altitude;
@@ -194,13 +218,15 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
   /** Screen-constant sizing: marker/stroke sizes shrink with the viewport. */
   const k = view.w / base.w;
 
-  const svgRef = useRef<SVGSVGElement | null>(null);
+  // State rather than a ref so the wheel effect re-runs when the SVG
+  // unmounts/remounts (e.g. toggling the basemap off again).
+  const [svgEl, setSvgEl] = useState<SVGSVGElement | null>(null);
   /** Active pointers by id, in client coordinates (pan/pinch tracking). */
   const pointers = useRef(new Map<number, { x: number; y: number }>());
 
   const canZoom = projected !== null;
   useEffect(() => {
-    const svg = svgRef.current;
+    const svg = svgEl;
     if (!svg || !canZoom) return;
     const onWheel = (e: WheelEvent) => {
       const zoomingOut = e.deltaY > 0;
@@ -219,7 +245,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
     // React's onWheel can't preventDefault (passive); bind directly.
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, [canZoom, base]);
+  }, [canZoom, base, svgEl]);
 
   /* ── Scrub ───────────────────────────────────────────────────── */
 
@@ -400,11 +426,27 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
         {subtitle && <div className={styles.subtitle}>{subtitle}</div>}
       </div>
 
-      {projected ? (
+      {projected && showBasemap && (
+        <div className={styles.mapArea}>
+          <BasemapView
+            key={data.id}
+            coordinates={data.coordinates}
+            colorRuns={colorRuns}
+            mode={mode}
+            scrubIndex={scrubIndex}
+            onScrub={(index) => {
+              if (canScrub) setScrubIndex(index);
+            }}
+            onFail={() => setBasemapOn(false)}
+          />
+        </div>
+      )}
+
+      {projected && !showBasemap && (
         <div className={styles.mapArea}>
           <div className={styles.mapWrap}>
             <svg
-              ref={svgRef}
+              ref={setSvgEl}
               className={styles.svg}
               viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
               preserveAspectRatio="xMidYMid meet"
@@ -605,7 +647,9 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
             </div>
           )}
         </div>
-      ) : (
+      )}
+
+      {!projected && (
         <div className={styles.empty}>
           No GPS track is available for this {data.source}.
         </div>
@@ -657,7 +701,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
         </svg>
       )}
 
-      {projected && (series.length > 0 || zoomed) && (
+      {projected && (
         <div className={styles.controls}>
           {series.length > 1 && (
             <PillGroup>
@@ -672,7 +716,12 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
               ))}
             </PillGroup>
           )}
-          {zoomed && (
+          <PillGroup>
+            <Pill active={showBasemap} onClick={() => setBasemapOn((b) => !b)}>
+              {isMobile ? "Map" : "Basemap"}
+            </Pill>
+          </PillGroup>
+          {zoomed && !showBasemap && (
             <PillGroup>
               <Pill active onClick={() => setView(base)}>
                 Reset view
@@ -719,7 +768,8 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
               <span className={styles.dot} data-marker="end" />
               Finish
             </span>
-            {layers.length > 0 && (
+            {/* Annotation layers render only on the offline grid view. */}
+            {layers.length > 0 && !showBasemap && (
               <Legend size={isMobile ? "touch" : "default"}>
                 {layers.map((layer) => (
                   <LegendItem

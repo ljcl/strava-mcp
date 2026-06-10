@@ -68,6 +68,26 @@ export const AnnotatedTrack = meta.story({
   args: { data: annotatedActivity },
 });
 
+/* The basemap stories fetch live OpenFreeMap tiles, so Chromatic must not
+ * snapshot them — tile rendering would diff on every run. */
+export const Basemap = meta.story({
+  args: { data: streamLoopActivity, defaultBasemap: true },
+  parameters: { chromatic: { disableSnapshot: true } },
+});
+
+export const MobileBasemap = meta.story({
+  args: { data: streamLoopActivity, mode: "mobile", defaultBasemap: true },
+  globals: { viewport: { value: "claudeIosCard" } },
+  parameters: { layout: "fullscreen", chromatic: { disableSnapshot: true } },
+  decorators: [
+    (StoryFn) => (
+      <MobileCardShell>
+        <StoryFn />
+      </MobileCardShell>
+    ),
+  ],
+});
+
 export const MobileAnnotatedTrack = meta.story({
   args: { data: annotatedActivity, mode: "mobile" },
   globals: { viewport: { value: "claudeIosCard" } },
