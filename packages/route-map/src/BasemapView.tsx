@@ -149,13 +149,15 @@ export function BasemapView({
     }, LOAD_TIMEOUT_MS);
 
     map.on("error", (e) => {
-      // Any error before the style loads means no usable basemap (blocked
-      // origin, offline, bad style). Post-load tile errors are cosmetic.
-      if (!loadedRef.current) {
+      // An error before the style itself loads means no usable basemap
+      // (blocked origin, offline, bad style) — fall back. Once the style is
+      // in, individual tile/sprite errors are cosmetic and must not nuke the
+      // map back to the grid.
+      if (!loadedRef.current && !map.isStyleLoaded()) {
         clearTimeout(failTimer);
         onFailRef.current();
       } else {
-        console.warn("maplibre error after load", e.error);
+        console.warn("route-map basemap: maplibre error", e.error);
       }
     });
 
@@ -172,12 +174,38 @@ export function BasemapView({
       const coords = coordinatesRef.current;
       const { splitMarkers, segments, photoMarkers } = annotationsRef.current;
 
+      // Guard every add individually (#73): maplibre's addSource throws
+      // synchronously (e.g. on a duplicate id), and an unguarded throw here
+      // aborted the whole handler — one bad call blanked every layer while
+      // the basemap kept rendering. Failures are logged with their id so a
+      // report from the host console pins the root cause.
+      const addSourceSafe = (
+        id: string,
+        spec: maplibregl.SourceSpecification,
+      ) => {
+        try {
+          map.addSource(id, spec);
+        } catch (error) {
+          console.error(`route-map basemap: addSource "${id}" failed`, error);
+        }
+      };
+      const addLayerSafe = (spec: maplibregl.AddLayerObject) => {
+        try {
+          map.addLayer(spec);
+        } catch (error) {
+          console.error(
+            `route-map basemap: addLayer "${spec.id}" failed`,
+            error,
+          );
+        }
+      };
+
       // Segment halos go under the track, like the grid view.
-      map.addSource("segments", {
+      addSourceSafe("segments", {
         type: "geojson",
         data: segmentsToGeoJson(coords, segments),
       });
-      map.addLayer({
+      addLayerSafe({
         id: SEGMENTS_LAYER,
         type: "line",
         source: "segments",
@@ -189,8 +217,8 @@ export function BasemapView({
         },
       });
 
-      map.addSource("track", { type: "geojson", data: trackRef.current });
-      map.addLayer({
+      addSourceSafe("track", { type: "geojson", data: trackRef.current });
+      addLayerSafe({
         id: "track-casing",
         type: "line",
         source: "track",
@@ -201,7 +229,7 @@ export function BasemapView({
           "line-opacity": 0.9,
         },
       });
-      map.addLayer({
+      addLayerSafe({
         id: "track-line",
         type: "line",
         source: "track",
@@ -209,11 +237,11 @@ export function BasemapView({
         paint: { "line-color": ["get", "color"], "line-width": 3.5 },
       });
 
-      map.addSource("splits", {
+      addSourceSafe("splits", {
         type: "geojson",
         data: splitsToGeoJson(coords, splitMarkers),
       });
-      map.addLayer({
+      addLayerSafe({
         id: SPLITS_LAYER,
         type: "circle",
         source: "splits",
@@ -225,11 +253,11 @@ export function BasemapView({
         },
       });
 
-      map.addSource("photos", {
+      addSourceSafe("photos", {
         type: "geojson",
         data: photosToGeoJson(coords, photoMarkers),
       });
-      map.addLayer({
+      addLayerSafe({
         id: PHOTOS_LAYER,
         type: "circle",
         source: "photos",
@@ -240,7 +268,7 @@ export function BasemapView({
           "circle-stroke-width": 2,
         },
       });
-      map.addLayer({
+      addLayerSafe({
         id: PHOTOS_DOT_LAYER,
         type: "circle",
         source: "photos",
@@ -267,8 +295,8 @@ export function BasemapView({
             : [],
         ),
       };
-      map.addSource("endpoints", { type: "geojson", data: endpoints });
-      map.addLayer({
+      addSourceSafe("endpoints", { type: "geojson", data: endpoints });
+      addLayerSafe({
         id: "endpoints",
         type: "circle",
         source: "endpoints",
@@ -286,11 +314,11 @@ export function BasemapView({
         },
       });
 
-      map.addSource("scrub", {
+      addSourceSafe("scrub", {
         type: "geojson",
         data: scrubPointGeoJson(coords, scrubIndexRef.current),
       });
-      map.addLayer({
+      addLayerSafe({
         id: "scrub",
         type: "circle",
         source: "scrub",
@@ -303,7 +331,10 @@ export function BasemapView({
       });
 
       // Hover popups for the annotation markers ("Lap 2", "Climb · PR", …).
+      // Bound only to layers that actually got added: delegated listeners on
+      // a missing layer make maplibre error on every pointer move.
       for (const layerId of [SPLITS_LAYER, PHOTOS_LAYER, SEGMENTS_LAYER]) {
+        if (!map.getLayer(layerId)) continue;
         map.on("mousemove", layerId, (e) => {
           const title = e.features?.[0]?.properties?.title;
           if (typeof title !== "string" || title.length === 0) return;
@@ -314,6 +345,22 @@ export function BasemapView({
           map.getCanvas().style.cursor = "";
           popup.remove();
         });
+      }
+
+      // One summary line for bug reports: which overlay layers are live.
+      const missing = [
+        "track-line",
+        "track-casing",
+        "endpoints",
+        "scrub",
+        SEGMENTS_LAYER,
+        SPLITS_LAYER,
+        PHOTOS_LAYER,
+      ].filter((id) => !map.getLayer(id));
+      if (missing.length > 0) {
+        console.error(
+          `route-map basemap: ${missing.length} overlay layer(s) missing after load: ${missing.join(", ")}`,
+        );
       }
 
       setLoaded(true);
