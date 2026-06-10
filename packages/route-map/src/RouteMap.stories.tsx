@@ -1,5 +1,6 @@
 import preview from "@strava-mcp/design-system/preview";
 import {
+  annotatedActivity,
   loopActivity,
   noGeometryActivity,
   pointToPointRoute,
@@ -52,6 +53,23 @@ export const NoGeometry = meta.story({
 
 export const MobileActivityLoop = meta.story({
   args: { data: loopActivity, mode: "mobile" },
+  globals: { viewport: { value: "claudeIosCard" } },
+  parameters: { layout: "fullscreen" },
+  decorators: [
+    (StoryFn) => (
+      <MobileCardShell>
+        <StoryFn />
+      </MobileCardShell>
+    ),
+  ],
+});
+
+export const AnnotatedTrack = meta.story({
+  args: { data: annotatedActivity },
+});
+
+export const MobileAnnotatedTrack = meta.story({
+  args: { data: annotatedActivity, mode: "mobile" },
   globals: { viewport: { value: "claudeIosCard" } },
   parameters: { layout: "fullscreen" },
   decorators: [

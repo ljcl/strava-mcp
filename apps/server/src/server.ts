@@ -10,12 +10,15 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { stravaApi } from "./fetchClient";
+import { indexAtDistance, nearestCoordIndex } from "./mapAnchors";
 import { decodePolyline } from "./polyline";
 import {
   getActivityById,
   getActivityLaps,
+  getActivityPhotos,
   getAllActivities as getAllActivitiesFn,
   getRouteById,
+  type StravaDetailedActivity,
 } from "./stravaClient";
 import { READ_ONLY } from "./tools/_annotations";
 import { compareActivitiesTool } from "./tools/compareActivities";
@@ -241,7 +244,8 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "get-route-map-data",
     description:
-      "Internal data feed for the route-map UI: returns decoded [lat, lng] coordinates plus start/end points, distance, elevation gain, and (for activities with GPS streams) index-aligned metric streams (time, distance, altitude, heartrate, watts, velocity_smooth, grade_smooth) for one activity or route as JSON. " +
+      "Internal data feed for the route-map UI: returns decoded [lat, lng] coordinates plus start/end points, distance, elevation gain, and (for activities with GPS streams) index-aligned metric streams (time, distance, altitude, heartrate, watts, velocity_smooth, grade_smooth) " +
+      "and annotation anchors (lap boundaries, segment-effort spans with PR/top-10 flags, geotagged photos) for one activity or route as JSON. " +
       "The view-route-map app calls this; not intended for direct model use.",
     inputSchema: {
       type: "object",
@@ -479,6 +483,22 @@ interface RouteMapStreams {
   grade_smooth?: number[];
 }
 
+/** Annotation anchors, as indices into `coordinates`. */
+interface RouteMapAnnotations {
+  /** Lap boundaries (each lap's end), present when the activity has 2+ laps. */
+  laps?: Array<{ lapIndex: number; name: string; endIndex: number }>;
+  /** Segment efforts with their track spans and notable-result flags. */
+  segments?: Array<{
+    name: string;
+    startIndex: number;
+    endIndex: number;
+    isPr: boolean;
+    isTop10: boolean;
+  }>;
+  /** Geotagged photos snapped to the nearest track point. */
+  photos?: Array<{ index: number; caption: string | null }>;
+}
+
 interface RouteMapData {
   source: "activity" | "route";
   id: string;
@@ -490,6 +510,7 @@ interface RouteMapData {
   start: [number, number] | null;
   end: [number, number] | null;
   streams?: RouteMapStreams;
+  annotations?: RouteMapAnnotations;
 }
 
 const ROUTE_MAP_METRIC_STREAM_KEYS = [
@@ -576,6 +597,13 @@ async function loadRouteMapData(
     // Prefer the latlng stream over the polyline: it is index-aligned with
     // the metric streams, so the app can color the track by them.
     if (streamData) {
+      const annotations = await loadRouteMapAnnotations(
+        token,
+        activityId,
+        activity,
+        streamData.coordinates,
+        streamData.streams.distance,
+      );
       return {
         source: "activity",
         id: String(activity.id),
@@ -587,6 +615,7 @@ async function loadRouteMapData(
         start: streamData.coordinates[0] ?? null,
         end: streamData.coordinates[streamData.coordinates.length - 1] ?? null,
         streams: streamData.streams,
+        annotations,
       };
     }
     const encoded =
@@ -619,6 +648,115 @@ async function loadRouteMapData(
     start: coordinates[0] ?? null,
     end: coordinates[coordinates.length - 1] ?? null,
   };
+}
+
+/** Bound the segment payload; notable efforts win when an activity has more. */
+const MAX_SEGMENT_ANNOTATIONS = 25;
+
+/**
+ * Resolve lap boundaries, segment efforts, and geotagged photos into indices
+ * on the (downsampled) coordinate stream. Each layer degrades independently:
+ * a failed laps or photos fetch, or efforts without lat/lng, simply drop that
+ * layer rather than failing the map.
+ */
+async function loadRouteMapAnnotations(
+  token: string,
+  activityId: string,
+  activity: StravaDetailedActivity,
+  coordinates: Array<[number, number]>,
+  distanceStream: number[] | undefined,
+): Promise<RouteMapAnnotations | undefined> {
+  const annotations: RouteMapAnnotations = {};
+
+  // Laps: anchor each lap's end by cumulative distance. Strava's lap
+  // start/end indices refer to the full-resolution stream, so they cannot be
+  // used against the medium-resolution coordinates. A single-lap activity
+  // gets no markers (the whole track is one lap); the final lap's end is the
+  // finish marker, so it is skipped too.
+  if (distanceStream && distanceStream.length === coordinates.length) {
+    try {
+      const laps = await getActivityLaps(token, activityId);
+      if (laps.length >= 2) {
+        let cumulative = 0;
+        const lapMarkers = [];
+        for (const lap of laps.slice(0, -1)) {
+          cumulative += lap.distance;
+          const endIndex = indexAtDistance(distanceStream, cumulative);
+          if (endIndex >= 0) {
+            lapMarkers.push({
+              lapIndex: lap.lap_index,
+              name: lap.name,
+              endIndex,
+            });
+          }
+        }
+        if (lapMarkers.length > 0) annotations.laps = lapMarkers;
+      }
+    } catch {
+      // Lap layer is optional.
+    }
+  }
+
+  // Segment efforts: anchor by the segment's start/end lat/lng (already on
+  // the detailed activity — no extra fetch).
+  const efforts = activity.segment_efforts ?? [];
+  const segmentMarkers = [];
+  for (const effort of efforts) {
+    const startLatLng = effort.segment?.start_latlng;
+    const endLatLng = effort.segment?.end_latlng;
+    if (
+      !startLatLng ||
+      startLatLng.length < 2 ||
+      !endLatLng ||
+      endLatLng.length < 2
+    ) {
+      continue;
+    }
+    const startIndex = nearestCoordIndex(
+      coordinates,
+      startLatLng[0]!,
+      startLatLng[1]!,
+    );
+    const endIndex = nearestCoordIndex(
+      coordinates,
+      endLatLng[0]!,
+      endLatLng[1]!,
+    );
+    if (startIndex < 0 || endIndex <= startIndex) continue;
+    segmentMarkers.push({
+      name: effort.name,
+      startIndex,
+      endIndex,
+      isPr: effort.pr_rank != null,
+      isTop10: effort.kom_rank != null,
+    });
+  }
+  if (segmentMarkers.length > 0) {
+    segmentMarkers.sort((a, b) => {
+      const notable = (s: { isPr: boolean; isTop10: boolean }) =>
+        (s.isPr ? 2 : 0) + (s.isTop10 ? 1 : 0);
+      return notable(b) - notable(a) || a.startIndex - b.startIndex;
+    });
+    annotations.segments = segmentMarkers.slice(0, MAX_SEGMENT_ANNOTATIONS);
+  }
+
+  // Photos: only those with GPS coordinates.
+  try {
+    const photos = await getActivityPhotos(token, Number(activityId));
+    const photoMarkers = [];
+    for (const photo of photos) {
+      const location = photo.location;
+      if (!location || location.length < 2) continue;
+      const index = nearestCoordIndex(coordinates, location[0]!, location[1]!);
+      if (index < 0) continue;
+      photoMarkers.push({ index, caption: photo.caption ?? null });
+    }
+    if (photoMarkers.length > 0) annotations.photos = photoMarkers;
+  } catch {
+    // Photo layer is optional.
+  }
+
+  return Object.keys(annotations).length > 0 ? annotations : undefined;
 }
 
 async function handleGetRouteMapData(

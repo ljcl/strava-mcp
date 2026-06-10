@@ -55,10 +55,18 @@
   height: auto;
 }
 
-/* Horizontal touch drags scrub the track; vertical drags keep scrolling the
- * conversation. */
-.svg[data-scrub] {
+/* Horizontal touch drags scrub the track (and two-finger pinch zooms);
+ * vertical drags keep scrolling the conversation. */
+.svg {
   touch-action: pan-y;
+}
+
+/* Once zoomed in, a single-finger drag pans the map instead, so the browser
+ * must not consume the gesture. Reset view (or pinch out) restores page
+ * scrolling over the map. */
+.svg[data-zoomed] {
+  touch-action: none;
+  cursor: grab;
 }
 
 .scrubTip {

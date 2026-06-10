@@ -135,6 +135,50 @@ export const streamLoopActivity: RouteMapData = {
   },
 };
 
+/**
+ * The stream activity plus annotation anchors (laps, segment efforts, photos)
+ * to exercise the overlay layers and their toggles.
+ */
+export const annotatedActivity: RouteMapData = {
+  ...streamLoopActivity,
+  id: "1234567892",
+  name: "Golden Gate Park Race",
+  annotations: {
+    laps: [
+      { lapIndex: 1, name: "Lap 1", endIndex: Math.floor(n / 3) },
+      { lapIndex: 2, name: "Lap 2", endIndex: Math.floor((2 * n) / 3) },
+    ],
+    segments: [
+      {
+        name: "Conservatory Climb",
+        startIndex: Math.floor(n * 0.1),
+        endIndex: Math.floor(n * 0.28),
+        isPr: true,
+        isTop10: false,
+      },
+      {
+        name: "Panhandle Sprint",
+        startIndex: Math.floor(n * 0.45),
+        endIndex: Math.floor(n * 0.58),
+        isPr: false,
+        isTop10: true,
+      },
+      {
+        name: "Chain of Lakes",
+        startIndex: Math.floor(n * 0.72),
+        endIndex: Math.floor(n * 0.85),
+        isPr: false,
+        isTop10: false,
+      },
+    ],
+    photos: [
+      { index: Math.floor(n * 0.2), caption: "Conservatory of Flowers" },
+      { index: Math.floor(n * 0.2), caption: null },
+      { index: Math.floor(n * 0.62), caption: "Bison paddock" },
+    ],
+  },
+};
+
 /** An indoor activity with no GPS track, to exercise the empty state. */
 export const noGeometryActivity: RouteMapData = {
   source: "activity",
