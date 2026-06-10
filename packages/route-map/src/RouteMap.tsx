@@ -15,9 +15,11 @@ import {
   buildSplitMarkers,
   type SplitMarker,
 } from "./annotations";
+import { BasemapView } from "./BasemapView";
 import { buildRouteMapContextSummary } from "./contextSummary";
 import { buildElevationProfile, nearestXIndex } from "./elevationProfile";
 import {
+  buildColorRuns,
   buildMetricSeries,
   buildTrackSegments,
   colorForValue,
@@ -33,6 +35,9 @@ interface RouteMapProps {
   data: RouteMapData;
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
+  /** Set false to force the offline grid view (stories/Chromatic — the
+   * basemap renders live tiles, which can't be snapshotted deterministically). */
+  basemapEnabled?: boolean;
 }
 
 /** Frame geometry per layout. All values are SVG viewBox units. */
@@ -93,7 +98,12 @@ function pathThrough(points: Point[]): string {
     .join(" ");
 }
 
-export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
+export function RouteMap({
+  data,
+  mode = "desktop",
+  app,
+  basemapEnabled = true,
+}: RouteMapProps) {
   const isMobile = mode === "mobile";
   const dims = isMobile ? DIMS.mobile : DIMS.desktop;
   const distanceKm = data.distance / 1000;
@@ -124,6 +134,20 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
         : [],
     [projected, activeSeries],
   );
+
+  // Same color binning as the SVG segments, as index runs for the basemap.
+  const colorRuns = useMemo(
+    () =>
+      activeSeries ? buildColorRuns(activeSeries, data.coordinates.length) : [],
+    [activeSeries, data.coordinates.length],
+  );
+
+  /* ── Basemap ─────────────────────────────────────────────────── */
+
+  // The basemap is the default view; a failed style load (blocked origin,
+  // offline host, …) quietly falls back to the offline SVG grid.
+  const [basemapFailed, setBasemapFailed] = useState(false);
+  const showBasemap = basemapEnabled && !basemapFailed && projected !== null;
 
   const profile = useMemo(() => {
     const altitude = data.streams?.altitude;
@@ -194,13 +218,15 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
   /** Screen-constant sizing: marker/stroke sizes shrink with the viewport. */
   const k = view.w / base.w;
 
-  const svgRef = useRef<SVGSVGElement | null>(null);
+  // State rather than a ref so the wheel effect re-runs when the SVG
+  // unmounts/remounts (e.g. toggling the basemap off again).
+  const [svgEl, setSvgEl] = useState<SVGSVGElement | null>(null);
   /** Active pointers by id, in client coordinates (pan/pinch tracking). */
   const pointers = useRef(new Map<number, { x: number; y: number }>());
 
   const canZoom = projected !== null;
   useEffect(() => {
-    const svg = svgRef.current;
+    const svg = svgEl;
     if (!svg || !canZoom) return;
     const onWheel = (e: WheelEvent) => {
       const zoomingOut = e.deltaY > 0;
@@ -219,7 +245,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
     // React's onWheel can't preventDefault (passive); bind directly.
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
-  }, [canZoom, base]);
+  }, [canZoom, base, svgEl]);
 
   /* ── Scrub ───────────────────────────────────────────────────── */
 
@@ -393,6 +419,19 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
   const markerAt = (index: number): Point | null =>
     projected?.points[index] ?? null;
 
+  // Shared scrub tooltip content: the grid view positions it by viewport
+  // fraction, the basemap by projected pixel point.
+  const scrubTipContent =
+    scrubValue != null && activeSeries ? (
+      <UiTooltip timestamp={scrubPosition}>
+        <TooltipEntry
+          color={colorForValue(activeSeries, scrubValue)}
+          label={activeSeries.label}
+          value={activeSeries.format(scrubValue)}
+        />
+      </UiTooltip>
+    ) : null;
+
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
       <div className={styles.header}>
@@ -400,11 +439,36 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
         {subtitle && <div className={styles.subtitle}>{subtitle}</div>}
       </div>
 
-      {projected ? (
+      {projected && showBasemap && (
+        <div className={styles.mapArea}>
+          <BasemapView
+            key={data.id}
+            coordinates={data.coordinates}
+            colorRuns={colorRuns}
+            splitMarkers={splitMarkers}
+            segments={data.annotations?.segments ?? []}
+            photoMarkers={photoMarkers}
+            visibility={{
+              splits: layerVisible("splits"),
+              segments: layerVisible("segments"),
+              photos: layerVisible("photos"),
+            }}
+            mode={mode}
+            scrubIndex={scrubIndex}
+            onScrub={(index) => {
+              if (canScrub) setScrubIndex(index);
+            }}
+            scrubTip={scrubTipContent}
+            onFail={() => setBasemapFailed(true)}
+          />
+        </div>
+      )}
+
+      {projected && !showBasemap && (
         <div className={styles.mapArea}>
           <div className={styles.mapWrap}>
             <svg
-              ref={svgRef}
+              ref={setSvgEl}
               className={styles.svg}
               viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
               preserveAspectRatio="xMidYMid meet"
@@ -586,7 +650,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
             </svg>
           </div>
 
-          {scrubInView && scrubValue != null && activeSeries && (
+          {scrubInView && scrubTipContent && (
             <div
               className={styles.scrubTip}
               data-flip={scrubFraction.x > 0.55 || undefined}
@@ -595,17 +659,13 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
                 top: `${scrubFraction.y * 100}%`,
               }}
             >
-              <UiTooltip timestamp={scrubPosition}>
-                <TooltipEntry
-                  color={colorForValue(activeSeries, scrubValue)}
-                  label={activeSeries.label}
-                  value={activeSeries.format(scrubValue)}
-                />
-              </UiTooltip>
+              {scrubTipContent}
             </div>
           )}
         </div>
-      ) : (
+      )}
+
+      {!projected && (
         <div className={styles.empty}>
           No GPS track is available for this {data.source}.
         </div>
@@ -657,7 +717,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
         </svg>
       )}
 
-      {projected && (series.length > 0 || zoomed) && (
+      {projected && (series.length > 0 || (zoomed && !showBasemap)) && (
         <div className={styles.controls}>
           {series.length > 1 && (
             <PillGroup>
@@ -672,7 +732,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
               ))}
             </PillGroup>
           )}
-          {zoomed && (
+          {zoomed && !showBasemap && (
             <PillGroup>
               <Pill active onClick={() => setView(base)}>
                 Reset view

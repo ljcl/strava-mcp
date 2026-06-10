@@ -1,5 +1,13 @@
 # Basemap spike: host CSP + free tile source (#60)
 
+> **Spike resolved (June 2026).** The Claude host honors the allowlist on
+> **both desktop/web and iOS**: the probe fetched the Liberty style through
+> the sandbox on each. The probe scaffolding has been removed; the basemap
+> itself shipped with #61 (MapLibre + OpenFreeMap behind a toggle, off by
+> default). Measured single-file bundle impact: app.html ~658 KB → ~1.73 MB
+> raw (~172 KB → ~447 KB gz). The rest of this doc is the original spike
+> writeup.
+
 Gating spike for the native basemap epic (#59). Two questions:
 
 1. **Does the Claude host honor `_meta.ui.csp` allowlists for external tile

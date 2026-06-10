@@ -10,45 +10,8 @@ import {
 import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { RouteMap } from "./RouteMap";
-import {
-  runTileProbe,
-  TILE_PROBE_ENABLED,
-  type TileProbeResult,
-} from "./tileProbe";
 import { type RouteMapData, type ToolArgs } from "./types";
 import "./global.css";
-
-/**
- * Basemap spike scaffolding (#60) — REMOVE once the spike is resolved.
- * Renders the tile-probe outcome under the map so it can be read in the
- * Claude host (desktop + iOS). Styled inline because it is throwaway.
- */
-function TileProbeBadge() {
-  const [result, setResult] = useState<TileProbeResult | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    void runTileProbe().then((r) => {
-      if (!cancelled) setResult(r);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return (
-    <div
-      style={{
-        marginTop: 8,
-        fontSize: 12,
-        color: result?.ok
-          ? "var(--color-text-success, #275b19)"
-          : "var(--color-text-danger, #7f2c28)",
-      }}
-    >
-      Basemap tile probe: {result ? (result.ok ? "✓ " : "✗ ") : "…"}
-      {result?.detail ?? "running"}
-    </div>
-  );
-}
 
 function parseRouteMapData(result: CallToolResult): RouteMapData | null {
   const text = result.content?.find((c) => c.type === "text")?.text;
@@ -120,7 +83,6 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
   return (
     <AppShell hostCtx={hostCtx} mode={mode}>
       <RouteMap data={data} mode={mode} app={app ?? undefined} />
-      {TILE_PROBE_ENABLED && <TileProbeBadge />}
     </AppShell>
   );
 }

@@ -194,41 +194,66 @@ function round(value: number): number {
 }
 
 /**
- * Split the projected track into runs of consecutive segments that fall into
- * the same color bin, each run emitted as a single path. Adjacent runs share
- * their boundary point, so there are no gaps between strokes.
+ * One run of consecutive track legs sharing a color bin, as an inclusive
+ * index range over the track samples. Renderer-agnostic: the SVG view turns
+ * runs into paths, the basemap view into GeoJSON line features.
  */
-export function buildTrackSegments(
-  points: Point[],
+export interface ColorRun {
+  /** Index of the run's first sample. */
+  startIndex: number;
+  /** Index of the run's last sample (inclusive; shared with the next run). */
+  endIndex: number;
+  color: string;
+}
+
+/**
+ * Group consecutive same-color-bin legs into runs. Each leg is colored by the
+ * midpoint of its endpoint values; adjacent runs share their boundary sample,
+ * so there are no gaps between strokes.
+ */
+export function buildColorRuns(
   series: Pick<MetricSeries, "values" | "min" | "max">,
-): TrackSegment[] {
+  sampleCount: number,
+): ColorRun[] {
   const { values, min, max } = series;
-  if (points.length < 2 || values.length !== points.length) return [];
+  if (sampleCount < 2 || values.length !== sampleCount) return [];
 
   const binOf = (i: number) => {
-    // Color each leg by the midpoint of its endpoint values.
     const t = normalizeValue((values[i]! + values[i + 1]!) / 2, min, max);
     return Math.min(COLOR_BINS - 1, Math.floor(t * COLOR_BINS));
   };
 
-  const segments: TrackSegment[] = [];
+  const runs: ColorRun[] = [];
   let runStart = 0;
   let runBin = binOf(0);
-  for (let i = 1; i <= points.length - 1; i++) {
-    const isLast = i === points.length - 1;
+  for (let i = 1; i <= sampleCount - 1; i++) {
+    const isLast = i === sampleCount - 1;
     const bin = isLast ? -1 : binOf(i);
     if (bin === runBin && !isLast) continue;
-
-    const runPoints = points.slice(runStart, i + 1);
-    const path = runPoints
-      .map((p, j) => `${j === 0 ? "M" : "L"}${round(p.x)} ${round(p.y)}`)
-      .join(" ");
-    segments.push({
-      path,
+    runs.push({
+      startIndex: runStart,
+      endIndex: i,
       color: rampColor((runBin + 0.5) / COLOR_BINS),
     });
     runStart = i;
     runBin = bin;
   }
-  return segments;
+  return runs;
+}
+
+/**
+ * Split the projected track into runs of consecutive segments that fall into
+ * the same color bin, each run emitted as a single path.
+ */
+export function buildTrackSegments(
+  points: Point[],
+  series: Pick<MetricSeries, "values" | "min" | "max">,
+): TrackSegment[] {
+  return buildColorRuns(series, points.length).map((run) => ({
+    path: points
+      .slice(run.startIndex, run.endIndex + 1)
+      .map((p, j) => `${j === 0 ? "M" : "L"}${round(p.x)} ${round(p.y)}`)
+      .join(" "),
+    color: run.color,
+  }));
 }
