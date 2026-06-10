@@ -48,6 +48,28 @@ export interface RouteMapData {
   /** Metric streams aligned with `coordinates`; absent for saved routes and
    * activities without GPS streams. */
   streams?: RouteStreams;
+  /** Annotation anchors resolved server-side; absent without stream data. */
+  annotations?: RouteAnnotations;
+}
+
+/**
+ * Annotation anchors, as indices into `coordinates`. Resolved server-side
+ * (lap distances and segment/photo lat/lng mapped onto the downsampled
+ * stream) so the app only projects and renders.
+ */
+export interface RouteAnnotations {
+  /** Lap boundaries (each lap's end), present when the activity has 2+ laps. */
+  laps?: Array<{ lapIndex: number; name: string; endIndex: number }>;
+  /** Segment efforts with their track spans and notable-result flags. */
+  segments?: Array<{
+    name: string;
+    startIndex: number;
+    endIndex: number;
+    isPr: boolean;
+    isTop10: boolean;
+  }>;
+  /** Geotagged photos snapped to the nearest track point. */
+  photos?: Array<{ index: number; caption: string | null }>;
 }
 
 /** Tool input for `view-route-map`: exactly one of these is provided. */

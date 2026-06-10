@@ -1,5 +1,7 @@
 import { formatTime } from "@strava-mcp/data";
 import {
+  Legend,
+  LegendItem,
   type ModelContextApp,
   Pill,
   PillGroup,
@@ -7,7 +9,12 @@ import {
   Tooltip as UiTooltip,
   useModelContextSync,
 } from "@strava-mcp/ui";
-import { type PointerEvent, useMemo, useState } from "react";
+import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  buildPhotoMarkers,
+  buildSplitMarkers,
+  type SplitMarker,
+} from "./annotations";
 import { buildRouteMapContextSummary } from "./contextSummary";
 import { buildElevationProfile, nearestXIndex } from "./elevationProfile";
 import {
@@ -17,7 +24,8 @@ import {
   type MetricKey,
   RAMP_GRADIENT_CSS,
 } from "./metrics";
-import { nearestPointIndex, projectRoute } from "./normalize";
+import { nearestPointIndex, type Point, projectRoute } from "./normalize";
+import { isZoomed, panViewBox, type ViewBox, zoomViewBox } from "./panZoom";
 import styles from "./RouteMap.module.css";
 import { type RouteMapData } from "./types";
 
@@ -50,11 +58,39 @@ const DIMS = {
 /** Headroom above the elevation strip's highest point, in viewBox units. */
 const STRIP_PAD_TOP = 8;
 
+/** Wheel-step zoom factor. */
+const WHEEL_ZOOM_FACTOR = 1.2;
+
 const GRID_ID = "route-map-grid";
+
+type LayerKey = "splits" | "segments" | "photos";
+
+const LAYER_COLORS: Record<LayerKey, string> = {
+  splits: "var(--color-text-info)",
+  segments: "var(--chart-power)",
+  photos: "var(--chart-cadence)",
+};
+
+function segmentHaloColor(segment: { isPr: boolean; isTop10: boolean }) {
+  // Fixed golds/purples (not theme vars): they flag achievement tiers and
+  // need to read identically against the multi-hue metric track.
+  if (segment.isPr) return "#f59e0b";
+  if (segment.isTop10) return "#a78bfa";
+  return LAYER_COLORS.segments;
+}
 
 function formatKm(metres: number): string {
   const km = metres / 1000;
   return km >= 10 ? km.toFixed(1) : km.toFixed(2);
+}
+
+function pathThrough(points: Point[]): string {
+  return points
+    .map(
+      (p, i) =>
+        `${i === 0 ? "M" : "L"}${Math.round(p.x * 100) / 100} ${Math.round(p.y * 100) / 100}`,
+    )
+    .join(" ");
 }
 
 export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
@@ -99,19 +135,190 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
     });
   }, [data.streams, data.coordinates.length, dims.width, dims.strip]);
 
+  /* ── Annotation layers ───────────────────────────────────────── */
+
+  const splitMarkers = useMemo(() => buildSplitMarkers(data), [data]);
+  const photoMarkers = useMemo(() => buildPhotoMarkers(data), [data]);
+  const segmentSpans = useMemo(() => {
+    if (!projected) return [];
+    const efforts = data.annotations?.segments ?? [];
+    return efforts.flatMap((segment) => {
+      const points = projected.points.slice(
+        segment.startIndex,
+        segment.endIndex + 1,
+      );
+      if (points.length < 2) return [];
+      return [{ ...segment, path: pathThrough(points) }];
+    });
+  }, [projected, data.annotations?.segments]);
+
+  const layers = useMemo(() => {
+    const out: Array<{ key: LayerKey; label: string }> = [];
+    if (splitMarkers.length > 0) {
+      out.push({
+        key: "splits",
+        label: data.annotations?.laps?.length ? "Laps" : "Splits",
+      });
+    }
+    if (segmentSpans.length > 0)
+      out.push({ key: "segments", label: "Segments" });
+    if (photoMarkers.length > 0) out.push({ key: "photos", label: "Photos" });
+    return out;
+  }, [splitMarkers, segmentSpans, photoMarkers, data.annotations?.laps]);
+
+  const [hiddenLayers, setHiddenLayers] = useState<Set<LayerKey>>(new Set());
+  const layerVisible = (key: LayerKey) => !hiddenLayers.has(key);
+  const toggleLayer = (key: LayerKey) => {
+    setHiddenLayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  /* ── Zoom / pan ──────────────────────────────────────────────── */
+
+  const base = useMemo<ViewBox>(
+    () => ({ x: 0, y: 0, w: dims.width, h: dims.height }),
+    [dims.width, dims.height],
+  );
+  const [view, setView] = useState<ViewBox>(base);
+  useEffect(() => setView(base), [base]);
+  // Handlers registered outside React (wheel) and gesture branches read the
+  // live view through a ref to avoid re-binding per frame.
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  const zoomed = isZoomed(view, base);
+  /** Screen-constant sizing: marker/stroke sizes shrink with the viewport. */
+  const k = view.w / base.w;
+
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  /** Active pointers by id, in client coordinates (pan/pinch tracking). */
+  const pointers = useRef(new Map<number, { x: number; y: number }>());
+
+  const canZoom = projected !== null;
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || !canZoom) return;
+    const onWheel = (e: WheelEvent) => {
+      const zoomingOut = e.deltaY > 0;
+      // Fully zoomed out: let the page scroll instead of trapping the wheel.
+      if (zoomingOut && !isZoomed(viewRef.current, base)) return;
+      e.preventDefault();
+      const rect = svg.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const factor = zoomingOut ? 1 / WHEEL_ZOOM_FACTOR : WHEEL_ZOOM_FACTOR;
+      setView((v) => {
+        const cx = v.x + ((e.clientX - rect.left) / rect.width) * v.w;
+        const cy = v.y + ((e.clientY - rect.top) / rect.height) * v.h;
+        return zoomViewBox(v, base, factor, cx, cy);
+      });
+    };
+    // React's onWheel can't preventDefault (passive); bind directly.
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, [canZoom, base]);
+
+  /* ── Scrub ───────────────────────────────────────────────────── */
+
   // One scrub index drives the markers on both the track and the elevation
   // strip; either surface's pointer can set it.
   const [scrubIndex, setScrubIndex] = useState<number | null>(null);
   const canScrub = projected !== null && activeSeries !== null;
 
-  const handleMapPointerMove = (e: PointerEvent<SVGSVGElement>) => {
+  const scrubAt = (clientX: number, clientY: number, rect: DOMRect) => {
     if (!canScrub || !projected) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    const x = ((e.clientX - rect.left) / rect.width) * dims.width;
-    const y = ((e.clientY - rect.top) / rect.height) * dims.height;
+    const v = viewRef.current;
+    const x = v.x + ((clientX - rect.left) / rect.width) * v.w;
+    const y = v.y + ((clientY - rect.top) / rect.height) * v.h;
     const idx = nearestPointIndex(projected.points, x, y);
     setScrubIndex(idx >= 0 ? idx : null);
+  };
+
+  /* ── Map pointer gestures ────────────────────────────────────── */
+
+  const handleMapPointerDown = (e: PointerEvent<SVGSVGElement>) => {
+    if (!canZoom) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  };
+
+  const handleMapPointerMove = (e: PointerEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    const tracked = pointers.current.get(e.pointerId);
+
+    if (tracked && pointers.current.size === 2) {
+      // Pinch: zoom by the finger-distance ratio around the midpoint, then
+      // pan by the midpoint's movement.
+      const other = [...pointers.current.entries()].find(
+        ([id]) => id !== e.pointerId,
+      )?.[1];
+      if (!other) return;
+      const prevDist = Math.hypot(tracked.x - other.x, tracked.y - other.y);
+      const currDist = Math.hypot(e.clientX - other.x, e.clientY - other.y);
+      const prevMid = {
+        x: (tracked.x + other.x) / 2,
+        y: (tracked.y + other.y) / 2,
+      };
+      const currMid = {
+        x: (e.clientX + other.x) / 2,
+        y: (e.clientY + other.y) / 2,
+      };
+      pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      setScrubIndex(null);
+      setView((v) => {
+        const cx = v.x + ((currMid.x - rect.left) / rect.width) * v.w;
+        const cy = v.y + ((currMid.y - rect.top) / rect.height) * v.h;
+        const scaled =
+          prevDist > 0 ? zoomViewBox(v, base, currDist / prevDist, cx, cy) : v;
+        return panViewBox(
+          scaled,
+          base,
+          (-(currMid.x - prevMid.x) / rect.width) * scaled.w,
+          (-(currMid.y - prevMid.y) / rect.height) * scaled.h,
+        );
+      });
+      return;
+    }
+
+    if (tracked && pointers.current.size === 1) {
+      const dragPans =
+        e.pointerType !== "touch" || isZoomed(viewRef.current, base);
+      if (dragPans) {
+        const dx = e.clientX - tracked.x;
+        const dy = e.clientY - tracked.y;
+        pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (isZoomed(viewRef.current, base)) {
+          setScrubIndex(null);
+          setView((v) =>
+            panViewBox(
+              v,
+              base,
+              (-dx / rect.width) * v.w,
+              (-dy / rect.height) * v.h,
+            ),
+          );
+          return;
+        }
+        // Mouse drag at base zoom has nothing to pan; fall through to scrub.
+      }
+      // Touch drag at base zoom scrubs (and the browser still owns vertical
+      // scrolling via touch-action: pan-y).
+    }
+
+    scrubAt(e.clientX, e.clientY, rect);
+  };
+
+  const handleMapPointerEnd = (e: PointerEvent<SVGSVGElement>) => {
+    pointers.current.delete(e.pointerId);
+  };
+
+  const clearScrub = (e: PointerEvent<SVGSVGElement>) => {
+    handleMapPointerEnd(e);
+    setScrubIndex(null);
   };
 
   const handleStripPointerMove = (e: PointerEvent<SVGSVGElement>) => {
@@ -122,8 +329,6 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
     const idx = nearestXIndex(profile.xs, x);
     setScrubIndex(idx >= 0 ? idx : null);
   };
-
-  const clearScrub = () => setScrubIndex(null);
 
   useModelContextSync(
     app,
@@ -160,6 +365,20 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
     scrubIndex != null && activeSeries
       ? (activeSeries.values[scrubIndex] ?? null)
       : null;
+  // Tooltip anchor as a fraction of the current viewport; hidden when the
+  // scrubbed point is panned/zoomed out of view.
+  const scrubFraction = scrubPoint
+    ? {
+        x: (scrubPoint.x - view.x) / view.w,
+        y: (scrubPoint.y - view.y) / view.h,
+      }
+    : null;
+  const scrubInView =
+    scrubFraction !== null &&
+    scrubFraction.x >= 0 &&
+    scrubFraction.x <= 1 &&
+    scrubFraction.y >= 0 &&
+    scrubFraction.y <= 1;
 
   const scrubPosition = (() => {
     if (scrubIndex == null) return undefined;
@@ -170,6 +389,9 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
     if (t != null) parts.push(formatTime(t));
     return parts.length > 0 ? parts.join(" · ") : undefined;
   })();
+
+  const markerAt = (index: number): Point | null =>
+    projected?.points[index] ?? null;
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
@@ -182,13 +404,17 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
         <div className={styles.mapArea}>
           <div className={styles.mapWrap}>
             <svg
+              ref={svgRef}
               className={styles.svg}
-              viewBox={`0 0 ${dims.width} ${dims.height}`}
+              viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
               preserveAspectRatio="xMidYMid meet"
               role="img"
               aria-label={`Map of ${data.name}, ${formatKm(data.distance)} kilometres`}
-              data-scrub={canScrub || undefined}
+              data-zoomed={zoomed || undefined}
+              onPointerDown={handleMapPointerDown}
               onPointerMove={handleMapPointerMove}
+              onPointerUp={handleMapPointerEnd}
+              onPointerCancel={handleMapPointerEnd}
               onPointerLeave={clearScrub}
             >
               <defs>
@@ -224,6 +450,30 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
                 fill={`url(#${GRID_ID})`}
               />
 
+              {/* Segment-effort halos sit under the track as wide outlines. */}
+              {layerVisible("segments") &&
+                segmentSpans.map((segment) => (
+                  <path
+                    key={`${segment.name}-${segment.startIndex}`}
+                    d={segment.path}
+                    fill="none"
+                    stroke={segmentHaloColor(segment)}
+                    strokeOpacity={0.45}
+                    strokeWidth={dims.stroke * 2.8 * k}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                  >
+                    <title>
+                      {segment.name}
+                      {segment.isPr
+                        ? " · PR"
+                        : segment.isTop10
+                          ? " · Top 10"
+                          : ""}
+                    </title>
+                  </path>
+                ))}
+
               {segments.length > 0 ? (
                 segments.map((segment, i) => (
                   <path
@@ -232,7 +482,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
                     d={segment.path}
                     fill="none"
                     stroke={segment.color}
-                    strokeWidth={dims.stroke}
+                    strokeWidth={dims.stroke * k}
                     strokeLinejoin="round"
                     strokeLinecap="round"
                   />
@@ -242,30 +492,84 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
                   d={projected.path}
                   fill="none"
                   stroke="var(--chart-pace)"
-                  strokeWidth={dims.stroke}
+                  strokeWidth={dims.stroke * k}
                   strokeLinejoin="round"
                   strokeLinecap="round"
                 />
               )}
 
+              {/* Lap / km split dots. */}
+              {layerVisible("splits") &&
+                splitMarkers.map((split: SplitMarker) => {
+                  const p = markerAt(split.index);
+                  if (!p) return null;
+                  return (
+                    <circle
+                      key={`split-${split.index}`}
+                      cx={p.x}
+                      cy={p.y}
+                      r={dims.marker * 0.65 * k}
+                      fill="var(--color-background-primary)"
+                      stroke={LAYER_COLORS.splits}
+                      strokeWidth={2 * k}
+                    >
+                      <title>{split.label}</title>
+                    </circle>
+                  );
+                })}
+
+              {/* Photo pins. */}
+              {layerVisible("photos") &&
+                photoMarkers.map((photo) => {
+                  const p = markerAt(photo.index);
+                  if (!p) return null;
+                  const title = [
+                    photo.count === 1 ? "1 photo" : `${photo.count} photos`,
+                    photo.caption,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ");
+                  return (
+                    <g key={`photo-${photo.index}`}>
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={dims.marker * 0.85 * k}
+                        fill={LAYER_COLORS.photos}
+                        stroke="var(--color-background-primary)"
+                        strokeWidth={2 * k}
+                      >
+                        <title>{title}</title>
+                      </circle>
+                      <circle
+                        cx={p.x}
+                        cy={p.y}
+                        r={dims.marker * 0.3 * k}
+                        fill="var(--color-background-primary)"
+                        pointerEvents="none"
+                      />
+                    </g>
+                  );
+                })}
+
               {projected.start && (
                 <circle
                   cx={projected.start.x}
                   cy={projected.start.y}
-                  r={dims.marker}
+                  r={dims.marker * k}
                   fill="var(--color-text-success)"
                   stroke="var(--color-background-primary)"
-                  strokeWidth={2}
+                  strokeWidth={2 * k}
                 />
               )}
               {projected.end && (
                 <circle
                   cx={projected.end.x}
                   cy={projected.end.y}
-                  r={dims.marker}
+                  r={dims.marker * k}
                   fill="var(--color-text-danger)"
                   stroke="var(--color-background-primary)"
-                  strokeWidth={2}
+                  strokeWidth={2 * k}
                 />
               )}
 
@@ -273,22 +577,22 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
                 <circle
                   cx={scrubPoint.x}
                   cy={scrubPoint.y}
-                  r={dims.marker - 1}
+                  r={(dims.marker - 1) * k}
                   fill={colorForValue(activeSeries, scrubValue)}
                   stroke="var(--color-background-primary)"
-                  strokeWidth={2}
+                  strokeWidth={2 * k}
                 />
               )}
             </svg>
           </div>
 
-          {scrubPoint && scrubValue != null && activeSeries && (
+          {scrubInView && scrubValue != null && activeSeries && (
             <div
               className={styles.scrubTip}
-              data-flip={scrubPoint.x > dims.width * 0.55 || undefined}
+              data-flip={scrubFraction.x > 0.55 || undefined}
               style={{
-                left: `${(scrubPoint.x / dims.width) * 100}%`,
-                top: `${(scrubPoint.y / dims.height) * 100}%`,
+                left: `${scrubFraction.x * 100}%`,
+                top: `${scrubFraction.y * 100}%`,
               }}
             >
               <UiTooltip timestamp={scrubPosition}>
@@ -316,7 +620,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
           aria-label="Elevation profile"
           data-scrub={canScrub || undefined}
           onPointerMove={handleStripPointerMove}
-          onPointerLeave={clearScrub}
+          onPointerLeave={() => setScrubIndex(null)}
         >
           <path
             d={profile.areaPath}
@@ -353,7 +657,7 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
         </svg>
       )}
 
-      {series.length > 0 && projected && (
+      {projected && (series.length > 0 || zoomed) && (
         <div className={styles.controls}>
           {series.length > 1 && (
             <PillGroup>
@@ -366,6 +670,13 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
                   {isMobile ? s.shortLabel : s.label}
                 </Pill>
               ))}
+            </PillGroup>
+          )}
+          {zoomed && (
+            <PillGroup>
+              <Pill active onClick={() => setView(base)}>
+                Reset view
+              </Pill>
             </PillGroup>
           )}
           {activeSeries && (
@@ -408,6 +719,19 @@ export function RouteMap({ data, mode = "desktop", app }: RouteMapProps) {
               <span className={styles.dot} data-marker="end" />
               Finish
             </span>
+            {layers.length > 0 && (
+              <Legend size={isMobile ? "touch" : "default"}>
+                {layers.map((layer) => (
+                  <LegendItem
+                    key={layer.key}
+                    color={LAYER_COLORS[layer.key]}
+                    label={layer.label}
+                    hidden={hiddenLayers.has(layer.key)}
+                    onClick={() => toggleLayer(layer.key)}
+                  />
+                ))}
+              </Legend>
+            )}
           </div>
         )}
       </div>

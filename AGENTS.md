@@ -165,6 +165,8 @@ The `view-route-map` tool renders an activity's or saved route's GPS track as a 
 - Polyline fallback geometry is decoded server-side to `[lat, lng]` pairs in `apps/server/src/polyline.ts` (unit-tested next to the zod schemas) so the bundle stays lean
 - Projection math (`src/normalize.ts`, unit-tested) fits the track to bounds with padding, scales longitude by `cos(latitude)` to avoid east–west stretch, and flips latitude so north is up. Start/finish markers, distance + elevation summary; neutral grid background, no basemap imagery
 - When metric streams are present the track is coloured by a selectable metric (pace/speed, heart rate, power, elevation, gradient) as binned same-colour path runs (`src/metrics.ts`, unit-tested), with a gradient scale legend, a pointer/touch scrub (nearest-point crosshair + tooltip), and a linked elevation strip (`src/elevationProfile.ts`, unit-tested) sharing the scrub index with the track
+- Zoom/pan via SVG viewBox windowing (`src/panZoom.ts`, unit-tested): wheel + drag on desktop, pinch + drag on mobile, clamped to the base frame with a Reset pill; marker/stroke sizes counter-scale so they stay screen-constant. `touch-action` is `pan-y` at base zoom (page keeps scrolling) and `none` once zoomed (drag pans)
+- Annotation layers, each toggleable via the footer legend: lap or km split dots (`src/annotations.ts`, unit-tested; km marks thinned 1/2/5… per length), segment-effort halo spans (gold = PR, light purple = top-10), and grouped photo pins. The server resolves anchors to coordinate indices in `apps/server/src/mapAnchors.ts` (unit-tested) because Strava lap/effort indices reference the full-resolution stream, not the downsampled one
 
 ## Targeting Mobile for MCP Apps
 
