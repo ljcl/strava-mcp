@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.4.0](https://github.com/ljcl/strava-mcp/compare/v1.3.1...v1.4.0) (2026-06-10)
+
+
+### Features
+
+* MapLibre + OpenFreeMap basemap behind a route-map toggle ([#72](https://github.com/ljcl/strava-mcp/issues/72)) ([bed3884](https://github.com/ljcl/strava-mcp/commit/bed3884c1f27c4ce4aa594327ab886c4f4f52592))
+* metric-coloured route-map track with hover scrub and elevation strip ([#68](https://github.com/ljcl/strava-mcp/issues/68)) ([143a6e7](https://github.com/ljcl/strava-mcp/commit/143a6e70e929ca4bf3bda4a6d616d82eb326402b))
+* route-map zoom/pan and track annotations (splits, segments, photos) ([#70](https://github.com/ljcl/strava-mcp/issues/70)) ([4d9c845](https://github.com/ljcl/strava-mcp/commit/4d9c8459a6aee3c3e37dc67ba6b46c45165bb385))
+
 ## [1.3.1](https://github.com/ljcl/strava-mcp/compare/v1.3.0...v1.3.1) (2026-06-08)
 
 
