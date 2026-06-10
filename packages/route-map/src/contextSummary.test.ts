@@ -43,6 +43,21 @@ describe("buildRouteMapContextSummary", () => {
     );
   });
 
+  it("mentions the metric the track is coloured by", () => {
+    const summary = buildRouteMapContextSummary({
+      name: "Morning Run",
+      source: "activity",
+      activityType: "Run",
+      distanceKm: 10,
+      elevationGain: 84,
+      hasGeometry: true,
+      colorMetric: "Heart rate",
+    });
+    expect(summary).toBe(
+      'Viewing the map for Run activity "Morning Run". Distance 10.0 km. Elevation gain 84 m. The track is coloured by heart rate.',
+    );
+  });
+
   it("notes when there is no GPS track", () => {
     const summary = buildRouteMapContextSummary({
       name: "Treadmill",

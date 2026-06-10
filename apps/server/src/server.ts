@@ -241,7 +241,7 @@ function buildToolDefs(): ToolDef[] {
   defs.push({
     name: "get-route-map-data",
     description:
-      "Internal data feed for the route-map UI: returns decoded [lat, lng] coordinates plus start/end points, distance, and elevation gain for one activity or route as JSON. " +
+      "Internal data feed for the route-map UI: returns decoded [lat, lng] coordinates plus start/end points, distance, elevation gain, and (for activities with GPS streams) index-aligned metric streams (time, distance, altitude, heartrate, watts, velocity_smooth, grade_smooth) for one activity or route as JSON. " +
       "The view-route-map app calls this; not intended for direct model use.",
     inputSchema: {
       type: "object",
@@ -468,6 +468,17 @@ async function handleViewCadenceTrends(
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
 
+/** Metric streams aligned index-for-index with `coordinates`. */
+interface RouteMapStreams {
+  time?: number[];
+  distance?: number[];
+  altitude?: number[];
+  heartrate?: number[];
+  watts?: number[];
+  velocity_smooth?: number[];
+  grade_smooth?: number[];
+}
+
 interface RouteMapData {
   source: "activity" | "route";
   id: string;
@@ -478,6 +489,59 @@ interface RouteMapData {
   coordinates: Array<[number, number]>;
   start: [number, number] | null;
   end: [number, number] | null;
+  streams?: RouteMapStreams;
+}
+
+const ROUTE_MAP_METRIC_STREAM_KEYS = [
+  "time",
+  "distance",
+  "altitude",
+  "heartrate",
+  "watts",
+  "velocity_smooth",
+  "grade_smooth",
+] as const;
+
+/**
+ * Fetch the latlng stream plus metric streams for an activity. All streams in
+ * one Strava response share the same sample index, so latlng[i] lines up with
+ * heartrate[i] etc. — the app can color the track without resampling. Returns
+ * null when the activity has no GPS stream (the caller falls back to the
+ * encoded polyline, which has no aligned metrics).
+ */
+async function loadActivityMapStreams(
+  token: string,
+  activityId: string,
+): Promise<{
+  coordinates: Array<[number, number]>;
+  streams: RouteMapStreams;
+} | null> {
+  try {
+    const types = ["latlng", ...ROUTE_MAP_METRIC_STREAM_KEYS].join(",");
+    const endpoint = `/activities/${activityId}/streams/${types}?series_type=time&resolution=medium`;
+    const response = await stravaApi.get<
+      Array<{ type: string; data: unknown[] }>
+    >(endpoint, { headers: { Authorization: `Bearer ${token}` } });
+
+    const byType = new Map(response.data.map((s) => [s.type, s.data]));
+    const latlng = byType.get("latlng") as Array<[number, number]> | undefined;
+    if (!latlng || latlng.length === 0) return null;
+
+    const streams: RouteMapStreams = {};
+    for (const key of ROUTE_MAP_METRIC_STREAM_KEYS) {
+      const data = byType.get(key);
+      // Only forward streams that align with the coordinates; a mismatched
+      // length would color the wrong part of the track.
+      if (Array.isArray(data) && data.length === latlng.length) {
+        streams[key] = data as number[];
+      }
+    }
+    return { coordinates: latlng, streams };
+  } catch {
+    // Streams are an enhancement: activities without GPS (or transient stream
+    // errors) still render from the polyline.
+    return null;
+  }
 }
 
 /** 1 = ride, 2 = run in Strava's route `type` enum. */
@@ -493,6 +557,7 @@ function routeTypeLabel(type: number): string {
 async function loadRouteMapData(
   args: Record<string, unknown>,
   token: string,
+  options: { includeStreams?: boolean } = {},
 ): Promise<RouteMapData> {
   const activityId = args.activity_id ? String(args.activity_id) : undefined;
   const routeId = args.route_id ? String(args.route_id) : undefined;
@@ -502,7 +567,28 @@ async function loadRouteMapData(
   }
 
   if (activityId) {
-    const activity = await getActivityById(token, activityId);
+    const [activity, streamData] = await Promise.all([
+      getActivityById(token, activityId),
+      options.includeStreams
+        ? loadActivityMapStreams(token, activityId)
+        : Promise.resolve(null),
+    ]);
+    // Prefer the latlng stream over the polyline: it is index-aligned with
+    // the metric streams, so the app can color the track by them.
+    if (streamData) {
+      return {
+        source: "activity",
+        id: String(activity.id),
+        name: activity.name,
+        activityType: activity.type ?? null,
+        distance: activity.distance ?? 0,
+        elevationGain: activity.total_elevation_gain ?? 0,
+        coordinates: streamData.coordinates,
+        start: streamData.coordinates[0] ?? null,
+        end: streamData.coordinates[streamData.coordinates.length - 1] ?? null,
+        streams: streamData.streams,
+      };
+    }
     const encoded =
       activity.map?.polyline || activity.map?.summary_polyline || "";
     const coordinates = decodePolyline(encoded);
@@ -542,7 +628,7 @@ async function handleGetRouteMapData(
   if (!token) {
     return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
   }
-  const data = await loadRouteMapData(args, token);
+  const data = await loadRouteMapData(args, token, { includeStreams: true });
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 

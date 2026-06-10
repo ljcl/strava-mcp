@@ -15,6 +15,7 @@
   "dependencies": {
     "@modelcontextprotocol/ext-apps": "1.7.4",
     "@modelcontextprotocol/sdk": "1.29.0",
+    "@strava-mcp/data": "workspace:*",
     "@strava-mcp/design-system": "workspace:*",
     "@strava-mcp/ui": "workspace:*",
     "react": "19.2.7",

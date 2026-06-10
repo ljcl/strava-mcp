@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { projectRoute } from "./normalize";
+import { nearestPointIndex, projectRoute } from "./normalize";
 
 const OPTS = { width: 600, height: 400, padding: 20 };
 
@@ -69,6 +69,18 @@ describe("projectRoute", () => {
     const projected = projectRoute([[45, -73]], OPTS)!;
     expect(projected.points).toHaveLength(1);
     expect(projected.start).toEqual(projected.end);
+  });
+
+  it("finds the nearest projected point for a pointer position", () => {
+    const points = [
+      { x: 10, y: 10 },
+      { x: 100, y: 10 },
+      { x: 100, y: 100 },
+    ];
+    expect(nearestPointIndex(points, 12, 8)).toBe(0);
+    expect(nearestPointIndex(points, 90, 30)).toBe(1);
+    expect(nearestPointIndex(points, 105, 95)).toBe(2);
+    expect(nearestPointIndex([], 0, 0)).toBe(-1);
   });
 
   it("preserves aspect ratio (no east–west stretch)", () => {

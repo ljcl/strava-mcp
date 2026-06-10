@@ -161,8 +161,10 @@ The `view-route-map` tool renders an activity's or saved route's GPS track as a 
 - Bundled as single HTML file via `vite-plugin-singlefile`; pure SVG, **no Recharts** and **no map tiles / network at render**
 - Served as MCP resource at `ui://route-map/app.html`
 - Calls `get-route-map-data` (app-only) on mount with the `activity_id` or `route_id`
-- Geometry is a Google encoded polyline; the server decodes it to `[lat, lng]` pairs in `apps/server/src/polyline.ts` (unit-tested next to the zod schemas) so the bundle stays lean
+- For activities the server prefers the `latlng` stream over the polyline and returns index-aligned metric streams (time, distance, altitude, heartrate, watts, velocity_smooth, grade_smooth) alongside the coordinates; saved routes and stream-less activities fall back to the decoded polyline with no streams
+- Polyline fallback geometry is decoded server-side to `[lat, lng]` pairs in `apps/server/src/polyline.ts` (unit-tested next to the zod schemas) so the bundle stays lean
 - Projection math (`src/normalize.ts`, unit-tested) fits the track to bounds with padding, scales longitude by `cos(latitude)` to avoid east–west stretch, and flips latitude so north is up. Start/finish markers, distance + elevation summary; neutral grid background, no basemap imagery
+- When metric streams are present the track is coloured by a selectable metric (pace/speed, heart rate, power, elevation, gradient) as binned same-colour path runs (`src/metrics.ts`, unit-tested), with a gradient scale legend, a pointer/touch scrub (nearest-point crosshair + tooltip), and a linked elevation strip (`src/elevationProfile.ts`, unit-tested) sharing the scrub index with the track
 
 ## Targeting Mobile for MCP Apps
 

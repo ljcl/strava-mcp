@@ -63,6 +63,78 @@ export const pointToPointRoute: RouteMapData = {
   end: pointToPointCoordinates[pointToPointCoordinates.length - 1]!,
 };
 
+/**
+ * The loop densified to GPS-stream resolution, with deterministic synthetic
+ * metric streams aligned to each point, to exercise metric coloring, the
+ * hover scrub, and the elevation strip.
+ */
+const POINTS_PER_LEG = 8;
+
+const streamCoordinates: Array<[number, number]> = loopCoordinates.flatMap(
+  ([lat, lng], i) => {
+    const next = loopCoordinates[i + 1];
+    if (!next) return [[lat, lng] as [number, number]];
+    return Array.from({ length: POINTS_PER_LEG }, (_, j) => {
+      const t = j / POINTS_PER_LEG;
+      return [lat + (next[0] - lat) * t, lng + (next[1] - lng) * t] as [
+        number,
+        number,
+      ];
+    });
+  },
+);
+
+const n = streamCoordinates.length;
+const SAMPLE_SECONDS = 5;
+
+const velocity = Array.from(
+  { length: n },
+  (_, i) => 2.9 + 0.7 * Math.sin(i / 9) + 0.3 * Math.sin(i / 3.5),
+);
+const time = Array.from({ length: n }, (_, i) => i * SAMPLE_SECONDS);
+const distance = velocity.reduce<number[]>((acc, v, i) => {
+  acc.push((acc[i - 1] ?? 0) + v * SAMPLE_SECONDS);
+  return acc;
+}, []);
+const altitude = Array.from(
+  { length: n },
+  (_, i) => 24 + 16 * Math.sin(i / 14) + 5 * Math.sin(i / 5),
+);
+const heartrate = Array.from(
+  { length: n },
+  (_, i) => 146 + 16 * Math.sin(i / 11 + 1) + 4 * Math.sin(i / 4),
+);
+const watts = Array.from(
+  { length: n },
+  (_, i) => 215 + 55 * Math.sin(i / 7) + 15 * Math.sin(i / 3),
+);
+const gradeSmooth = altitude.map((a, i) => {
+  const prev = altitude[i - 1] ?? a;
+  const run = velocity[i]! * SAMPLE_SECONDS;
+  return Math.round(((a - prev) / run) * 1000) / 10;
+});
+
+export const streamLoopActivity: RouteMapData = {
+  source: "activity",
+  id: "1234567891",
+  name: "Golden Gate Park Tempo",
+  activityType: "Run",
+  distance: distance[n - 1]!,
+  elevationGain: 124,
+  coordinates: streamCoordinates,
+  start: streamCoordinates[0]!,
+  end: streamCoordinates[n - 1]!,
+  streams: {
+    time,
+    distance,
+    altitude,
+    heartrate,
+    watts,
+    velocity_smooth: velocity,
+    grade_smooth: gradeSmooth,
+  },
+};
+
 /** An indoor activity with no GPS track, to exercise the empty state. */
 export const noGeometryActivity: RouteMapData = {
   source: "activity",

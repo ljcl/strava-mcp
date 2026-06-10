@@ -109,3 +109,27 @@ export function projectRoute(
 function round(value: number): number {
   return Math.round(value * 100) / 100;
 }
+
+/**
+ * Index of the projected point nearest to (x, y), in viewBox units. Linear
+ * scan: tracks top out around a thousand points, and this only runs per
+ * pointer-move. Returns -1 for an empty track.
+ */
+export function nearestPointIndex(
+  points: Point[],
+  x: number,
+  y: number,
+): number {
+  let best = -1;
+  let bestDist = Infinity;
+  for (let i = 0; i < points.length; i++) {
+    const dx = points[i]!.x - x;
+    const dy = points[i]!.y - y;
+    const dist = dx * dx + dy * dy;
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = i;
+    }
+  }
+  return best;
+}
