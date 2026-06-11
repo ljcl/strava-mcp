@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.4.1](https://github.com/ljcl/strava-mcp/compare/v1.4.0...v1.4.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* harden basemap layer setup so one bad add cannot blank every overlay ([#74](https://github.com/ljcl/strava-mcp/issues/74)) ([d779b4d](https://github.com/ljcl/strava-mcp/commit/d779b4d729c7bf0ec52af8defe53974c284908c4))
+
 ## [1.4.0](https://github.com/ljcl/strava-mcp/compare/v1.3.1...v1.4.0) (2026-06-10)
 
 
