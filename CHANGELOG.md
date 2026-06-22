@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/ljcl/strava-mcp/compare/v2.1.0...v2.2.0) (2026-06-22)
+
+
+### Features
+
+* activity-segments MCP app ([#91](https://github.com/ljcl/strava-mcp/issues/91)) ([4924ce3](https://github.com/ljcl/strava-mcp/commit/4924ce35ae3171e3b5885a2b59b512f62b856e62))
+
 ## [2.1.0](https://github.com/ljcl/strava-mcp/compare/v2.0.1...v2.1.0) (2026-06-22)
 
 
