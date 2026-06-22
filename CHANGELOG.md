@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/ljcl/strava-mcp/compare/v2.0.0...v2.0.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* render route-map track over basemap by using MapLibre CSP worker ([#86](https://github.com/ljcl/strava-mcp/issues/86)) ([4ac7e42](https://github.com/ljcl/strava-mcp/commit/4ac7e42cccd8108cf77104ebdaa5f97894741acc))
+
 ## [2.0.0](https://github.com/ljcl/strava-mcp/compare/v1.4.1...v2.0.0) (2026-06-22)
 
 
