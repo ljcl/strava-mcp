@@ -42,6 +42,7 @@ COPY --from=builder  --chown=65534:65534 /app/apps/server/scripts ./apps/server/
 COPY --from=builder  --chown=65534:65534 /app/packages/activity-chart/dist ./packages/activity-chart/dist
 COPY --from=builder  --chown=65534:65534 /app/packages/cadence-trends/dist ./packages/cadence-trends/dist
 COPY --from=builder  --chown=65534:65534 /app/packages/route-map/dist ./packages/route-map/dist
+COPY --from=builder  --chown=65534:65534 /app/packages/activity-segments/dist ./packages/activity-segments/dist
 
 USER 65534:65534
 ENV NODE_ENV=production

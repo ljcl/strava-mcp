@@ -17,6 +17,10 @@ export default defineMain({
       directory: "../../../packages/route-map/src/",
     },
     {
+      titlePrefix: "Activity Segments",
+      directory: "../../../packages/activity-segments/src/",
+    },
+    {
       directory: "../../../packages/design-system/stories/",
     },
     { titlePrefix: "UI", directory: "../../../packages/ui/src/" },

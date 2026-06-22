@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@strava-mcp/activity-chart": "workspace:*",
+    "@strava-mcp/activity-segments": "workspace:*",
     "@strava-mcp/cadence-trends": "workspace:*",
     "@strava-mcp/design-system": "workspace:*",
     "@strava-mcp/route-map": "workspace:*",

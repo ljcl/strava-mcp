@@ -1,0 +1,231 @@
+.container {
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+/* ── Header ───────────────────────────────────── */
+.header {
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.title {
+  font-size: var(--font-heading-sm-size);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--font-text-sm-size);
+  color: var(--color-text-secondary);
+}
+
+.container[data-compact] .header {
+  padding: 0 var(--space-1);
+  margin-bottom: var(--space-2);
+}
+
+.container[data-compact] .title {
+  font-size: var(--font-text-sm-size);
+}
+
+.container[data-compact] .subtitle {
+  font-size: var(--font-text-xs-size);
+}
+
+/* ── Empty state ──────────────────────────────── */
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: var(--space-6);
+  color: var(--color-text-tertiary);
+  text-align: center;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}
+
+/* ── Group ────────────────────────────────────── */
+.group {
+  margin-top: var(--space-4);
+}
+
+.group:first-of-type {
+  margin-top: 0;
+}
+
+.groupTitle {
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-1-5);
+  font-size: var(--font-text-xs-size);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.container[data-compact] .groupTitle {
+  padding: 0 var(--space-1);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* ── Row ──────────────────────────────────────── */
+.row {
+  width: 100%;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+}
+
+.trigger {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  width: 100%;
+  padding: var(--space-2);
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-md);
+}
+
+.trigger:hover {
+  background: var(--color-background-tertiary);
+}
+
+.trigger:focus-visible {
+  outline: 2px solid var(--color-text-info);
+  outline-offset: -1px;
+}
+
+.dot {
+  flex: 0 0 auto;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--border-radius-full);
+}
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-0-5);
+  min-width: 0;
+}
+
+.line1 {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  min-width: 0;
+}
+
+.name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+.clock {
+  flex: 0 0 auto;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
+
+.line2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  align-items: baseline;
+  font-size: var(--font-text-xs-size);
+  color: var(--color-text-secondary);
+}
+
+.meta {
+  white-space: nowrap;
+}
+
+.sep {
+  color: var(--color-text-tertiary);
+}
+
+/* ── Tier badge ───────────────────────────────── */
+.badge {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  padding: var(--space-0-5) var(--space-1-5);
+  font-size: var(--font-text-xs-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-inverse);
+  white-space: nowrap;
+  border-radius: var(--border-radius-full);
+}
+
+/* Achievement tiers use fixed gold/purple (not theme vars) so they read
+ * identically against the heat-coloured dots, matching the route-map. */
+.badge[data-tier="pr"] {
+  background: #f59e0b;
+}
+
+.badge[data-tier="top10"] {
+  background: #a78bfa;
+}
+
+.chevron {
+  flex: 0 0 auto;
+  color: var(--color-text-tertiary);
+  transition: transform 120ms ease;
+}
+
+.trigger[data-panel-open] .chevron {
+  transform: rotate(90deg);
+}
+
+/* ── Expanded detail panel ────────────────────── */
+.panel {
+  overflow: hidden;
+}
+
+.detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1-5) var(--space-3);
+  padding: 0 var(--space-2) var(--space-2)
+    calc(var(--space-2) + 12px + var(--space-2));
+  font-size: var(--font-text-xs-size);
+}
+
+.detailItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.detailLabel {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}
+
+.detailValue {
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-primary);
+}
