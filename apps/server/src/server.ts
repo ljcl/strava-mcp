@@ -9,6 +9,7 @@ import {
   type ToolAnnotations,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
+import { mapActivitySegments } from "./activitySegments";
 import { stravaApi } from "./fetchClient";
 import { indexAtDistance, nearestCoordIndex } from "./mapAnchors";
 import { decodePolyline } from "./polyline";
@@ -55,6 +56,9 @@ const CADENCE_TRENDS_HTML_PATH = createRequire(import.meta.url).resolve(
 );
 const ROUTE_MAP_HTML_PATH = createRequire(import.meta.url).resolve(
   "@strava-mcp/route-map/app.html",
+);
+const ACTIVITY_SEGMENTS_HTML_PATH = createRequire(import.meta.url).resolve(
+  "@strava-mcp/activity-segments/app.html",
 );
 
 interface ToolDef {
@@ -244,6 +248,51 @@ function buildToolDefs(): ToolDef[] {
     _meta: {
       ui: {
         resourceUri: "ui://route-map/app.html",
+        visibility: ["app"],
+      },
+    },
+  });
+
+  defs.push({
+    name: "view-activity-segments",
+    description:
+      "Open a prioritised, scrollable list of the segments run in one activity: your PRs and top-10s pinned on top, then every segment in run order, each with pace, grade, and expandable heart-rate, cadence, and power detail. " +
+      "Prefer this over text when the user wants to review the segments in a workout. Takes the activity id.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        activity_id: {
+          type: "string",
+          description: "The Strava activity ID",
+        },
+      },
+      required: ["activity_id"],
+    },
+    annotations: READ_ONLY,
+    _meta: {
+      ui: { resourceUri: "ui://activity-segments/app.html" },
+    },
+  });
+
+  defs.push({
+    name: "get-activity-segments-data",
+    description:
+      "Internal data feed for the activity-segments UI: returns the activity's segment efforts (name, time, distance, grade, climb category, PR/top-10 ranks, HR, power, cadence) as JSON. " +
+      "The view-activity-segments app calls this; not intended for direct model use.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        activity_id: {
+          type: "string",
+          description: "The Strava activity ID",
+        },
+      },
+      required: ["activity_id"],
+    },
+    annotations: READ_ONLY,
+    _meta: {
+      ui: {
+        resourceUri: "ui://activity-segments/app.html",
         visibility: ["app"],
       },
     },
@@ -779,6 +828,54 @@ async function handleViewRouteMap(
 }
 
 /**
+ * Resolve an activity_id into the flattened segment-effort payload. Reuses the
+ * detailed-activity fetch (efforts ride along on it) and the pure mapper, so
+ * there is no extra network call beyond `getActivityById`.
+ */
+async function loadActivitySegmentsData(
+  args: Record<string, unknown>,
+  token: string,
+): Promise<ReturnType<typeof mapActivitySegments>> {
+  const activityId = args.activity_id ? String(args.activity_id) : undefined;
+  if (!activityId) {
+    throw new Error("Provide an activity_id.");
+  }
+  const activity = await getActivityById(token, activityId);
+  return mapActivitySegments(activity);
+}
+
+async function handleGetActivitySegmentsData(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+  }
+  const data = await loadActivitySegmentsData(args, token);
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
+}
+
+async function handleViewActivitySegments(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+  }
+  const data = await loadActivitySegmentsData(args, token);
+  const prCount = data.segments.filter((s) => s.prRank != null).length;
+  const top10Count = data.segments.filter((s) => s.komRank != null).length;
+  const lines = [
+    `Activity: ${data.name}`,
+    `Segments: ${data.segments.length}`,
+    `PRs: ${prCount}, top-10s: ${top10Count}`,
+    "",
+    "[Interactive segment list rendered above]",
+  ];
+  return { content: [{ type: "text", text: lines.join("\n") }] };
+}
+
+/**
  * Basemap spike (#60): allowlist the OpenFreeMap tile origin so the route-map
  * app can attempt an external tile fetch through the host's sandbox CSP.
  * Tiles, styles, glyphs, and sprites are all served from this one origin.
@@ -878,6 +975,30 @@ export function createServer(): Server {
       }
     }
 
+    if (name === "view-activity-segments") {
+      try {
+        return await handleViewActivitySegments(args ?? {});
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Tool error: ${message}` }],
+        };
+      }
+    }
+
+    if (name === "get-activity-segments-data") {
+      try {
+        return await handleGetActivitySegmentsData(args ?? {});
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        return {
+          isError: true,
+          content: [{ type: "text", text: `Tool error: ${message}` }],
+        };
+      }
+    }
+
     // Handle existing Strava tools
     const executor = TOOL_EXECUTORS.get(name);
     if (!executor) {
@@ -917,6 +1038,12 @@ export function createServer(): Server {
         name: "Route Map",
         mimeType: "text/html;profile=mcp-app",
         _meta: { ui: { prefersBorder: false, csp: ROUTE_MAP_CSP } },
+      },
+      {
+        uri: "ui://activity-segments/app.html",
+        name: "Activity Segments",
+        mimeType: "text/html;profile=mcp-app",
+        _meta: { ui: { prefersBorder: false } },
       },
     ],
   }));
@@ -958,6 +1085,19 @@ export function createServer(): Server {
             mimeType: "text/html;profile=mcp-app",
             text: html,
             _meta: { ui: { prefersBorder: false, csp: ROUTE_MAP_CSP } },
+          },
+        ],
+      };
+    }
+    if (uri === "ui://activity-segments/app.html") {
+      const html = await fs.readFile(ACTIVITY_SEGMENTS_HTML_PATH, "utf-8");
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "text/html;profile=mcp-app",
+            text: html,
+            _meta: { ui: { prefersBorder: false } },
           },
         ],
       };
