@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/ljcl/strava-mcp/compare/v1.4.1...v2.0.0) (2026-06-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove read tools duplicated by the official Strava MCP connector ([#84](https://github.com/ljcl/strava-mcp/issues/84))
+
+### Features
+
+* remove read tools duplicated by the official Strava MCP connector ([#84](https://github.com/ljcl/strava-mcp/issues/84)) ([e9c836e](https://github.com/ljcl/strava-mcp/commit/e9c836e3f961afb12278e505595d778e3be2307e))
+
 ## [1.4.1](https://github.com/ljcl/strava-mcp/compare/v1.4.0...v1.4.1) (2026-06-11)
 
 
