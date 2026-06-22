@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.0](https://github.com/ljcl/strava-mcp/compare/v2.0.1...v2.1.0) (2026-06-22)
+
+
+### Features
+
+* list all covering segments in one route-map tooltip with lean outlines ([#89](https://github.com/ljcl/strava-mcp/issues/89)) ([0f496fd](https://github.com/ljcl/strava-mcp/commit/0f496fd31b3842b663447fea9facb8d9edf97119))
+* list all covering segments in one route-map tooltip, lean outlines ([0f496fd](https://github.com/ljcl/strava-mcp/commit/0f496fd31b3842b663447fea9facb8d9edf97119))
+
 ## [2.0.1](https://github.com/ljcl/strava-mcp/compare/v2.0.0...v2.0.1) (2026-06-22)
 
 
