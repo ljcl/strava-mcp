@@ -4,14 +4,13 @@
 [![Storybook](https://img.shields.io/badge/Storybook-live-ff4785?logo=storybook&logoColor=white)](https://ljcl.github.io/strava-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
-A Model Context Protocol (MCP) server that connects Large Language Models to your Strava data. Ask natural language questions about your activities, segments, routes, and more.
+A Model Context Protocol (MCP) server that supplements the official Strava MCP connector. It adds write access, segments, routes, photos, derived analysis, and interactive visualizations that the official connector does not provide.
 
 ## Features
 
-- Access recent activities, profile, and stats
-- Fetch detailed activity streams (power, heart rate, cadence, etc.)
+- Write and update activities (title, description, sport type, gear, flags)
 - Explore, view, star, and manage segments
-- View detailed activity and segment effort information
+- Fetch per-activity photos, zone breakdowns, and running summaries
 - List and view details of saved routes
 - Export routes in GPX or TCX format
 - AI-friendly JSON responses via MCP
@@ -116,6 +115,37 @@ Strava MCP Server (Docker / Bun)
 Strava API
 ```
 
+## Using alongside the official Strava MCP
+
+Strava's official MCP connector handles activity discovery and basic reads. This server supplements it with everything the official connector does not offer: writing to activities, segments, routes and GPX/TCX export, photos, derived analysis, and interactive visualizations.
+
+### Install both
+
+- Official: `claude mcp add --transport http strava-mcp https://mcp.strava.com/mcp` (or via claude.ai Connectors / Claude Desktop).
+- This server: see the install steps above.
+
+### Who does what
+
+| Capability | Official | This server |
+| ---------- | -------- | ----------- |
+| List / read activities, streams, profile, zones, gear, clubs, training plan | yes | no (use official) |
+| Update activities, star segments | no | yes |
+| Segment detail / search / efforts | no | yes |
+| Routes plus GPX/TCX export | no | yes |
+| Activity photos | no | yes |
+| Athlete stats, per-activity zones, best efforts, running summary, training load, compare | no | yes |
+| Interactive chart / cadence / route-map apps | no | yes |
+
+### Caveats
+
+- The official connector requires a Strava subscription and currently runs only in Anthropic clients.
+- With the duplicate reads removed, this server now effectively assumes the official connector is installed for activity discovery. The aggregate analysis tools (`get-best-efforts`, `get-training-load`) fetch their own activity lists, but per-activity tools (`get-running-summary`, `compare-activities`, `get-activity-zones`, etc.) need an activity id from the official `list_activities`.
+- The two use separate rate-limit quotas, so running both spreads API load.
+
+### Recommended workflow
+
+Use the official connector to discover and read activities, then use this server to write, explore segments, manage and export routes, and visualize. The model can pass activity ids from official `list_activities` directly into this server's tools.
+
 ## Local Development
 
 For running without Docker or Tailscale Funnel:
@@ -201,21 +231,21 @@ This is passive — there's nothing to configure.
 
 ## Natural Language Examples
 
-Ask your AI assistant questions like these:
+Ask your AI assistant questions like these (use the official Strava MCP to discover activity IDs, then pass them to these tools):
 
-**Recent Activity & Profile:**
-- "Show me my recent Strava activities"
-- "What were my last 3 rides?"
-- "Get my Strava profile information"
+**Activity Writing:**
+- "Update the title of activity 12345678 to 'Morning Threshold'"
+- "Add a note to my last ride: 'Felt strong on the climbs'"
 
-**Activity Streams & Data:**
-- "Get the heart rate data from my morning run yesterday"
-- "Show me the power data from my last ride"
-- "What was my cadence profile for my weekend century ride?"
+**Analysis and Visualization:**
+- "Show me the HR zone breakdown for activity 12345678"
+- "Compare my two long runs from last week"
+- "What are my best 5K and mile efforts?"
+- "Show me the cadence trends for my last 10 runs"
+- "View the route map for my last ride"
 
 **Stats:**
 - "What are my running stats for this year on Strava?"
-- "How far have I cycled in total?"
 
 **Segments:**
 - "List the segments I starred near Boulder, Colorado"
@@ -234,13 +264,7 @@ The server exposes the following MCP tools:
 
 | Tool | Description |
 | ---- | ----------- |
-| `get-recent-activities` | Fetch recent activities |
-| `get-all-activities` | Fetch all activities with filtering |
-| `get-activity-details` | Get detailed info for a specific activity |
 | `update-activity` | Update an activity's description, title, sport type, gear, or flags |
-| `get-activity-segment-efforts` | Segment efforts in an activity, with PRs and top-10s highlighted |
-| `get-activity-streams` | Get time-series data (HR, power, GPS, etc.) |
-| `get-activity-laps` | Get lap data for an activity |
 | `get-activity-zones` | Time spent in each HR and power zone for an activity |
 | `get-activity-photos` | Get photos from an activity |
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
@@ -252,11 +276,7 @@ The server exposes the following MCP tools:
 
 | Tool | Description |
 | ---- | ----------- |
-| `get-athlete-profile` | Get authenticated athlete's profile |
 | `get-athlete-stats` | Get activity statistics (recent, YTD, all-time) |
-| `get-athlete-zones` | Get heart rate and power zones |
-| `list-gear` | List saved gear (shoes and bikes) with distance and status |
-| `list-athlete-clubs` | List clubs the athlete is a member of |
 
 ### Segment Tools
 

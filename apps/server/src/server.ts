@@ -25,26 +25,16 @@ import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
 import { exportRouteTcx } from "./tools/exportRouteTcx";
-import { getActivityDetailsTool } from "./tools/getActivityDetails";
-import { getActivityLapsTool } from "./tools/getActivityLaps";
 import { getActivityPhotosTool } from "./tools/getActivityPhotos";
-import { getActivitySegmentEffortsTool } from "./tools/getActivitySegmentEfforts";
-import { getActivityStreamsTool } from "./tools/getActivityStreams";
 import { getActivityZonesTool } from "./tools/getActivityZones";
-import { getAllActivities } from "./tools/getAllActivities";
-import { getAthleteProfile } from "./tools/getAthleteProfile";
 import { getAthleteStatsTool } from "./tools/getAthleteStats";
-import { getAthleteZonesTool } from "./tools/getAthleteZones";
 import { getBestEffortsTool } from "./tools/getBestEfforts";
-import { getRecentActivities } from "./tools/getRecentActivities";
 import { getRouteTool } from "./tools/getRoute";
 import { getRunningSummaryTool } from "./tools/getRunningSummary";
 import { getSegmentTool } from "./tools/getSegment";
 import { getSegmentEffortTool } from "./tools/getSegmentEffort";
 import { getTrainingLoadTool } from "./tools/getTrainingLoad";
-import { listAthleteClubs } from "./tools/listAthleteClubs";
 import { listAthleteRoutesTool } from "./tools/listAthleteRoutes";
-import { listGearTool } from "./tools/listGear";
 import { listSegmentEffortsTool } from "./tools/listSegmentEfforts";
 import { listStarredSegments } from "./tools/listStarredSegments";
 import { starSegment } from "./tools/starSegment";
@@ -78,29 +68,19 @@ interface ToolDef {
 
 /** All existing Strava tools */
 const STRAVA_TOOLS = [
-  getAthleteProfile,
-  listGearTool,
   getAthleteStatsTool,
-  getActivityDetailsTool,
   updateActivityTool,
-  getRecentActivities,
-  listAthleteClubs,
   listStarredSegments,
   getSegmentTool,
   exploreSegments,
   starSegment,
   getSegmentEffortTool,
   listSegmentEffortsTool,
-  getActivitySegmentEffortsTool,
   listAthleteRoutesTool,
   getRouteTool,
   exportRouteGpx,
   exportRouteTcx,
-  getActivityStreamsTool,
-  getActivityLapsTool,
   getActivityZonesTool,
-  getAthleteZonesTool,
-  getAllActivities,
   getActivityPhotosTool,
   getRunningSummaryTool,
   getTrainingLoadTool,

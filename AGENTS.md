@@ -42,13 +42,7 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 
 | Tool | Description |
 | ---- | ----------- |
-| `get-recent-activities` | Fetch recent activities |
-| `get-all-activities` | Fetch all activities with filtering by date/type |
-| `get-activity-details` | Detailed info for a specific activity |
 | `update-activity` | Update an activity's description, title, sport type, gear, or flags |
-| `get-activity-segment-efforts` | Segment efforts in an activity with PR/top-10 highlights |
-| `get-activity-streams` | Time-series data (HR, power, GPS, altitude, etc.) |
-| `get-activity-laps` | Lap data for an activity |
 | `get-activity-zones` | Time spent in each HR and power zone for an activity |
 | `get-activity-photos` | Photos from an activity |
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
@@ -60,11 +54,7 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 
 | Tool | Description |
 | ---- | ----------- |
-| `get-athlete-profile` | Authenticated athlete's profile |
 | `get-athlete-stats` | Activity statistics (recent, YTD, all-time) |
-| `get-athlete-zones` | Heart rate and power zones |
-| `list-gear` | List saved gear (shoes and bikes) |
-| `list-athlete-clubs` | Clubs the athlete is a member of |
 
 ### Segment Tools
 

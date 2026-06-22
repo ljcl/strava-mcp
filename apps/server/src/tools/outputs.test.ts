@@ -1,65 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { type StravaDetailedActivity, type StravaStats } from "../stravaClient";
+import { type StravaStats } from "../stravaClient";
 import {
-  ActivityDetailsOutputSchema,
   AthleteStatsOutputSchema,
-  AthleteZonesOutputSchema,
   BestEffortsOutputSchema,
-  buildActivityDetailsOutput,
   buildAthleteStatsOutput,
   CompareActivitiesOutputSchema,
   RunningSummaryOutputSchema,
   TrainingLoadOutputSchema,
 } from "./outputs";
-
-describe("buildActivityDetailsOutput", () => {
-  it("maps an activity to a JSON-safe, schema-valid object", () => {
-    const activity = {
-      id: 3503400000123456789n,
-      name: "Morning Run",
-      type: "Run",
-      sport_type: "Run",
-      start_date: "2026-05-01T06:00:00Z",
-      distance: 10000,
-      moving_time: 3000,
-      elapsed_time: 3100,
-      total_elevation_gain: 120,
-      average_speed: 3.33,
-      max_speed: 4.1,
-      average_heartrate: 150,
-      max_heartrate: 172,
-      average_cadence: 88,
-      average_watts: null,
-      max_watts: null,
-      calories: 600,
-      gear: { id: "g123", name: "Pegasus" },
-    } as unknown as StravaDetailedActivity;
-
-    const out = buildActivityDetailsOutput(activity);
-    expect(out.id).toBe("3503400000123456789");
-    expect(out.distance_m).toBe(10000);
-    expect(out.gear).toEqual({ id: "g123", name: "Pegasus" });
-    expect(ActivityDetailsOutputSchema.safeParse(out).success).toBe(true);
-  });
-
-  it("yields null for distance_m and moving_time_s when absent from source", () => {
-    const activity = {
-      id: 9999n,
-      name: "Stationary Workout",
-      type: "WeightTraining",
-      sport_type: "WeightTraining",
-      start_date: "2026-06-01T10:00:00Z",
-      elapsed_time: 1800,
-      total_elevation_gain: 0,
-    } as unknown as StravaDetailedActivity;
-
-    const out = buildActivityDetailsOutput(activity);
-    expect(out.distance_m).toBeNull();
-    expect(out.moving_time_s).toBeNull();
-    expect(ActivityDetailsOutputSchema.safeParse(out).success).toBe(true);
-  });
-});
 
 describe("buildAthleteStatsOutput", () => {
   it("flattens totals to schema-valid shape", () => {
@@ -87,31 +36,6 @@ describe("buildAthleteStatsOutput", () => {
 });
 
 describe("schemas align with the real tool rawObjects", () => {
-  it("AthleteZonesOutputSchema matches the raw Strava athlete-zones object", () => {
-    // Mirrors StravaAthleteZones (the object getAthleteZones stringifies).
-    const zonesData = {
-      heart_rate: {
-        custom_zones: true,
-        zones: [{ min: 0, max: 123 }, { min: 123, max: 153 }, { min: 153 }],
-        distribution_buckets: [
-          { min: 0, max: 123, time: 600 },
-          { min: 123, max: -1, time: 1200 },
-        ],
-        resource_state: 3,
-        sensor_based: true,
-        points: 5,
-        type: "heartrate" as const,
-      },
-      power: {
-        zones: [{ min: 0, max: 100 }, { min: 100 }],
-        resource_state: 3,
-        sensor_based: false,
-        type: "power" as const,
-      },
-    };
-    expect(AthleteZonesOutputSchema.safeParse(zonesData).success).toBe(true);
-  });
-
   it("TrainingLoadOutputSchema matches the training-load result object", () => {
     const result = {
       period: { days: 28, start_date: "2026-05-09", end_date: "2026-06-06" },
@@ -242,9 +166,7 @@ describe("schemas align with the real tool rawObjects", () => {
 
 describe("output schemas convert to JSON schema", () => {
   const schemas = {
-    ActivityDetailsOutputSchema,
     AthleteStatsOutputSchema,
-    AthleteZonesOutputSchema,
     TrainingLoadOutputSchema,
     RunningSummaryOutputSchema,
     CompareActivitiesOutputSchema,
