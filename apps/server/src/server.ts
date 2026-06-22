@@ -472,6 +472,8 @@ interface RouteMapAnnotations {
     name: string;
     startIndex: number;
     endIndex: number;
+    /** Effort distance in metres; drives outline selection and the tooltip. */
+    distanceMeters: number;
     isPr: boolean;
     isTop10: boolean;
   }>;
@@ -630,8 +632,13 @@ async function loadRouteMapData(
   };
 }
 
-/** Bound the segment payload; notable efforts win when an activity has more. */
-const MAX_SEGMENT_ANNOTATIONS = 25;
+/**
+ * Bound the segment payload; notable efforts win when an activity has more.
+ * Generous because the app draws outlines for only a lean subset (PRs + the
+ * longest few) but lists every covering segment in the scrub tooltip, so the
+ * mini-segments between the big ones must survive into the payload.
+ */
+const MAX_SEGMENT_ANNOTATIONS = 60;
 
 /**
  * Resolve lap boundaries, segment efforts, and geotagged photos into indices
@@ -707,6 +714,7 @@ async function loadRouteMapAnnotations(
       name: effort.name,
       startIndex,
       endIndex,
+      distanceMeters: effort.distance,
       isPr: effort.pr_rank != null,
       isTop10: effort.kom_rank != null,
     });

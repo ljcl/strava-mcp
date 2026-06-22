@@ -61,15 +61,30 @@ describe("trackBounds", () => {
 describe("segmentsToGeoJson", () => {
   it("colors by achievement tier and titles for the popup", () => {
     const fc = segmentsToGeoJson(COORDS, [
-      { name: "Climb", startIndex: 0, endIndex: 2, isPr: true, isTop10: false },
+      {
+        name: "Climb",
+        startIndex: 0,
+        endIndex: 2,
+        distanceMeters: 800,
+        isPr: true,
+        isTop10: false,
+      },
       {
         name: "Sprint",
         startIndex: 1,
         endIndex: 3,
+        distanceMeters: 400,
         isPr: false,
         isTop10: true,
       },
-      { name: "Flat", startIndex: 2, endIndex: 3, isPr: false, isTop10: false },
+      {
+        name: "Flat",
+        startIndex: 2,
+        endIndex: 3,
+        distanceMeters: 600,
+        isPr: false,
+        isTop10: false,
+      },
     ]);
     expect(fc.features.map((f) => f.properties.color)).toEqual([
       BASEMAP_COLORS.segmentPr,
@@ -83,7 +98,14 @@ describe("segmentsToGeoJson", () => {
 
   it("drops spans that collapse to fewer than two points", () => {
     const fc = segmentsToGeoJson(COORDS, [
-      { name: "Dot", startIndex: 2, endIndex: 2, isPr: false, isTop10: false },
+      {
+        name: "Dot",
+        startIndex: 2,
+        endIndex: 2,
+        distanceMeters: 100,
+        isPr: false,
+        isTop10: false,
+      },
     ]);
     expect(fc.features).toHaveLength(0);
   });
