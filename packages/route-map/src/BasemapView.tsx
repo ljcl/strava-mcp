@@ -9,7 +9,8 @@
  * shared with the elevation strip through the scrub index.
  */
 
-import maplibregl from "maplibre-gl";
+import maplibregl from "maplibre-gl/dist/maplibre-gl-csp";
+import workerCode from "maplibre-gl/dist/maplibre-gl-csp-worker.js?raw";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { type PhotoMarker, type SplitMarker } from "./annotations";
 import {
@@ -26,6 +27,21 @@ import { type ColorRun } from "./metrics";
 import styles from "./RouteMap.module.css";
 import { type RouteAnnotations } from "./types";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+// MapLibre runs all source processing in a Web Worker. When our app is inlined
+// into a single HTML file by vite-plugin-singlefile, MapLibre's default
+// self-built worker loses its GeoJSON code path — the geojson-vt symbol ends up
+// referenced from a scope the worker cannot see — so vector tiles still render
+// but every GeoJSON overlay (the track, markers, segment halos) throws in the
+// worker and silently vanishes. The CSP build ships a pre-built, self-contained
+// worker; we inline it verbatim (`?raw`) as a Blob URL so it is never
+// re-bundled and geojson-vt stays intact. This is also the build MapLibre
+// intends for CSP-sandboxed hosts, which is exactly where this app runs.
+maplibregl.setWorkerUrl(
+  URL.createObjectURL(
+    new Blob([workerCode], { type: "application/javascript" }),
+  ),
+);
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 /** If the style hasn't loaded by then, treat tiles as unavailable. */
