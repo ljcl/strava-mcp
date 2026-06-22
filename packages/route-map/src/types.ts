@@ -65,6 +65,8 @@ export interface RouteAnnotations {
     name: string;
     startIndex: number;
     endIndex: number;
+    /** Effort distance in metres; drives outline selection and the tooltip. */
+    distanceMeters: number;
     isPr: boolean;
     isTop10: boolean;
   }>;

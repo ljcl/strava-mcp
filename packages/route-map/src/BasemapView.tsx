@@ -346,10 +346,12 @@ export function BasemapView({
         },
       });
 
-      // Hover popups for the annotation markers ("Lap 2", "Climb · PR", …).
+      // Hover popups for the point markers ("Lap 2", "3 photos"). Segment
+      // efforts are not here: they surface in the shared scrub tooltip instead,
+      // so the white per-segment popup no longer clashes with the metric value.
       // Bound only to layers that actually got added: delegated listeners on
       // a missing layer make maplibre error on every pointer move.
-      for (const layerId of [SPLITS_LAYER, PHOTOS_LAYER, SEGMENTS_LAYER]) {
+      for (const layerId of [SPLITS_LAYER, PHOTOS_LAYER]) {
         if (!map.getLayer(layerId)) continue;
         map.on("mousemove", layerId, (e) => {
           const title = e.features?.[0]?.properties?.title;

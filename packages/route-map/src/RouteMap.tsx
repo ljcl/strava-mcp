@@ -29,6 +29,11 @@ import {
 import { nearestPointIndex, type Point, projectRoute } from "./normalize";
 import { isZoomed, panViewBox, type ViewBox, zoomViewBox } from "./panZoom";
 import styles from "./RouteMap.module.css";
+import {
+  formatSegmentDistance,
+  segmentsAtIndex,
+  selectOutlineSegments,
+} from "./segments";
 import { type RouteMapData } from "./types";
 
 interface RouteMapProps {
@@ -67,6 +72,9 @@ const STRIP_PAD_TOP = 8;
 const WHEEL_ZOOM_FACTOR = 1.2;
 
 const GRID_ID = "route-map-grid";
+
+/** Segment rows shown in the scrub tooltip before collapsing to "+N more". */
+const MAX_TOOLTIP_SEGMENTS = 3;
 
 type LayerKey = "splits" | "segments" | "photos";
 
@@ -163,10 +171,21 @@ export function RouteMap({
 
   const splitMarkers = useMemo(() => buildSplitMarkers(data), [data]);
   const photoMarkers = useMemo(() => buildPhotoMarkers(data), [data]);
+
+  const allSegments = useMemo(
+    () => data.annotations?.segments ?? [],
+    [data.annotations?.segments],
+  );
+  // Only a lean subset earns a drawn outline (PRs + the longest few); the
+  // scrub tooltip still surfaces every covering segment, so segment-dense
+  // activities do not bury the track under overlapping halos.
+  const outlineSegments = useMemo(
+    () => selectOutlineSegments(allSegments),
+    [allSegments],
+  );
   const segmentSpans = useMemo(() => {
     if (!projected) return [];
-    const efforts = data.annotations?.segments ?? [];
-    return efforts.flatMap((segment) => {
+    return outlineSegments.flatMap((segment) => {
       const points = projected.points.slice(
         segment.startIndex,
         segment.endIndex + 1,
@@ -174,7 +193,7 @@ export function RouteMap({
       if (points.length < 2) return [];
       return [{ ...segment, path: pathThrough(points) }];
     });
-  }, [projected, data.annotations?.segments]);
+  }, [projected, outlineSegments]);
 
   const layers = useMemo(() => {
     const out: Array<{ key: LayerKey; label: string }> = [];
@@ -419,16 +438,53 @@ export function RouteMap({
   const markerAt = (index: number): Point | null =>
     projected?.points[index] ?? null;
 
+  // Segments covering the scrubbed point, listed in the one tooltip regardless
+  // of the outline toggle (the white per-segment MapLibre popup is gone).
+  const scrubSegments =
+    scrubIndex != null ? segmentsAtIndex(allSegments, scrubIndex) : [];
+  const hasMetric = scrubValue != null && activeSeries != null;
+
   // Shared scrub tooltip content: the grid view positions it by viewport
   // fraction, the basemap by projected pixel point.
   const scrubTipContent =
-    scrubValue != null && activeSeries ? (
+    scrubIndex != null && (hasMetric || scrubSegments.length > 0) ? (
       <UiTooltip timestamp={scrubPosition}>
-        <TooltipEntry
-          color={colorForValue(activeSeries, scrubValue)}
-          label={activeSeries.label}
-          value={activeSeries.format(scrubValue)}
-        />
+        {scrubSegments.length > 0 && (
+          <div className={styles.tipSegments}>
+            {scrubSegments.slice(0, MAX_TOOLTIP_SEGMENTS).map((segment) => (
+              <div
+                className={styles.tipSegment}
+                key={`${segment.name}-${segment.startIndex}`}
+              >
+                <span
+                  className={styles.tipSegmentSwatch}
+                  style={{ background: segmentHaloColor(segment) }}
+                />
+                <span className={styles.tipSegmentName}>{segment.name}</span>
+                <span className={styles.tipSegmentMeta}>
+                  {[
+                    formatSegmentDistance(segment.distanceMeters),
+                    segment.isPr ? "PR" : segment.isTop10 ? "Top 10" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+              </div>
+            ))}
+            {scrubSegments.length > MAX_TOOLTIP_SEGMENTS && (
+              <div className={styles.tipSegmentMore}>
+                +{scrubSegments.length - MAX_TOOLTIP_SEGMENTS} more
+              </div>
+            )}
+          </div>
+        )}
+        {scrubValue != null && activeSeries && (
+          <TooltipEntry
+            color={colorForValue(activeSeries, scrubValue)}
+            label={activeSeries.label}
+            value={activeSeries.format(scrubValue)}
+          />
+        )}
       </UiTooltip>
     ) : null;
 
@@ -446,7 +502,7 @@ export function RouteMap({
             coordinates={data.coordinates}
             colorRuns={colorRuns}
             splitMarkers={splitMarkers}
-            segments={data.annotations?.segments ?? []}
+            segments={outlineSegments}
             photoMarkers={photoMarkers}
             visibility={{
               splits: layerVisible("splits"),
