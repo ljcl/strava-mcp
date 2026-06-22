@@ -8,11 +8,16 @@ export default {
       // which knip cannot trace as a static import.
       ignoreDependencies: [
         "@strava-mcp/activity-chart",
+        "@strava-mcp/activity-segments",
         "@strava-mcp/cadence-trends",
         "@strava-mcp/route-map",
       ],
     },
     "packages/activity-chart": {
+      entry: ["src/main.tsx"],
+      project: ["src/**/*.{ts,tsx}"],
+    },
+    "packages/activity-segments": {
       entry: ["src/main.tsx"],
       project: ["src/**/*.{ts,tsx}"],
     },
@@ -37,6 +42,7 @@ export default {
         entry: [
           ".storybook/{manager,preview,index,vitest.setup}.{js,jsx,ts,tsx}",
           "../../packages/activity-chart/src/**/*.stories.@(ts|tsx)",
+          "../../packages/activity-segments/src/**/*.stories.@(ts|tsx)",
           "../../packages/cadence-trends/src/**/*.stories.@(ts|tsx)",
           "../../packages/route-map/src/**/*.stories.@(ts|tsx)",
           "../../packages/design-system/stories/**/*.stories.@(ts|tsx)",
@@ -49,6 +55,7 @@ export default {
       // there is no static `@strava-mcp/*` import for knip to follow.
       ignoreDependencies: [
         "@strava-mcp/activity-chart",
+        "@strava-mcp/activity-segments",
         "@strava-mcp/cadence-trends",
         "@strava-mcp/route-map",
         "@strava-mcp/ui",
