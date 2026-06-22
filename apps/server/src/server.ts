@@ -27,18 +27,14 @@ import { exportRouteGpx } from "./tools/exportRouteGpx";
 import { exportRouteTcx } from "./tools/exportRouteTcx";
 import { getActivityPhotosTool } from "./tools/getActivityPhotos";
 import { getActivityZonesTool } from "./tools/getActivityZones";
-import { getAthleteProfile } from "./tools/getAthleteProfile";
 import { getAthleteStatsTool } from "./tools/getAthleteStats";
-import { getAthleteZonesTool } from "./tools/getAthleteZones";
 import { getBestEffortsTool } from "./tools/getBestEfforts";
 import { getRouteTool } from "./tools/getRoute";
 import { getRunningSummaryTool } from "./tools/getRunningSummary";
 import { getSegmentTool } from "./tools/getSegment";
 import { getSegmentEffortTool } from "./tools/getSegmentEffort";
 import { getTrainingLoadTool } from "./tools/getTrainingLoad";
-import { listAthleteClubs } from "./tools/listAthleteClubs";
 import { listAthleteRoutesTool } from "./tools/listAthleteRoutes";
-import { listGearTool } from "./tools/listGear";
 import { listSegmentEffortsTool } from "./tools/listSegmentEfforts";
 import { listStarredSegments } from "./tools/listStarredSegments";
 import { starSegment } from "./tools/starSegment";
@@ -72,11 +68,8 @@ interface ToolDef {
 
 /** All existing Strava tools */
 const STRAVA_TOOLS = [
-  getAthleteProfile,
-  listGearTool,
   getAthleteStatsTool,
   updateActivityTool,
-  listAthleteClubs,
   listStarredSegments,
   getSegmentTool,
   exploreSegments,
@@ -88,7 +81,6 @@ const STRAVA_TOOLS = [
   exportRouteGpx,
   exportRouteTcx,
   getActivityZonesTool,
-  getAthleteZonesTool,
   getActivityPhotosTool,
   getRunningSummaryTool,
   getTrainingLoadTool,

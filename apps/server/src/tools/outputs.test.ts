@@ -3,7 +3,6 @@ import { z } from "zod";
 import { type StravaStats } from "../stravaClient";
 import {
   AthleteStatsOutputSchema,
-  AthleteZonesOutputSchema,
   BestEffortsOutputSchema,
   buildAthleteStatsOutput,
   CompareActivitiesOutputSchema,
@@ -37,31 +36,6 @@ describe("buildAthleteStatsOutput", () => {
 });
 
 describe("schemas align with the real tool rawObjects", () => {
-  it("AthleteZonesOutputSchema matches the raw Strava athlete-zones object", () => {
-    // Mirrors StravaAthleteZones (the object getAthleteZones stringifies).
-    const zonesData = {
-      heart_rate: {
-        custom_zones: true,
-        zones: [{ min: 0, max: 123 }, { min: 123, max: 153 }, { min: 153 }],
-        distribution_buckets: [
-          { min: 0, max: 123, time: 600 },
-          { min: 123, max: -1, time: 1200 },
-        ],
-        resource_state: 3,
-        sensor_based: true,
-        points: 5,
-        type: "heartrate" as const,
-      },
-      power: {
-        zones: [{ min: 0, max: 100 }, { min: 100 }],
-        resource_state: 3,
-        sensor_based: false,
-        type: "power" as const,
-      },
-    };
-    expect(AthleteZonesOutputSchema.safeParse(zonesData).success).toBe(true);
-  });
-
   it("TrainingLoadOutputSchema matches the training-load result object", () => {
     const result = {
       period: { days: 28, start_date: "2026-05-09", end_date: "2026-06-06" },
@@ -193,7 +167,6 @@ describe("schemas align with the real tool rawObjects", () => {
 describe("output schemas convert to JSON schema", () => {
   const schemas = {
     AthleteStatsOutputSchema,
-    AthleteZonesOutputSchema,
     TrainingLoadOutputSchema,
     RunningSummaryOutputSchema,
     CompareActivitiesOutputSchema,
