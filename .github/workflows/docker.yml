@@ -102,7 +102,10 @@ jobs:
           pattern: digests-*
           merge-multiple: true
 
-      - uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+      # No setup-buildx-action here on purpose: `imagetools create`/`inspect`
+      # talk to the registry directly and need no BuildKit builder. Setting one
+      # up only pulled moby/buildkit from Docker Hub, whose anonymous-pull rate
+      # limit intermittently failed this job (the build legs keep their builder).
 
       - name: Log in to GHCR
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
