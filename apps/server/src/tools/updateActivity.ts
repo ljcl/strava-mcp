@@ -30,10 +30,7 @@ const UpdateActivityInputSchema = z.object({
     .string()
     .optional()
     .describe("Strava sport type, e.g. 'Run', 'TrailRun', 'Ride'."),
-  gearId: z
-    .string()
-    .optional()
-    .describe("Gear id to assign (from list-gear), e.g. 'g123456'."),
+  gearId: z.string().optional().describe("Gear id to assign, e.g. 'g123456'."),
   commute: z.boolean().optional().describe("Mark the activity as a commute."),
   trainer: z
     .boolean()
@@ -52,7 +49,7 @@ export const updateActivityTool = {
   description:
     "Updates an activity's title, description, sport type, gear, or flags (commute/trainer/hidden). " +
     "Description defaults to append (adds to existing notes); pass descriptionMode 'replace' to overwrite. " +
-    "Requires the activity:write scope. Assign gear by passing a gearId from list-gear.",
+    "Requires the activity:write scope. Assign gear by passing a Strava gear id.",
   inputSchema: UpdateActivityInputSchema,
   annotations: WRITE_DESTRUCTIVE,
   execute: async (input: UpdateActivityInput) => {

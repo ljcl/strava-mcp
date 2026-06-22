@@ -11,7 +11,7 @@ const name = "get-activity-zones";
 const description = `
 Retrieves the time-in-zone distribution for a specific Strava activity.
 
-Unlike get-athlete-zones (which returns zone *definitions*), this returns how
+Unlike athlete zone *definitions*, this returns how
 long the given activity spent in each heart rate and/or power zone.
 
 Use Cases:
