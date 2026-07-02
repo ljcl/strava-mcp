@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
-import { refreshAccessToken } from "./tokenManager";
+import {
+  ReauthorizationRequiredError,
+  refreshAccessToken,
+} from "./tokenManager";
 import {
   buildUpdateActivityBody,
   type UpdateActivityParams,
@@ -467,6 +470,14 @@ async function handleApiError<T>(
       console.error(`🔄 Retrying ${context} after token refresh...`);
       return await retryFn();
     } catch (refreshError) {
+      // A revoked/invalid grant is unrecoverable without the user: surface
+      // the actionable re-auth instruction instead of the generic 401.
+      if (refreshError instanceof ReauthorizationRequiredError) {
+        console.error(`🔒 Re-authorization required in ${context}.`);
+        throw new Error(
+          `Strava authorization required in ${context}: ${refreshError.message}`,
+        );
+      }
       console.error(
         `❌ Token refresh failed: ${
           refreshError instanceof Error

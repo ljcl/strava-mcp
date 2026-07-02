@@ -384,6 +384,18 @@ describe("refreshAccessToken (concurrency + token rotation)", () => {
     expect(written.athlete_id).toBe(4242);
   });
 
+  it("throws ReauthorizationRequiredError without a network call when no tokens exist", async () => {
+    const fetchMock = mockFetchOnceJson({});
+    const { refreshAccessToken, ReauthorizationRequiredError } =
+      await importTokenManager();
+
+    await expect(refreshAccessToken()).rejects.toThrow(
+      ReauthorizationRequiredError,
+    );
+    await expect(refreshAccessToken()).rejects.toThrow(/\/auth\/start/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("clears the in-flight lock so a later refresh exchanges again", async () => {
     fs.writeFileSync(
       tokenFile,
@@ -413,5 +425,111 @@ describe("refreshAccessToken (concurrency + token rotation)", () => {
 
     // Sequential refreshes are independent exchanges (lock resets between them).
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("refreshAccessToken (revoked refresh token)", () => {
+  function writeStoredTokens() {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "dead-acc",
+        refresh_token: "dead-ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+        athlete_id: 7,
+      }),
+    );
+  }
+
+  it("detects Strava's revoked-token 400, clears state, and instructs re-auth", async () => {
+    writeStoredTokens();
+    // Strava's actual response shape when the athlete deauthorizes the app.
+    mockFetchOnceJson(
+      {
+        message: "Bad Request",
+        errors: [
+          {
+            resource: "RefreshToken",
+            field: "refresh_token",
+            code: "invalid",
+          },
+        ],
+      },
+      400,
+    );
+
+    const { refreshAccessToken, getTokenStatus, ReauthorizationRequiredError } =
+      await importTokenManager();
+
+    await expect(refreshAccessToken()).rejects.toThrow(
+      ReauthorizationRequiredError,
+    );
+
+    // Dead token state is cleared from disk and env...
+    expect(fs.existsSync(tokenFile)).toBe(false);
+    expect(process.env.STRAVA_ACCESS_TOKEN).toBeUndefined();
+    expect(process.env.STRAVA_REFRESH_TOKEN).toBeUndefined();
+
+    // ...so /auth/status reflects the unauthenticated state.
+    const status = await getTokenStatus();
+    expect(status.authenticated).toBe(false);
+    expect(status.auth_url).toBe("/auth/start");
+  });
+
+  it("detects the standard OAuth invalid_grant response", async () => {
+    writeStoredTokens();
+    mockFetchOnceJson({ error: "invalid_grant" }, 400);
+
+    const { refreshAccessToken, ReauthorizationRequiredError } =
+      await importTokenManager();
+
+    await expect(refreshAccessToken()).rejects.toThrow(
+      ReauthorizationRequiredError,
+    );
+    expect(fs.existsSync(tokenFile)).toBe(false);
+  });
+
+  it("does not retry the doomed refresh: subsequent calls fail fast without fetching", async () => {
+    writeStoredTokens();
+    const fetchMock = mockFetchOnceJson({ error: "invalid_grant" }, 400);
+
+    const { refreshAccessToken, ReauthorizationRequiredError } =
+      await importTokenManager();
+
+    await expect(refreshAccessToken()).rejects.toThrow(
+      ReauthorizationRequiredError,
+    );
+    // Tokens are gone, so the next refresh short-circuits before any network call.
+    await expect(refreshAccessToken()).rejects.toThrow(
+      ReauthorizationRequiredError,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("treats a transient 500 as retryable: generic error, tokens preserved", async () => {
+    writeStoredTokens();
+    mockFetchOnceJson({ message: "Internal Server Error" }, 500);
+
+    const { refreshAccessToken, ReauthorizationRequiredError } =
+      await importTokenManager();
+
+    const failure = await refreshAccessToken().catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(ReauthorizationRequiredError);
+    expect((failure as Error).message).toMatch(/Failed to refresh token/);
+
+    // Transient failures must not destroy otherwise-valid token state.
+    expect(fs.existsSync(tokenFile)).toBe(true);
+  });
+
+  it("lets the server start unauthenticated when the startup refresh hits a revocation", async () => {
+    writeStoredTokens();
+    mockFetchOnceJson({ error: "invalid_grant" }, 400);
+
+    const { ensureValidToken } = await importTokenManager();
+
+    // Startup must not crash-loop on a revoked token; /auth/start recovers.
+    await expect(ensureValidToken()).resolves.toBeUndefined();
+    expect(fs.existsSync(tokenFile)).toBe(false);
   });
 });

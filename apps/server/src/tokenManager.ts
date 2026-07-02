@@ -27,6 +27,73 @@ export interface TokenStatus {
 }
 
 /**
+ * Thrown when Strava authorization is gone for good: the athlete revoked the
+ * app (or the refresh token is otherwise invalid), or no tokens exist at all.
+ * Unlike transient refresh failures, retrying cannot succeed — the only
+ * recovery is the user re-authorizing at /auth/start. Callers should surface
+ * the message as-is; it is written to be actionable for the model/user.
+ */
+export class ReauthorizationRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ReauthorizationRequiredError";
+  }
+}
+
+const REAUTH_INSTRUCTION =
+  "Re-authorize by visiting /auth/start on this server, then retry.";
+
+/**
+ * Detects Strava's revoked / invalid refresh token response, distinct from
+ * transient failures. Strava's /oauth/token returns 400 with
+ * `{"errors":[{"resource":"RefreshToken","field":"refresh_token","code":"invalid"}]}`
+ * when the athlete has deauthorized the app; standard OAuth servers use
+ * `{"error":"invalid_grant"}`. Anything else (429, 5xx, network) is transient.
+ */
+function isRevokedGrantResponse(status: number, bodyText: string): boolean {
+  if (status !== 400 && status !== 401) {
+    return false;
+  }
+  try {
+    const body: unknown = JSON.parse(bodyText);
+    if (typeof body !== "object" || body === null) {
+      return false;
+    }
+    if ("error" in body && body.error === "invalid_grant") {
+      return true;
+    }
+    if ("errors" in body && Array.isArray(body.errors)) {
+      return body.errors.some(
+        (e: unknown) =>
+          typeof e === "object" &&
+          e !== null &&
+          ((e as { field?: unknown }).field === "refresh_token" ||
+            (e as { resource?: unknown }).resource === "RefreshToken") &&
+          (e as { code?: unknown }).code === "invalid",
+      );
+    }
+  } catch {
+    // Non-JSON error body — treat as transient
+  }
+  return false;
+}
+
+/**
+ * Clears dead token state after a confirmed revocation, so subsequent calls
+ * fail fast at "no tokens" instead of hammering Strava with a doomed refresh.
+ */
+async function clearTokens(): Promise<void> {
+  delete process.env.STRAVA_ACCESS_TOKEN;
+  delete process.env.STRAVA_REFRESH_TOKEN;
+  try {
+    await fs.rm(tokenFilePath, { force: true });
+    console.error(`[TokenManager] Cleared stored tokens at ${tokenFilePath}`);
+  } catch (error) {
+    console.error("[TokenManager] Failed to remove token file:", error);
+  }
+}
+
+/**
  * Ensures the data directory exists
  */
 async function ensureDataDir(): Promise<void> {
@@ -170,7 +237,17 @@ async function refreshTokens(tokens: TokenData): Promise<TokenData> {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      const bodyText = await response.text();
+      if (isRevokedGrantResponse(response.status, bodyText)) {
+        console.error(
+          "[TokenManager] Refresh token revoked or invalid — clearing stored tokens",
+        );
+        await clearTokens();
+        throw new ReauthorizationRequiredError(
+          `Strava authorization has been revoked or is no longer valid. ${REAUTH_INSTRUCTION}`,
+        );
+      }
+      throw new Error(`HTTP ${response.status}: ${bodyText}`);
     }
 
     const data = await response.json();
@@ -195,6 +272,9 @@ async function refreshTokens(tokens: TokenData): Promise<TokenData> {
     return newTokens;
   } catch (error) {
     console.error("[TokenManager] Token refresh failed:", error);
+    if (error instanceof ReauthorizationRequiredError) {
+      throw error;
+    }
     throw new Error(
       `Failed to refresh token: ${
         error instanceof Error ? error.message : String(error)
@@ -228,7 +308,11 @@ export async function refreshAccessToken(): Promise<TokenData> {
   inFlightRefresh = (async () => {
     const tokens = await loadTokens();
     if (!tokens) {
-      throw new Error("No tokens available to refresh");
+      // Fail fast without a network call — this is where a cleared-after-
+      // revocation server lands on every subsequent request.
+      throw new ReauthorizationRequiredError(
+        `Not authenticated with Strava. ${REAUTH_INSTRUCTION}`,
+      );
     }
     return refreshTokens(tokens);
   })();
@@ -261,7 +345,17 @@ export async function ensureValidToken(): Promise<void> {
     console.error(
       "[TokenManager] Token expired or expiring soon, refreshing...",
     );
-    await refreshAccessToken();
+    try {
+      await refreshAccessToken();
+    } catch (error) {
+      if (error instanceof ReauthorizationRequiredError) {
+        // Revoked token at startup: start unauthenticated so the user can
+        // recover via /auth/start instead of the server crash-looping.
+        console.error(`[TokenManager] ${error.message}`);
+        return;
+      }
+      throw error;
+    }
   } else {
     const expiresIn = tokens.expires_at - Math.floor(Date.now() / 1000);
     console.error(
