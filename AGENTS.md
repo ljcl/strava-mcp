@@ -33,6 +33,9 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 - `mcp-authoring` — locally-authored, framework-neutral guidance for building and reviewing MCP
   servers and apps (primitives, tool schema design, MCP App UI, OAuth, testing). Use it when
   changing server tools, resources, or the MCP App packages.
+- `backlog-sweep` — locally-authored procedure for re-verifying open GitHub issues against the
+  current code and fixing drift. Run it after an epic, breaking change, or wide refactor merges,
+  or before planning a batch of backlog work.
 - `bun` — Bun runtime, package manager, test runner, and bundler usage (well-known source).
 - `github-actions-docs` — docs-grounded help for the workflows under `.github/` (GitHub source).
 
@@ -405,6 +408,10 @@ Improvements and changes are tracked as GitHub Issues and triaged on the
 - New issues auto-add to the board (Backlog). Link PRs with `closes #N` so a
   merge closes the issue; the PR title is the Conventional Commit that
   release-please turns into a release.
+- After an epic, breaking change, or wide refactor merges, run the
+  `backlog-sweep` skill: big changes invalidate file/line references, dependency
+  notes, and premises in open issues, and a sweep fixes that drift while it is
+  still cheap.
 
 ## Releases
 
