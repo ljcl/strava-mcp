@@ -12,8 +12,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import styles from "./chartView.module.css";
 import { dotSize, linearRegression } from "./normalize";
-import styles from "./ScatterView.module.css";
 import { SharedTooltip } from "./SharedTooltip";
 import { type RunSummary } from "./types";
 

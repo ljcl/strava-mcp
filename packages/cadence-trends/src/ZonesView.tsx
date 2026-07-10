@@ -11,9 +11,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import styles from "./chartView.module.css";
 import { computeZoneStats } from "./normalize";
 import { type RunSummary } from "./types";
-import styles from "./ZonesView.module.css";
 
 interface ZonesViewProps {
   activities: RunSummary[];
