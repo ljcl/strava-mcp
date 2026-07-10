@@ -9,7 +9,15 @@ import {
   Tooltip as UiTooltip,
   useModelContextSync,
 } from "@strava-mcp/ui";
-import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type PointerEvent,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { buildRouteMapA11yDescription } from "./a11yDescription";
 import {
   buildPhotoMarkers,
   buildSplitMarkers,
@@ -375,6 +383,44 @@ export function RouteMap({
     setScrubIndex(idx >= 0 ? idx : null);
   };
 
+  /* ── Accessibility ───────────────────────────────────────────── */
+
+  // One rich screen-reader narration shared by both views (#62): the basemap
+  // renders it as visually-hidden text beside the canvas, the SVG grid as its
+  // <desc>. Canvas has no accessible representation of its own.
+  const a11yDescription = useMemo(
+    () =>
+      buildRouteMapA11yDescription({
+        name: data.name,
+        source: data.source,
+        activityType: data.activityType,
+        distanceKm,
+        elevationGain: data.elevationGain,
+        coordinates: data.coordinates,
+        altitude: data.streams?.altitude,
+        colorMetric: activeSeries?.label ?? null,
+        splitCount: splitMarkers.length,
+        splitKind: data.annotations?.laps?.length ? "laps" : "splits",
+        segmentCount: allSegments.length,
+        prCount: allSegments.filter((segment) => segment.isPr).length,
+        photoCount: photoMarkers.reduce(
+          (total, photo) => total + photo.count,
+          0,
+        ),
+      }),
+    [
+      data,
+      distanceKm,
+      activeSeries?.label,
+      splitMarkers,
+      allSegments,
+      photoMarkers,
+    ],
+  );
+  const uid = useId();
+  const mapTitleId = `${uid}-map-title`;
+  const mapDescId = `${uid}-map-desc`;
+
   useModelContextSync(
     app,
     () =>
@@ -497,8 +543,10 @@ export function RouteMap({
 
       {projected && showBasemap && (
         <div className={styles.mapArea}>
+          <p className={styles.srOnly}>{a11yDescription}</p>
           <BasemapView
             key={data.id}
+            accessibleLabel={`Map of ${data.name}`}
             coordinates={data.coordinates}
             colorRuns={colorRuns}
             splitMarkers={splitMarkers}
@@ -529,7 +577,8 @@ export function RouteMap({
               viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
               preserveAspectRatio="xMidYMid meet"
               role="img"
-              aria-label={`Map of ${data.name}, ${formatKm(data.distance)} kilometres`}
+              aria-labelledby={mapTitleId}
+              aria-describedby={mapDescId}
               data-zoomed={zoomed || undefined}
               onPointerDown={handleMapPointerDown}
               onPointerMove={handleMapPointerMove}
@@ -537,6 +586,10 @@ export function RouteMap({
               onPointerCancel={handleMapPointerEnd}
               onPointerLeave={clearScrub}
             >
+              <title id={mapTitleId}>
+                {`Map of ${data.name}, ${formatKm(data.distance)} kilometres`}
+              </title>
+              <desc id={mapDescId}>{a11yDescription}</desc>
               <defs>
                 <pattern
                   id={GRID_ID}
@@ -733,7 +786,7 @@ export function RouteMap({
           viewBox={`0 0 ${dims.width} ${dims.strip}`}
           preserveAspectRatio="xMidYMid meet"
           role="img"
-          aria-label="Elevation profile"
+          aria-label={`Elevation profile of ${data.name}`}
           data-scrub={canScrub || undefined}
           onPointerMove={handleStripPointerMove}
           onPointerLeave={() => setScrubIndex(null)}

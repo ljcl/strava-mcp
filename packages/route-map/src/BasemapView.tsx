@@ -63,6 +63,8 @@ export interface BasemapLayerVisibility {
 }
 
 interface BasemapViewProps {
+  /** Accessible name for the map canvas (MapLibre's default is just "Map"). */
+  accessibleLabel: string;
   coordinates: Array<[number, number]>;
   colorRuns: ColorRun[];
   /** Resolved annotation markers (already index-anchored). */
@@ -102,6 +104,7 @@ function scrubPointGeoJson(
 }
 
 export function BasemapView({
+  accessibleLabel,
   coordinates,
   colorRuns,
   splitMarkers,
@@ -412,6 +415,12 @@ export function BasemapView({
     };
     // The map is created once per mount; data changes remount via key.
   }, []);
+
+  // MapLibre exposes the canvas as a region labelled just "Map"; give it the
+  // route's name instead (the visually-hidden narration sits alongside).
+  useEffect(() => {
+    mapRef.current?.getCanvas().setAttribute("aria-label", accessibleLabel);
+  }, [accessibleLabel]);
 
   // Keep the track + scrub sources in sync without recreating the map.
   useEffect(() => {
