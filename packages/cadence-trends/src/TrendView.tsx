@@ -11,9 +11,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import styles from "./chartView.module.css";
 import { dotSize, rollingAverage } from "./normalize";
 import { SharedTooltip } from "./SharedTooltip";
-import styles from "./TrendView.module.css";
 import { type RunSummary } from "./types";
 
 interface TrendViewProps {
