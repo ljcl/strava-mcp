@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.0](https://github.com/ljcl/strava-mcp/compare/v2.2.0...v2.3.0) (2026-07-10)
+
+
+### Features
+
+* route-map screen-reader description and alt text ([#104](https://github.com/ljcl/strava-mcp/issues/104)) ([d330153](https://github.com/ljcl/strava-mcp/commit/d3301539e7e588241199ef67d5b5765fef89bdfc))
+
+
+### Bug Fixes
+
+* recover from revoked refresh tokens and handle SIGTERM shutdown ([#100](https://github.com/ljcl/strava-mcp/issues/100)) ([72f911e](https://github.com/ljcl/strava-mcp/commit/72f911e3646aa16eaca3a70219cd77aa280e88bc))
+
 ## [2.2.0](https://github.com/ljcl/strava-mcp/compare/v2.1.0...v2.2.0) (2026-06-22)
 
 
