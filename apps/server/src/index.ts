@@ -218,7 +218,7 @@ console.error("Checking Strava token validity...");
 await ensureValidToken();
 console.error("Token validation complete.");
 
-Bun.serve({
+const httpServer = Bun.serve({
   port: PORT,
   hostname: HOST,
   async fetch(req) {
@@ -252,12 +252,19 @@ console.error(`Listening on http://${HOST}:${PORT}`);
 console.error(`MCP endpoint: http://${HOST}:${PORT}/mcp`);
 console.error(`Health check: http://${HOST}:${PORT}/health`);
 
-// Graceful shutdown
-process.on("SIGINT", async () => {
-  console.error("Shutting down...");
+// Graceful shutdown. SIGINT covers Ctrl-C; SIGTERM is what `docker stop` and
+// orchestrators send — without a handler the container is hard-killed after
+// the grace period with transports left open.
+async function shutdown(signal: string): Promise<void> {
+  console.error(`Received ${signal}, shutting down...`);
+  // Stop accepting new connections while draining existing sessions.
+  httpServer.stop();
   for (const [id, transport] of transports) {
     console.error(`Closing session ${id}`);
     await transport.close();
   }
   process.exit(0);
-});
+}
+
+process.on("SIGINT", () => void shutdown("SIGINT"));
+process.on("SIGTERM", () => void shutdown("SIGTERM"));

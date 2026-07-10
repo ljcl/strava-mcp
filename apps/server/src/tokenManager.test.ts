@@ -384,6 +384,131 @@ describe("refreshAccessToken (concurrency + token rotation)", () => {
     expect(written.athlete_id).toBe(4242);
   });
 
+  it("clears tokens and throws TokenRevokedError on Strava's revoked-token 400", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "dead-acc",
+        refresh_token: "dead-ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+      }),
+    );
+
+    // Strava's response to a revoked/deauthorized refresh token.
+    const fetchMock = mockFetchOnceJson(
+      {
+        message: "Bad Request",
+        errors: [
+          {
+            resource: "RefreshToken",
+            field: "refresh_token",
+            code: "invalid",
+          },
+        ],
+      },
+      400,
+    );
+
+    const { refreshAccessToken, TokenRevokedError } =
+      await importTokenManager();
+
+    await expect(refreshAccessToken()).rejects.toThrow(TokenRevokedError);
+    await expect(refreshAccessToken()).rejects.toThrow(/\/auth\/start/);
+
+    // Dead token state is cleared from disk and env, so nothing reloads it.
+    expect(fs.existsSync(tokenFile)).toBe(false);
+    expect(process.env.STRAVA_ACCESS_TOKEN).toBeUndefined();
+    expect(process.env.STRAVA_REFRESH_TOKEN).toBeUndefined();
+
+    // Only the first call reached Strava; the second found no tokens and did
+    // not retry the doomed exchange.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("detects the generic OAuth invalid_grant response as a revocation", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "dead-acc",
+        refresh_token: "dead-ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+      }),
+    );
+
+    mockFetchOnceJson({ error: "invalid_grant" }, 400);
+
+    const { refreshAccessToken, TokenRevokedError } =
+      await importTokenManager();
+
+    await expect(refreshAccessToken()).rejects.toThrow(TokenRevokedError);
+    expect(fs.existsSync(tokenFile)).toBe(false);
+  });
+
+  it("treats transient failures as retryable: tokens are NOT cleared on a 500", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "acc",
+        refresh_token: "ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+      }),
+    );
+
+    mockFetchOnceJson({ message: "Internal Server Error" }, 500);
+
+    const { refreshAccessToken, TokenRevokedError } =
+      await importTokenManager();
+
+    const failure = await refreshAccessToken().catch((e: unknown) => e);
+    expect(failure).toBeInstanceOf(Error);
+    expect(failure).not.toBeInstanceOf(TokenRevokedError);
+    expect((failure as Error).message).toMatch(/HTTP 500/);
+
+    // The refresh token may still be good — keep it for the next attempt.
+    expect(fs.existsSync(tokenFile)).toBe(true);
+    const kept = JSON.parse(fs.readFileSync(tokenFile, "utf-8"));
+    expect(kept.refresh_token).toBe("ref");
+  });
+
+  it("reports unauthenticated via getTokenStatus after a revocation", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "dead-acc",
+        refresh_token: "dead-ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+      }),
+    );
+
+    mockFetchOnceJson({ error: "invalid_grant" }, 400);
+
+    const { refreshAccessToken, getTokenStatus } = await importTokenManager();
+    await refreshAccessToken().catch(() => {});
+
+    const status = await getTokenStatus();
+    expect(status.authenticated).toBe(false);
+    expect(status.auth_url).toBe("/auth/start");
+  });
+
+  it("does not crash ensureValidToken (startup) on a revoked token", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "dead-acc",
+        refresh_token: "dead-ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+      }),
+    );
+
+    mockFetchOnceJson({ error: "invalid_grant" }, 400);
+
+    const { ensureValidToken } = await importTokenManager();
+
+    // The server must still start so /auth/start can be used to re-authorize.
+    await expect(ensureValidToken()).resolves.toBeUndefined();
+    expect(fs.existsSync(tokenFile)).toBe(false);
+  });
+
   it("clears the in-flight lock so a later refresh exchanges again", async () => {
     fs.writeFileSync(
       tokenFile,

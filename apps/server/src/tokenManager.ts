@@ -27,6 +27,54 @@ export interface TokenStatus {
 }
 
 /**
+ * The refresh token has been revoked (the athlete deauthorized the app) or is
+ * otherwise permanently invalid. Retrying the refresh can never succeed; the
+ * only recovery is re-authorization via /auth/start. Stored token state has
+ * already been cleared by the time this is thrown.
+ */
+export class TokenRevokedError extends Error {
+  constructor() {
+    super(
+      "Strava authorization has been revoked or is no longer valid. " +
+        "Stored tokens have been cleared. Re-authorize by visiting /auth/start, then retry.",
+    );
+    this.name = "TokenRevokedError";
+  }
+}
+
+/**
+ * Detects Strava's revoked / invalid-grant response to a refresh_token
+ * exchange, distinct from transient failures (5xx, network). Strava answers a
+ * dead refresh token with HTTP 400 and an errors array naming the
+ * refresh_token field (`{"resource":"RefreshToken","field":"refresh_token",
+ * "code":"invalid"}`); standard OAuth servers use `{"error":"invalid_grant"}`.
+ */
+function isRevokedGrantResponse(status: number, bodyText: string): boolean {
+  if (status !== 400 && status !== 401) {
+    return false;
+  }
+  if (bodyText.includes("invalid_grant")) {
+    return true;
+  }
+  try {
+    const parsed: unknown = JSON.parse(bodyText);
+    const errors = (parsed as { errors?: unknown }).errors;
+    if (Array.isArray(errors)) {
+      return errors.some(
+        (e: unknown) =>
+          typeof e === "object" &&
+          e !== null &&
+          ((e as { field?: unknown }).field === "refresh_token" ||
+            (e as { resource?: unknown }).resource === "RefreshToken"),
+      );
+    }
+  } catch {
+    // Not JSON; fall through
+  }
+  return false;
+}
+
+/**
  * Ensures the data directory exists
  */
 async function ensureDataDir(): Promise<void> {
@@ -113,6 +161,24 @@ export async function saveTokens(tokens: TokenData): Promise<void> {
 }
 
 /**
+ * Clears all stored token state after a confirmed revocation: removes
+ * tokens.json and drops the env fallbacks. Without this, every subsequent
+ * request would reload the dead refresh token and retry a doomed exchange.
+ */
+async function clearTokens(): Promise<void> {
+  try {
+    await fs.rm(tokenFilePath, { force: true });
+  } catch (error) {
+    console.error("[TokenManager] Failed to remove token file:", error);
+  }
+  delete process.env.STRAVA_ACCESS_TOKEN;
+  delete process.env.STRAVA_REFRESH_TOKEN;
+  console.error(
+    "[TokenManager] Cleared stored tokens. Re-authorize at /auth/start.",
+  );
+}
+
+/**
  * Checks if the token is expired or will expire soon
  */
 function isTokenExpired(tokens: TokenData): boolean {
@@ -170,7 +236,15 @@ async function refreshTokens(tokens: TokenData): Promise<TokenData> {
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      const bodyText = await response.text();
+      if (isRevokedGrantResponse(response.status, bodyText)) {
+        console.error(
+          `[TokenManager] Refresh token revoked or invalid (HTTP ${response.status}): ${bodyText}`,
+        );
+        await clearTokens();
+        throw new TokenRevokedError();
+      }
+      throw new Error(`HTTP ${response.status}: ${bodyText}`);
     }
 
     const data = await response.json();
@@ -195,6 +269,9 @@ async function refreshTokens(tokens: TokenData): Promise<TokenData> {
     return newTokens;
   } catch (error) {
     console.error("[TokenManager] Token refresh failed:", error);
+    if (error instanceof TokenRevokedError) {
+      throw error;
+    }
     throw new Error(
       `Failed to refresh token: ${
         error instanceof Error ? error.message : String(error)
@@ -228,7 +305,9 @@ export async function refreshAccessToken(): Promise<TokenData> {
   inFlightRefresh = (async () => {
     const tokens = await loadTokens();
     if (!tokens) {
-      throw new Error("No tokens available to refresh");
+      throw new Error(
+        "No tokens available to refresh. Authenticate at /auth/start first.",
+      );
     }
     return refreshTokens(tokens);
   })();
@@ -261,7 +340,17 @@ export async function ensureValidToken(): Promise<void> {
     console.error(
       "[TokenManager] Token expired or expiring soon, refreshing...",
     );
-    await refreshAccessToken();
+    try {
+      await refreshAccessToken();
+    } catch (error) {
+      if (error instanceof TokenRevokedError) {
+        // Don't crash startup on a revoked token: the server must come up so
+        // /auth/start can be used to re-authorize. Tokens are already cleared.
+        console.error(`[TokenManager] ${error.message}`);
+        return;
+      }
+      throw error;
+    }
   } else {
     const expiresIn = tokens.expires_at - Math.floor(Date.now() / 1000);
     console.error(

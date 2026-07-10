@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
-import { refreshAccessToken } from "./tokenManager";
+import { refreshAccessToken, TokenRevokedError } from "./tokenManager";
 import {
   buildUpdateActivityBody,
   type UpdateActivityParams,
@@ -467,6 +467,14 @@ async function handleApiError<T>(
       console.error(`🔄 Retrying ${context} after token refresh...`);
       return await retryFn();
     } catch (refreshError) {
+      // A revoked refresh token can never recover by retrying — surface the
+      // actionable re-auth instruction instead of the original 401.
+      if (refreshError instanceof TokenRevokedError) {
+        console.error(`❌ ${refreshError.message}`);
+        throw new Error(
+          `Strava authentication failed in ${context}: ${refreshError.message}`,
+        );
+      }
       console.error(
         `❌ Token refresh failed: ${
           refreshError instanceof Error
