@@ -35,6 +35,20 @@
 
 /* ── Map ──────────────────────────────────────── */
 
+/* Screen-reader-only narration of the basemap view (the canvas itself has no
+ * accessible representation). Standard visually-hidden pattern. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  white-space: nowrap;
+  border: 0;
+  clip-path: inset(50%);
+}
+
 /* Positioning context for the scrub tooltip, so it can overhang the map's
  * rounded border instead of being clipped by .mapWrap's overflow: hidden. */
 .mapArea {

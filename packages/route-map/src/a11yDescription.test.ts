@@ -1,0 +1,150 @@
+import { describe, expect, it } from "vitest";
+import { buildRouteMapA11yDescription, extentSpansKm } from "./a11yDescription";
+
+/** ~1.11 km per 0.01° of latitude; longitude scaled at the equator too. */
+const loopTrack: Array<[number, number]> = [
+  [0, 0],
+  [0.01, 0.005],
+  [0.02, 0.01],
+  [0.01, 0.02],
+  [0.0001, 0.0002],
+];
+
+const pointToPointNorthEast: Array<[number, number]> = [
+  [0, 0],
+  [0.02, 0.01],
+  [0.05, 0.05],
+];
+
+describe("extentSpansKm", () => {
+  it("returns null without at least two points", () => {
+    expect(extentSpansKm([])).toBeNull();
+    expect(extentSpansKm([[0, 0]])).toBeNull();
+  });
+
+  it("measures bounding-box spans in km", () => {
+    const spans = extentSpansKm(loopTrack);
+    expect(spans).not.toBeNull();
+    // 0.02° of both at the equator ≈ 2.23 km.
+    expect(spans?.ewKm).toBeCloseTo(2.23, 1);
+    expect(spans?.nsKm).toBeCloseTo(2.23, 1);
+  });
+
+  it("scales east–west span by latitude", () => {
+    const atSixtyNorth: Array<[number, number]> = [
+      [60, 0],
+      [60, 0.02],
+    ];
+    const spans = extentSpansKm(atSixtyNorth);
+    // cos(60°) = 0.5 halves the equatorial span.
+    expect(spans?.ewKm).toBeCloseTo(1.11, 1);
+    expect(spans?.nsKm).toBeCloseTo(0, 5);
+  });
+});
+
+describe("buildRouteMapA11yDescription", () => {
+  it("describes a loop activity with altitude and annotations", () => {
+    const description = buildRouteMapA11yDescription({
+      name: "Morning Run",
+      source: "activity",
+      activityType: "Run",
+      distanceKm: 10.23,
+      elevationGain: 84,
+      coordinates: loopTrack,
+      altitude: [12.2, 48, 147.9, 90, 14],
+      colorMetric: "Heart rate",
+      splitCount: 10,
+      splitKind: "splits",
+      segmentCount: 4,
+      prCount: 1,
+      photoCount: 2,
+    });
+    expect(description).toBe(
+      'Map of Run activity "Morning Run". 10.2 km with 84 m of climbing. ' +
+        "A loop returning to its start, spanning roughly 2.2 km east to west and 2.2 km north to south. " +
+        "Altitude ranges from 12 m to 148 m. " +
+        "The track is coloured by heart rate. " +
+        "Marked along the route: 10 kilometre splits, 4 segment efforts including a personal record, 2 photos.",
+    );
+  });
+
+  it("describes a point-to-point route with its compass direction", () => {
+    const description = buildRouteMapA11yDescription({
+      name: "Commute",
+      source: "route",
+      activityType: "Ride",
+      distanceKm: 8,
+      elevationGain: 0,
+      coordinates: pointToPointNorthEast,
+    });
+    expect(description).toContain('Map of Ride route "Commute".');
+    expect(description).toContain("8.0 km.");
+    expect(description).not.toContain("climbing");
+    expect(description).toContain("Point-to-point heading north-east");
+  });
+
+  it("pluralises lap markers and personal records", () => {
+    const description = buildRouteMapA11yDescription({
+      name: "Track Session",
+      source: "activity",
+      activityType: "Run",
+      distanceKm: 5,
+      elevationGain: 2,
+      coordinates: loopTrack,
+      splitCount: 5,
+      splitKind: "laps",
+      segmentCount: 1,
+      prCount: 2,
+      photoCount: 1,
+    });
+    expect(description).toContain(
+      "Marked along the route: 5 lap markers, 1 segment effort including 2 personal records, 1 photo.",
+    );
+  });
+
+  it("omits shape, altitude, metric, and annotation sentences when absent", () => {
+    const description = buildRouteMapA11yDescription({
+      name: "Bare Route",
+      source: "route",
+      activityType: null,
+      distanceKm: 3.4,
+      elevationGain: 12,
+      coordinates: loopTrack,
+    });
+    expect(description).toBe(
+      'Map of route "Bare Route". 3.4 km with 12 m of climbing. ' +
+        "A loop returning to its start, spanning roughly 2.2 km east to west and 2.2 km north to south.",
+    );
+  });
+
+  it("reports a missing GPS track", () => {
+    const description = buildRouteMapA11yDescription({
+      name: "Treadmill Run",
+      source: "activity",
+      activityType: "Run",
+      distanceKm: 5,
+      elevationGain: 0,
+      coordinates: [],
+    });
+    expect(description).toBe(
+      'Map of Run activity "Treadmill Run". No GPS track is available.',
+    );
+  });
+
+  it("uses metres for sub-kilometre spans", () => {
+    const description = buildRouteMapA11yDescription({
+      name: "Parkrun Lap",
+      source: "activity",
+      activityType: "Run",
+      distanceKm: 0.9,
+      elevationGain: 0,
+      coordinates: [
+        [0, 0],
+        [0.003, 0.003],
+        [0.0001, 0],
+      ],
+    });
+    expect(description).toContain("330 m east to west");
+    expect(description).toContain("330 m north to south");
+  });
+});
