@@ -59,6 +59,18 @@ docker compose up -d
 > Point your `docker-compose.yml` `image:` at `ghcr.io/ljcl/strava-mcp:latest` (and drop the
 > `build:` block) to run it without a local build.
 
+> **Note on the `./data` bind mount:** the image is distroless and runs as the non-root user
+> **UID 65534**. Tokens are persisted to the host-mounted `./data` directory, so it must be
+> writable by that UID or token persistence fails on first run:
+>
+> ```bash
+> mkdir -p data
+> sudo chown -R 65534:65534 data
+> ```
+>
+> Alternatively, swap the bind mount for a named volume in `docker-compose.yml`
+> (e.g. `strava-data:/app/data`), which Docker initializes with the correct ownership.
+
 ### 4. Authorize with Strava
 
 Visit `https://your-public-url/auth/start` in your browser. After authorizing, tokens are saved automatically.
@@ -81,6 +93,8 @@ Add to your Claude configuration (`~/Library/Application Support/Claude/claude_d
 ```
 
 Restart Claude Desktop to load the new configuration.
+
+Using a different MCP client? See [Client configuration](#client-configuration) for Claude Code, Cursor, and VS Code.
 
 ## Connecting to AI Tools
 
@@ -115,6 +129,57 @@ Strava MCP Server (Docker / Bun)
 Strava API
 ```
 
+### Client configuration
+
+The server works with any MCP client that supports the Streamable HTTP transport. In every
+snippet below, replace `https://your-public-url` with your tunnel URL (or `http://localhost:3000`
+for local development).
+
+#### Claude Code
+
+```bash
+claude mcp add --transport http strava https://your-public-url/mcp
+```
+
+#### Cursor
+
+Add to `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` for all projects):
+
+```json
+{
+  "mcpServers": {
+    "strava": {
+      "url": "https://your-public-url/mcp"
+    }
+  }
+}
+```
+
+#### VS Code
+
+Add to `.vscode/mcp.json` in your workspace (or run **MCP: Add Server** from the command palette):
+
+```json
+{
+  "servers": {
+    "strava": {
+      "type": "http",
+      "url": "https://your-public-url/mcp"
+    }
+  }
+}
+```
+
+#### Other clients (generic Streamable HTTP)
+
+Any client that speaks [Streamable HTTP](https://modelcontextprotocol.io/docs/concepts/transports)
+can connect to the `/mcp` endpoint directly:
+
+- POST JSON-RPC messages to `https://your-public-url/mcp` with an
+  `Accept: application/json, text/event-stream` header.
+- The `initialize` response includes an `Mcp-Session-Id` header; echo it on every
+  subsequent request in the same session.
+
 ## Using alongside the official Strava MCP
 
 Strava's official MCP connector handles activity discovery and basic reads. This server supplements it with everything the official connector does not offer: writing to activities, segments, routes and GPX/TCX export, photos, derived analysis, and interactive visualizations.
@@ -134,7 +199,7 @@ Strava's official MCP connector handles activity discovery and basic reads. This
 | Routes plus GPX/TCX export | no | yes |
 | Activity photos | no | yes |
 | Athlete stats, per-activity zones, best efforts, running summary, training load, compare | no | yes |
-| Interactive chart / cadence / route-map apps | no | yes |
+| Interactive chart / cadence / route-map / activity-segments apps | no | yes |
 
 ### Caveats
 
@@ -243,6 +308,7 @@ Ask your AI assistant questions like these (use the official Strava MCP to disco
 - "What are my best 5K and mile efforts?"
 - "Show me the cadence trends for my last 10 runs"
 - "View the route map for my last ride"
+- "Show me the segments from this morning's run"
 
 **Stats:**
 - "What are my running stats for this year on Strava?"
@@ -308,20 +374,23 @@ The server exposes the following MCP tools:
 | `get-cadence-trend-data` | Summary cadence/pace data for the cadence trends UI (app-only) |
 | `view-route-map` | Interactive map of an activity or route GPS track, fit to bounds with start/finish markers (MCP App) |
 | `get-route-map-data` | Decoded `[lat, lng]` coordinates for the route map UI (app-only) |
+| `view-activity-segments` | Prioritised, scrollable list of one activity's segment efforts: PRs/top-10 pinned, then run order, pace-heat with expandable effort detail (MCP App) |
+| `get-activity-segments-data` | Segment-effort rows (time, pace, grade, ranks, HR/power/cadence) for the activity-segments UI (app-only) |
 
 ## Project Structure
 
 ```
-apps/server/               MCP server (tools, auth, token management)
-apps/storybook/            Storybook for UI development
-packages/activity-chart/   Interactive activity chart (MCP App)
-packages/cadence-trends/   Cadence trend analysis (MCP App)
-packages/route-map/        Activity/route GPS map (MCP App)
-packages/data/             Shared pure data utilities
-packages/ui/               Shared presentational React components
-packages/design-system/    Design tokens, color constants, Storybook preview
-packages/vite-config/      Shared Vite config for MCP App builds
-packages/tsconfig/         Shared TypeScript configurations
+apps/server/                 MCP server (tools, auth, token management)
+apps/storybook/              Storybook for UI development
+packages/activity-chart/     Interactive activity chart (MCP App)
+packages/cadence-trends/     Cadence trend analysis (MCP App)
+packages/route-map/          Activity/route GPS map (MCP App)
+packages/activity-segments/  Activity segment-effort list (MCP App)
+packages/data/               Shared pure data utilities
+packages/ui/                 Shared presentational React components
+packages/design-system/      Design tokens, color constants, Storybook preview
+packages/vite-config/        Shared Vite config for MCP App builds
+packages/tsconfig/           Shared TypeScript configurations
 ```
 
 ## Development
@@ -373,6 +442,8 @@ release is cut.
 **OAuth callback fails** — Ensure `PUBLIC_URL` in your `.env` matches the tunnel URL exactly, and that the same hostname is set as the "Authorization Callback Domain" in your [Strava API settings](https://www.strava.com/settings/api).
 
 **Token errors or expired tokens** — Visit `/auth/start` on your server to re-authorize. Tokens are refreshed automatically, but a full re-auth may be needed if the refresh token has been revoked.
+
+**Tokens don't survive a container restart (Docker)** — The container runs as non-root UID 65534, so the `./data` bind mount must be writable by that UID (`sudo chown -R 65534:65534 data`) or use a named volume instead. See [Quick Start step 3](#3-start-the-server).
 
 ## License
 
