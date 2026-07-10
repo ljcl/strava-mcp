@@ -25,8 +25,8 @@
     "build-storybook": "turbo run build:storybook --filter=@strava-mcp/storybook"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.0",
-    "knip": "6.17.2",
-    "turbo": "2.9.18"
+    "@biomejs/biome": "2.5.3",
+    "knip": "6.26.0",
+    "turbo": "2.10.4"
   }
 }
