@@ -414,6 +414,34 @@ Improvements and changes are tracked as GitHub Issues and triaged on the
   notes, and premises in open issues, and a sweep fixes that drift while it is
   still cheap.
 
+### Editing the project board
+
+Board fields (Status, Priority, Effort) are writable by agents. Two paths,
+by session type:
+
+- **Local sessions**: `gh project` commands; the authenticated gh token has
+  `project` scope. Example:
+  `gh project item-edit --project-id PVT_kwHOABzAhM4BZ7u2 --id <item-id> --field-id <field-id> --single-select-option-id <option-id>`.
+  Discover item/field/option ids with `gh project item-list 1 --owner ljcl --format json`
+  and `gh project field-list 1 --owner ljcl --format json`.
+- **Cloud and iOS sessions** (no gh, no project scope on the built-in GitHub
+  credential): use the `github-projects` MCP server from `.mcp.json` (hosted
+  GitHub MCP, projects + issues toolsets, auth via the `GH_MCP_PAT` environment
+  variable configured in the cloud environment). `projects_list` /
+  `projects_get` / `projects_write` cover items and fields; `issue_write` /
+  `search_issues` cover issue filing and edits.
+
+Hosted-build caveats for the MCP tools (as of 2026-07): pass numeric field ids
+via `fields` (the `field_names` parameter is not deployed yet), and
+`projects_write.update_project_item` needs the numeric `item_id` plus the
+option id (not the option name) as the value for single-select fields. Field
+and option ids are discoverable at runtime via `list_project_fields`. Constants
+for this board: project number 1, owner `ljcl`; field ids: Status 355919451,
+Priority 355919475, Effort 355919489; Status options: Backlog f75ad846, Ready
+a057814c, In progress 47fc9ee4, In review 2ba31d84, Done 98236657; Priority
+options: P1 fc38b480, P2 d2ef2472, P3 5197fbf4; Effort options: S ed6278ac,
+M c5c30106, L 7270adf2.
+
 ## Releases
 
 Releases are automated by release-please (`.github/workflows/release-please.yml`).
