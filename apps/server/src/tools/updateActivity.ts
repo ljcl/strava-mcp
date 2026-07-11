@@ -8,13 +8,10 @@ import {
   type UpdateActivityParams,
 } from "../utils/activityWrite";
 import { WRITE_DESTRUCTIVE } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 
 const UpdateActivityInputSchema = z.object({
-  activityId: z
-    .number()
-    .int()
-    .positive()
-    .describe("The unique identifier of the activity to update."),
+  activityId: stravaIdInput("The unique identifier of the activity to update."),
   name: z.string().optional().describe("New activity title."),
   description: z
     .string()

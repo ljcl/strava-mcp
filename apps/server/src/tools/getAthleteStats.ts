@@ -5,20 +5,16 @@ import {
   type StravaStats,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 import { AthleteStatsOutputSchema, buildAthleteStatsOutput } from "./outputs";
 
 // formatDuration is now local or in utils, not imported from server.ts
 
 // Input schema: athleteId is optional and defaults to the authenticated athlete.
 const GetAthleteStatsInputSchema = z.object({
-  athleteId: z
-    .number()
-    .int()
-    .positive()
-    .optional()
-    .describe(
-      "Optional. The unique identifier of the athlete to fetch stats for. Defaults to the authenticated athlete when omitted (Strava only returns meaningful totals for the authenticated athlete).",
-    ),
+  athleteId: stravaIdInput(
+    "Optional. The unique identifier of the athlete to fetch stats for. Defaults to the authenticated athlete when omitted (Strava only returns meaningful totals for the authenticated athlete).",
+  ).optional(),
 });
 
 // Define type alias for input
@@ -196,7 +192,9 @@ export const getAthleteStatsTool = {
           "No athleteId provided; resolving authenticated athlete...",
         );
         const athlete = await getAuthenticatedAthlete(token);
-        resolvedAthleteId = Number(athlete.id);
+        // Athlete ids are normalised to strings by the client schemas; pass
+        // through untouched so oversized ids stay exact.
+        resolvedAthleteId = athlete.id;
       }
 
       console.error(`Fetching stats for athlete ${resolvedAthleteId}...`);

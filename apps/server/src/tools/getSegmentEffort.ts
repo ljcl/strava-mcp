@@ -5,13 +5,12 @@ import {
   type StravaDetailedSegmentEffort,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 
 const GetSegmentEffortInputSchema = z.object({
-  effortId: z
-    .number()
-    .int()
-    .positive()
-    .describe("The unique identifier of the segment effort to fetch."),
+  effortId: stravaIdInput(
+    "The unique identifier of the segment effort to fetch.",
+  ),
 });
 
 type GetSegmentEffortInput = z.infer<typeof GetSegmentEffortInputSchema>;

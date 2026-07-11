@@ -6,14 +6,11 @@ import {
   type StravaDetailedSegmentEffort, // Type needed for formatter
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 
 // Zod schema for input validation
 const ListSegmentEffortsInputSchema = z.object({
-  segmentId: z
-    .number()
-    .int()
-    .positive()
-    .describe("The ID of the segment for which to list efforts."),
+  segmentId: stravaIdInput("The ID of the segment for which to list efforts."),
   startDateLocal: z
     .string()
     .datetime({ error: "Invalid start date format. Use ISO 8601." })

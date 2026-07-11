@@ -7,6 +7,7 @@ import {
   transformCadence,
 } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 import { CompareActivitiesOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "compare-activities";
@@ -37,16 +38,8 @@ Notes:
 `;
 
 const inputSchema = z.object({
-  activityId1: z
-    .number()
-    .int()
-    .positive()
-    .describe("First activity ID (baseline/older activity)"),
-  activityId2: z
-    .number()
-    .int()
-    .positive()
-    .describe("Second activity ID (comparison/newer activity)"),
+  activityId1: stravaIdInput("First activity ID (baseline/older activity)"),
+  activityId2: stravaIdInput("Second activity ID (comparison/newer activity)"),
 });
 
 type CompareActivitiesInput = z.infer<typeof inputSchema>;
