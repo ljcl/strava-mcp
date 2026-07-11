@@ -7,6 +7,13 @@
     "storybook-chromatic": {
       "type": "http",
       "url": "https://main--6a261929a3cb4ac107f3c06d.chromatic.com/mcp"
+    },
+    "github-projects": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/x/projects",
+      "headers": {
+        "Authorization": "Bearer ${GH_MCP_PAT}"
+      }
     }
   }
 }
