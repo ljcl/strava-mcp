@@ -5,6 +5,8 @@ on:
     branches: [main]
   push:
     branches: [main]
+  schedule:
+    - cron: "23 15 * * 1" # weekly audit run, surfaces new advisories between PRs
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,9 +17,11 @@ permissions:
 
 jobs:
   check:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           fetch-depth: 0
 
@@ -34,3 +38,25 @@ jobs:
         run: |
           bun run turbo run lint test typecheck build knip
           bun run turbo boundaries
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - uses: ./.github/actions/setup
+
+      - name: Audit dependencies (high severity and above)
+        # Advisory on PRs and main pushes: most findings are transitive deps
+        # with no local update path, so a hard gate would block unrelated work.
+        # The weekly scheduled run DOES fail on findings, so new advisories
+        # still surface between PRs (mirrors codeql.yml's cron pattern).
+        continue-on-error: ${{ github.event_name != 'schedule' }}
+        run: |
+          set +e
+          bun audit --audit-level=high > audit.txt 2>&1
+          status=$?
+          cat audit.txt
+          { echo '```'; cat audit.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit $status
