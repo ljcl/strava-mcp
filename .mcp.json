@@ -10,9 +10,10 @@
     },
     "github-projects": {
       "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/x/projects",
+      "url": "https://api.githubcopilot.com/mcp/",
       "headers": {
-        "Authorization": "Bearer ${GH_MCP_PAT}"
+        "Authorization": "Bearer ${GH_MCP_PAT}",
+        "X-MCP-Toolsets": "projects,issues"
       }
     }
   }
