@@ -6,14 +6,11 @@ import {
   type StravaDetailedSegment, // Type needed for formatter
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 
 // Input schema
 const GetSegmentInputSchema = z.object({
-  segmentId: z
-    .number()
-    .int()
-    .positive()
-    .describe("The unique identifier of the segment to fetch."),
+  segmentId: stravaIdInput("The unique identifier of the segment to fetch."),
 });
 type GetSegmentInput = z.infer<typeof GetSegmentInputSchema>;
 

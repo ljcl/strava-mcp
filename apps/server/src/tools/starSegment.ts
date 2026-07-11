@@ -1,13 +1,12 @@
 import { z } from "zod";
 import { starSegment as updateStarStatus } from "../stravaClient"; // Renamed import
 import { WRITE_IDEMPOTENT } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 
 const StarSegmentInputSchema = z.object({
-  segmentId: z
-    .number()
-    .int()
-    .positive()
-    .describe("The unique identifier of the segment to star or unstar."),
+  segmentId: stravaIdInput(
+    "The unique identifier of the segment to star or unstar.",
+  ),
   starred: z
     .boolean()
     .describe("Set to true to star the segment, false to unstar it."),

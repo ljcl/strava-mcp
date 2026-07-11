@@ -15,6 +15,7 @@ import {
   type ZoneBoundary,
 } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 import { RunningSummaryOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-running-summary";
@@ -44,11 +45,9 @@ Notes:
 `;
 
 const inputSchema = z.object({
-  activityId: z
-    .number()
-    .int()
-    .positive()
-    .describe("The unique identifier of the running activity to analyze."),
+  activityId: stravaIdInput(
+    "The unique identifier of the running activity to analyze.",
+  ),
 });
 
 type GetRunningSummaryInput = z.infer<typeof inputSchema>;
@@ -63,7 +62,7 @@ type StreamData = {
 
 async function fetchStreams(
   token: string,
-  activityId: number,
+  activityId: number | string,
 ): Promise<StreamData> {
   const streamTypes = ["time", "heartrate", "cadence", "velocity_smooth"];
 

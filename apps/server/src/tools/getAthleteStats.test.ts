@@ -73,7 +73,9 @@ describe("getAthleteStatsTool.execute", () => {
 
     expect(result.isError).toBeUndefined();
     expect(mockedAthlete).toHaveBeenCalledWith("test-token");
-    expect(mockedStats).toHaveBeenCalledWith("test-token", 7777);
+    // The client normalises athlete ids to strings; the tool passes the id
+    // through untouched so oversized ids stay exact.
+    expect(mockedStats).toHaveBeenCalledWith("test-token", "7777");
     expect(result.content[0]?.text).toContain("Your Strava Stats");
   });
 

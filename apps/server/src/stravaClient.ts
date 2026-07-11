@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { z } from "zod";
 import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
 import { refreshAccessToken, TokenRevokedError } from "./tokenManager";
@@ -439,6 +440,13 @@ export {
 // concurrency-safe refresh path (one in-flight exchange shared across callers)
 // and atomic persistence of tokens.json. handleApiError delegates to it on 401.
 
+// Every retryFn recursively re-enters the public client function, whose own
+// catch would otherwise refresh-and-retry again on another 401 — a
+// scope-stripped token that still refreshes successfully would loop forever.
+// The retried invocation runs inside this context, so nested handleApiError
+// calls see it and skip the refresh path: at most one recovery per call.
+const authRetryContext = new AsyncLocalStorage<true>();
+
 /**
  * Helper function to handle API errors with token refresh capability
  * @param error - The caught error
@@ -456,16 +464,14 @@ async function handleApiError<T>(
   const status = isHttpError ? error.response.status : undefined;
 
   // Check if it's an authentication error (401) that might be fixed by refreshing the token
-  if (status === 401 && retryFn) {
+  if (status === 401 && retryFn && !authRetryContext.getStore()) {
+    let refreshed = false;
     try {
       console.error(
         `🔑 Authentication error in ${context}. Attempting to refresh token...`,
       );
       await refreshAccessToken();
-
-      // Return the result of the retry function if it succeeds
-      console.error(`🔄 Retrying ${context} after token refresh...`);
-      return await retryFn();
+      refreshed = true;
     } catch (refreshError) {
       // A revoked refresh token can never recover by retrying — surface the
       // actionable re-auth instruction instead of the original 401.
@@ -483,6 +489,10 @@ async function handleApiError<T>(
         }`,
       );
       // Fall through to normal error handling if refresh fails
+    }
+    if (refreshed) {
+      console.error(`🔄 Retrying ${context} after token refresh...`);
+      return await authRetryContext.run(true, retryFn);
     }
   }
 
@@ -753,7 +763,7 @@ export async function getAuthenticatedAthlete(
  */
 export async function getAthleteStats(
   accessToken: string,
-  athleteId: number,
+  athleteId: number | string,
 ): Promise<StravaStats> {
   if (!accessToken) {
     throw new Error("Strava access token is required.");
@@ -952,7 +962,7 @@ export async function listStarredSegments(
  */
 export async function getSegmentById(
   accessToken: string,
-  segmentId: number,
+  segmentId: number | string,
 ): Promise<StravaDetailedSegment> {
   if (!accessToken) {
     throw new Error("Strava access token is required.");
@@ -1053,7 +1063,7 @@ export async function exploreSegments(
       async () => {
         // Use new token from environment after refresh
         const newToken = process.env.STRAVA_ACCESS_TOKEN!;
-        return exploreSegments(newToken, bounds, activityType);
+        return exploreSegments(newToken, bounds, activityType, minCat, maxCat);
       },
     );
   }
@@ -1070,7 +1080,7 @@ export async function exploreSegments(
  */
 export async function starSegment(
   accessToken: string,
-  segmentId: number,
+  segmentId: number | string,
   starred: boolean,
 ): Promise<StravaDetailedSegment> {
   if (!accessToken) {
@@ -1131,7 +1141,7 @@ export async function starSegment(
  */
 export async function getSegmentEffort(
   accessToken: string,
-  effortId: number,
+  effortId: number | string,
 ): Promise<StravaDetailedSegmentEffort> {
   if (!accessToken) {
     throw new Error("Strava access token is required.");
@@ -1188,7 +1198,7 @@ export async function getSegmentEffort(
  */
 export async function listSegmentEfforts(
   accessToken: string,
-  segmentId: number,
+  segmentId: number | string,
   params: SegmentEffortsParams = {},
 ): Promise<StravaDetailedSegmentEffort[]> {
   if (!accessToken) {
@@ -1765,7 +1775,7 @@ export async function getActivityPhotos(
  */
 export async function updateActivity(
   accessToken: string,
-  activityId: number,
+  activityId: number | string,
   updates: UpdateActivityParams,
 ): Promise<StravaDetailedActivity> {
   if (!accessToken) {

@@ -106,7 +106,7 @@ const PaceSchema = z.object({
 });
 export const RunningSummaryOutputSchema = z.object({
   activity_id: z
-    .number()
+    .union([z.number(), z.string()])
     .describe("The requested Strava activity id (as supplied to the tool)"),
   name: z.string(),
   date: z.string(),
