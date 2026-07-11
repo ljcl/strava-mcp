@@ -36,6 +36,11 @@ RUN mkdir -p /app/data && chown -R 65534:65534 /app
 # 4) Distroless runner: COPY only. nonroot (65534), no shell, ENTRYPOINT is bun.
 FROM oven/bun:1.3.6-distroless AS runner
 WORKDIR /app
+
+# MCP registry ownership proof: publish-mcp.yml publishes server.json as an OCI
+# package, and the registry pulls the image to check this label matches the
+# server name. Must stay in sync with `name` in server.json.
+LABEL io.modelcontextprotocol.server.name="io.github.ljcl/strava-mcp"
 COPY --from=prod-deps --chown=65534:65534 /app ./
 COPY --from=builder  --chown=65534:65534 /app/apps/server/src ./apps/server/src
 COPY --from=builder  --chown=65534:65534 /app/apps/server/scripts ./apps/server/scripts

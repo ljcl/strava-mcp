@@ -455,8 +455,15 @@ Releases are automated by release-please (`.github/workflows/release-please.yml`
   `feat!:` or a `BREAKING CHANGE:` footer a major bump. `chore:`, `docs:`, `refactor:`,
   and `ci:` are valid titles but produce no release.
 - release-please opens a `chore: release X.Y.Z` PR that bumps root `package.json`,
-  both `server.json` version fields, and `CHANGELOG.md`.
+  the top-level `server.json` version, and `CHANGELOG.md`. (The OCI package tag inside
+  `server.json` is NOT templated — `publish-mcp.yml` stamps it from the git tag at
+  publish time, since release-please's json updater cannot rewrite part of a string.)
 - Merging that PR pushes the `vX.Y.Z` tag (via the `RELEASE_PLEASE_PAT` secret), which
-  triggers `docker.yml` to publish `ghcr.io/ljcl/strava-mcp:X.Y.Z` and `:X.Y`.
-- Manual `git tag vX.Y.Z` still works as a fallback; `docker.yml` triggers on `v*` tags
-  regardless of how they are created.
+  triggers `docker.yml` to publish `ghcr.io/ljcl/strava-mcp:X.Y.Z` and `:X.Y`, and
+  `publish-mcp.yml` to publish `server.json` to the MCP registry via GitHub OIDC.
+  The registry proves image ownership by pulling the GHCR image and checking its
+  `io.modelcontextprotocol.server.name` label (set in `apps/server/Dockerfile`, must
+  match `name` in `server.json`); `publish-mcp.yml` therefore polls GHCR until
+  `docker.yml`'s manifest exists before publishing.
+- Manual `git tag vX.Y.Z` still works as a fallback; both `docker.yml` and
+  `publish-mcp.yml` trigger on `v*` tags regardless of how they are created.

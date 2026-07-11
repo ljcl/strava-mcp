@@ -18,8 +18,46 @@ permissions:
   contents: read
 
 jobs:
+  # Decides whether a PR actually touches anything the image consumes. The
+  # build legs are skipped (not path-filtered at the workflow level) so that a
+  # required Docker status still reports on docs-only PRs — skipped jobs count
+  # as passing for required checks, whereas a path-filtered workflow never
+  # reports and would block auto-merge. Tag and main pushes bypass the filter
+  # entirely, so releases always build.
+  changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists the PR's changed files via the API
+    outputs:
+      image: ${{ steps.filter.outputs.image }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - id: filter
+        uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        with:
+          # Everything `turbo prune @strava-mcp/server --docker` can pull into
+          # the build context, plus the Docker plumbing itself.
+          filters: |
+            image:
+              - "apps/server/**"
+              - "packages/**"
+              - "package.json"
+              - "bun.lock"
+              - "turbo.json"
+              - ".dockerignore"
+              - ".github/workflows/docker.yml"
+
   build:
+    needs: [changes]
+    # Non-PR events skip `changes`, so !cancelled() is needed for this
+    # expression to be evaluated at all in that case.
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.image == 'true') }}
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -32,7 +70,7 @@ jobs:
           - platform: linux/arm64
             runner: ubuntu-24.04-arm
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Prepare platform pair
         id: prep
@@ -77,7 +115,7 @@ jobs:
 
       - name: Upload digest
         if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: digests-${{ steps.prep.outputs.pair }}
           path: ${{ runner.temp }}/digests/*
@@ -89,6 +127,7 @@ jobs:
   # continue-on-error/if:always() to build, or a single-arch manifest could ship.
   merge:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: [build]
     if: github.event_name != 'pull_request'
     permissions:
@@ -96,7 +135,7 @@ jobs:
       packages: write
     steps:
       - name: Download digests
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: ${{ runner.temp }}/digests
           pattern: digests-*
