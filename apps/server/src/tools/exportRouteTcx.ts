@@ -1,12 +1,15 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
 import { z } from "zod";
 import { exportRouteTcx as fetchTcxData } from "../stravaClient";
 import { WRITE_IDEMPOTENT } from "./_annotations";
+import { resolveContainedPath } from "./exportPath";
 
 // Define the input schema for the tool
 const ExportRouteTcxInputSchema = z.object({
-  routeId: z.string().describe("The ID of the Strava route to export."),
+  routeId: z
+    .string()
+    .regex(/^\d+$/, "Route ID must contain only digits")
+    .describe("The ID of the Strava route to export."),
 });
 
 // Infer the input type from the schema
@@ -20,6 +23,21 @@ export const exportRouteTcx = {
   inputSchema: ExportRouteTcxInputSchema,
   annotations: WRITE_IDEMPOTENT,
   execute: async ({ routeId }: ExportRouteTcxInput) => {
+    // Dispatch does not enforce the zod schema yet (#107), and the id is
+    // interpolated into both the API URL and the output filename — reject
+    // anything non-numeric before any fetch or write.
+    if (!/^\d+$/.test(routeId)) {
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: `❌ Error: Invalid route ID "${routeId}". Route ID must contain only digits.`,
+          },
+        ],
+        isError: true,
+      };
+    }
+
     const token = process.env.STRAVA_ACCESS_TOKEN;
     if (!token) {
       // Strict return structure
@@ -73,9 +91,21 @@ export const exportRouteTcx = {
         fs.accessSync(exportDir, fs.constants.W_OK);
       }
 
-      const tcxData = await fetchTcxData(token, routeId);
       const filename = `route-${routeId}.tcx`;
-      const fullPath = path.join(exportDir, filename);
+      const fullPath = resolveContainedPath(exportDir, filename);
+      if (!fullPath) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `❌ Error: Refusing to write outside ROUTE_EXPORT_PATH (${exportDir}).`,
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const tcxData = await fetchTcxData(token, routeId);
       fs.writeFileSync(fullPath, tcxData);
 
       // Strict return structure
