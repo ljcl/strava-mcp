@@ -49,17 +49,20 @@ export function rollingAverage(
   });
 }
 
-/** Compute summary stats: current period avg, previous period avg, delta */
+/**
+ * Compute summary stats: current period avg, previous period avg, delta.
+ * `now` is injectable so tests are deterministic (#119).
+ */
 export function computeSummaryStats(
   activities: RunSummary[],
   weeks: number,
+  now = Date.now(),
 ): {
   currentAvg: number;
   previousAvg: number;
   delta: number;
   runCount: number;
 } {
-  const now = Date.now();
   const halfWindow = (weeks / 2) * 7 * 24 * 60 * 60 * 1000;
 
   const recent = activities.filter(
