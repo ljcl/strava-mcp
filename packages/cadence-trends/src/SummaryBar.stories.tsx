@@ -1,5 +1,5 @@
 import preview from "@strava-mcp/design-system/preview";
-import { MobileCardShell } from "./_storyHelpers";
+import { MobileCardShell } from "@strava-mcp/ui";
 import { SummaryBar } from "./SummaryBar";
 
 const meta = preview.meta({ component: SummaryBar });

@@ -1,10 +1,10 @@
 import preview from "@strava-mcp/design-system/preview";
+import { MobileCardShell } from "@strava-mcp/ui";
 import {
   defaultActivity,
   noHighlights,
   noSegments,
 } from "./__fixtures__/segments";
-import { MobileCardShell } from "./_storyHelpers";
 import { ActivitySegments } from "./ActivitySegments";
 
 const meta = preview.meta({ component: ActivitySegments });

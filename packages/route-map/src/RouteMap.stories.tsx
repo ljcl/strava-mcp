@@ -1,4 +1,5 @@
 import preview from "@strava-mcp/design-system/preview";
+import { MobileCardShell } from "@strava-mcp/ui";
 import {
   annotatedActivity,
   loopActivity,
@@ -6,7 +7,6 @@ import {
   pointToPointRoute,
   streamLoopActivity,
 } from "./__fixtures__/routes";
-import { MobileCardShell } from "./_storyHelpers";
 import { RouteMap } from "./RouteMap";
 
 const meta = preview.meta({ component: RouteMap });

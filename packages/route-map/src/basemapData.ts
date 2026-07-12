@@ -6,14 +6,15 @@
  * MapLibre paints onto canvas and cannot resolve CSS custom properties.
  */
 
+import { TIER_COLORS } from "@strava-mcp/design-system";
 import { type PhotoMarker, type SplitMarker } from "./annotations";
 import { type ColorRun } from "./metrics";
 import { type RouteAnnotations } from "./types";
 
 /** Mirrors the grid view's halo colors (gold = PR, light purple = top-10). */
 export const BASEMAP_COLORS = {
-  segmentPr: "#f59e0b",
-  segmentTop10: "#a78bfa",
+  segmentPr: TIER_COLORS.pr,
+  segmentTop10: TIER_COLORS.top10,
   segment: "#8b5cf6",
   split: "#3266ad",
   photo: "#f97316",

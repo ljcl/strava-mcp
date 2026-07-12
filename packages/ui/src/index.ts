@@ -7,6 +7,7 @@ export {
   useHostRoot,
 } from "./AppShell";
 export { Legend, LegendItem } from "./Legend";
+export { MobileCardShell } from "./MobileCardShell";
 export { Pill, PillGroup } from "./Pill";
 export { Skeleton } from "./Skeleton";
 export { Tooltip, TooltipEntry } from "./Tooltip";

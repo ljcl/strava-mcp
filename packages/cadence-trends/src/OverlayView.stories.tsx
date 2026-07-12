@@ -1,6 +1,6 @@
 import preview from "@strava-mcp/design-system/preview";
+import { MobileCardShell } from "@strava-mcp/ui";
 import { mockStreamCache } from "./__fixtures__/overlay-streams";
-import { MobileCardShell } from "./_storyHelpers";
 import { OverlayView } from "./OverlayView";
 
 const noop = () => {};

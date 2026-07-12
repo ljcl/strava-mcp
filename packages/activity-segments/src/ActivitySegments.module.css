@@ -177,14 +177,14 @@
   border-radius: var(--border-radius-full);
 }
 
-/* Achievement tiers use fixed gold/purple (not theme vars) so they read
- * identically against the heat-coloured dots, matching the route-map. */
+/* Achievement tiers come from the shared theme-invariant design-system
+ * tokens, matching the route-map halos. */
 .badge[data-tier="pr"] {
-  background: #f59e0b;
+  background: var(--color-tier-pr);
 }
 
 .badge[data-tier="top10"] {
-  background: #a78bfa;
+  background: var(--color-tier-top10);
 }
 
 .chevron {

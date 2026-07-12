@@ -1,6 +1,6 @@
 import preview from "@strava-mcp/design-system/preview";
-import { type ReactNode } from "react";
 import { Legend, LegendItem } from "./Legend";
+import { MobileCardShell } from "./MobileCardShell";
 
 const meta = preview.meta({ component: Legend });
 
@@ -36,22 +36,6 @@ export const Touch = meta.story({
     </Legend>
   ),
 });
-
-function MobileCardShell({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        margin: 3,
-        background: "var(--color-background-primary)",
-        border: "1px solid var(--color-border-tertiary)",
-        borderRadius: "var(--border-radius-lg)",
-        padding: "16px 14px",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 export const Mobile = meta.story({
   render: () => (
