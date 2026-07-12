@@ -1,6 +1,6 @@
 import { formatPace } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   CartesianGrid,
   Cell,
@@ -48,7 +48,10 @@ export function ScatterView({
     [runs],
   );
 
-  const now = Date.now();
+  // Captured once per mount: "now" only anchors the recency opacity ramp,
+  // and a fresh Date.now() each render invalidated the chartData memo on
+  // every render (#133).
+  const [now] = useState(() => Date.now());
   const oldestTs = useMemo(
     () => Math.min(...runs.map((a) => new Date(a.date).getTime()), now),
     [runs, now],
