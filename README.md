@@ -12,7 +12,7 @@ A Model Context Protocol (MCP) server that supplements the official Strava MCP c
 - Explore, view, star, and manage segments
 - Fetch per-activity photos, zone breakdowns, and running summaries
 - List and view details of saved routes
-- Export routes in GPX or TCX format
+- Export routes (GPX/TCX) and activity tracks (GPX built from streams)
 - AI-friendly JSON responses via MCP
 - Interactive activity charts (heart rate, power, altitude, pace) rendered in MCP-compatible hosts
 - Automatic token refresh
@@ -228,6 +228,7 @@ Strava's official MCP connector handles activity discovery and basic reads. This
 | Update activities, star segments | no | yes |
 | Segment detail / search / efforts | no | yes |
 | Routes plus GPX/TCX export | no | yes |
+| Activity GPX export (synthesized from streams) | no | yes |
 | Activity photos | no | yes |
 | Athlete stats, per-activity zones, best efforts, running summary, training load, compare | no | yes |
 | Interactive chart / cadence / route-map / activity-segments apps | no | yes |
@@ -365,6 +366,7 @@ The server exposes the following MCP tools:
 | `update-activity` | Update an activity's description, title, sport type, gear, or flags |
 | `get-activity-zones` | Time spent in each HR and power zone for an activity |
 | `get-activity-laps` | Laps of an activity with sport-aware pace/speed, HR, power, cadence |
+| `export-activity-gpx` | Export an activity's recorded track as GPX built from its streams |
 | `get-activity-photos` | Get photos from an activity |
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
 | `get-training-load` | Training load summary with trend analysis |

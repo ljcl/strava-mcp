@@ -28,6 +28,7 @@ import { READ_ONLY } from "./tools/_annotations";
 import { stravaIdInput } from "./tools/_ids";
 import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
+import { exportActivityGpx } from "./tools/exportActivityGpx";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
 import { exportRouteTcx } from "./tools/exportRouteTcx";
 import { getActivityLapsTool } from "./tools/getActivityLaps";
@@ -130,6 +131,7 @@ const STRAVA_TOOLS = [
   getRouteTool,
   exportRouteGpx,
   exportRouteTcx,
+  exportActivityGpx,
   getActivityZonesTool,
   getActivityLapsTool,
   getActivityPhotosTool,
