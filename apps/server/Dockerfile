@@ -2,7 +2,7 @@
 # Requires BuildKit (RUN --mount=type=cache, multi-stage COPY --from).
 
 # Shell base: bun + a shell, used by every build-time stage
-FROM oven/bun:1.3.6 AS base
+FROM oven/bun:1.3.14 AS base
 WORKDIR /app
 
 # turbo isolated here so it never reaches the runner; the ARG must match the
@@ -36,7 +36,7 @@ RUN --mount=type=cache,target=/root/.bun/install/cache bun install --frozen-lock
 RUN mkdir -p /app/data && chown -R 65534:65534 /app
 
 # 4) Distroless runner: COPY only. nonroot (65534), no shell, ENTRYPOINT is bun.
-FROM oven/bun:1.3.6-distroless AS runner
+FROM oven/bun:1.3.14-distroless AS runner
 WORKDIR /app
 
 # MCP registry ownership proof: publish-mcp.yml publishes server.json as an OCI
