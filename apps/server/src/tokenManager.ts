@@ -146,7 +146,12 @@ export async function saveTokens(tokens: TokenData): Promise<void> {
     // rename is atomic on the same filesystem, so readers see either the old
     // file or the fully-written new one, never a partial.
     const tempFilePath = `${tokenFilePath}.tmp`;
-    await fs.writeFile(tempFilePath, JSON.stringify(tokens, null, 2), "utf-8");
+    // 0600: the file holds live OAuth credentials, so keep it owner-only.
+    // The mode applies at creation and survives the rename.
+    await fs.writeFile(tempFilePath, JSON.stringify(tokens, null, 2), {
+      encoding: "utf-8",
+      mode: 0o600,
+    });
     await fs.rename(tempFilePath, tokenFilePath);
     console.error(`[TokenManager] Tokens saved to ${tokenFilePath}`);
     console.error(

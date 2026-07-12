@@ -18,9 +18,33 @@ function constantTimeEquals(a: string, b: string): boolean {
   return timingSafeEqual(bufA, bufB);
 }
 
+/** True when an MCP_AUTH_TOKEN secret is configured. */
+export function authTokenConfigured(): boolean {
+  return Boolean(process.env.MCP_AUTH_TOKEN);
+}
+
+/**
+ * Checks the configured secret against a `Authorization: Bearer` header or,
+ * for browser-driven routes like /auth/start that cannot set headers, a
+ * `?token=` query parameter. False when no secret is configured — callers
+ * gate on authTokenConfigured() first.
+ */
+export function requestHasValidSecret(req: Request, url?: URL): boolean {
+  const expected = process.env.MCP_AUTH_TOKEN;
+  if (!expected) return false;
+  const header = req.headers.get("authorization");
+  const presented =
+    header?.match(/^Bearer\s+(.+)$/i)?.[1] ??
+    url?.searchParams.get("token") ??
+    undefined;
+  return presented !== undefined && constantTimeEquals(presented, expected);
+}
+
 /**
  * Returns a 401 Response when the request must be rejected, or null when it
  * may proceed (either the token matches or no token is configured).
+ * /mcp accepts the header only — MCP clients all support headers, and a
+ * query-string secret would leak into request logs.
  */
 export function unauthorizedMcpResponse(req: Request): Response | null {
   const expected = process.env.MCP_AUTH_TOKEN;

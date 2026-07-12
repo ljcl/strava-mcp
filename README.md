@@ -77,6 +77,10 @@ Visit `https://your-public-url/auth/start` in your browser. After authorizing, t
 
 Check status anytime at `https://your-public-url/auth/status`.
 
+If you set `MCP_AUTH_TOKEN` (recommended for tunnel-exposed servers — see
+[Securing the endpoint](#securing-the-endpoint)), append it to both URLs as
+`?token=<MCP_AUTH_TOKEN>`.
+
 ### 5. Connect to Claude Desktop
 
 Add to your Claude configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
@@ -130,6 +134,14 @@ A tunnel makes `/mcp` reachable by anyone who discovers the URL — including th
 otherwise. Each client snippet below shows where the header goes. Without
 `MCP_AUTH_TOKEN` the endpoint stays open (unchanged behaviour) and the server
 logs a startup warning when `PUBLIC_URL` is configured.
+
+The secret also gates the OAuth web routes: `/auth/start` and `/auth/status`
+require it (in the browser, open `/auth/start?token=<MCP_AUTH_TOKEN>`), so a
+stranger cannot start an authorization flow against your server or read your
+athlete id and token expiry. `/auth/callback` stays open for Strava's
+redirect but only accepts callbacks carrying the single-use `state` nonce
+minted by your own `/auth/start`, so it cannot be used to overwrite your
+stored tokens with someone else's account.
 
 ### Architecture
 
