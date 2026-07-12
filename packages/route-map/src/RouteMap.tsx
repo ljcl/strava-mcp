@@ -1,4 +1,5 @@
 import { formatTime } from "@strava-mcp/data";
+import { TIER_COLORS } from "@strava-mcp/design-system";
 import {
   Legend,
   LegendItem,
@@ -93,10 +94,8 @@ const LAYER_COLORS: Record<LayerKey, string> = {
 };
 
 function segmentHaloColor(segment: { isPr: boolean; isTop10: boolean }) {
-  // Fixed golds/purples (not theme vars): they flag achievement tiers and
-  // need to read identically against the multi-hue metric track.
-  if (segment.isPr) return "#f59e0b";
-  if (segment.isTop10) return "#a78bfa";
+  if (segment.isPr) return TIER_COLORS.pr;
+  if (segment.isTop10) return TIER_COLORS.top10;
   return LAYER_COLORS.segments;
 }
 

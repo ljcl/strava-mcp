@@ -1,6 +1,6 @@
 import preview from "@strava-mcp/design-system/preview";
+import { MobileCardShell } from "@strava-mcp/ui";
 import { mockRuns } from "./__fixtures__/runs";
-import { MobileCardShell } from "./_storyHelpers";
 import { ScatterView } from "./ScatterView";
 
 const noop = () => {};

@@ -1,31 +1,11 @@
 import preview from "@strava-mcp/design-system/preview";
-import { type ReactNode } from "react";
+import { MobileCardShell } from "@strava-mcp/ui";
 import { poolSwim } from "./__fixtures__/pool-swim";
 import { tempoRun } from "./__fixtures__/tempo-run";
 import { ActivityChart } from "./ActivityChart";
 import { extractMeta, toChartData, toLapData } from "./normalize";
 
 const meta = preview.meta({ component: ActivityChart });
-
-/**
- * Renders the story inside the same bordered card shell that main.tsx
- * uses in the MCP app so mobile previews reflect what ships to hosts.
- */
-function MobileCardShell({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        margin: 3,
-        background: "var(--color-background-primary)",
-        border: "1px solid var(--color-border-tertiary)",
-        borderRadius: "var(--border-radius-lg)",
-        padding: "16px 14px",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
 
 const mobileLayout = {
   mode: "mobile" as const,
