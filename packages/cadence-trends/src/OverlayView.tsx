@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { resampleOverlayRuns } from "./normalize";
 import styles from "./OverlayView.module.css";
 import { COMPARISON_COLORS, type OverlayPoint, type RunSummary } from "./types";
 
@@ -74,33 +75,17 @@ export function OverlayView({
     return entries;
   }, [selectedRunIds, streamCache]);
 
-  // Merge all runs into a unified dataset keyed by x-axis value
+  // Resample every run onto a shared x grid so runs at different speeds
+  // stay aligned and shorter runs end at their own extent.
   const { chartData, runKeys } = useMemo(() => {
     if (runs.length === 0) return { chartData: [], runKeys: [] as string[] };
-
-    const keys = runs.map((r) => `cadence_${r.run.id}`);
-
-    const allPoints = runs.map((r) => r.points);
-    const maxLen = Math.max(...allPoints.map((p) => p.length));
-
-    // Sample every N points to keep chart responsive
-    const step = Math.max(1, Math.floor(maxLen / 500));
-
-    const merged: Array<Record<string, number | undefined>> = [];
-    for (let i = 0; i < maxLen; i += step) {
-      const row: Record<string, number | undefined> = {};
-      for (let r = 0; r < runs.length; r += 1) {
-        const pts = allPoints[r]!;
-        const pt = pts[Math.min(i, pts.length - 1)];
-        if (pt) {
-          row.x = xMode === "distance" ? pt.distance : pt.time;
-          row[keys[r]!] = pt.cadence;
-        }
-      }
-      if (row.x !== undefined) merged.push(row);
-    }
-
-    return { chartData: merged, runKeys: keys };
+    return {
+      chartData: resampleOverlayRuns(
+        runs.map((r) => ({ id: r.run.id, points: r.points })),
+        xMode,
+      ),
+      runKeys: runs.map((r) => `cadence_${r.run.id}`),
+    };
   }, [runs, xMode]);
 
   const isLoading = [...selectedRunIds].some((id) => loadingStreams.has(id));
@@ -196,7 +181,6 @@ export function OverlayView({
                 stroke={r.color}
                 strokeWidth={tokens.strokeWidth}
                 dot={false}
-                connectNulls
                 hide={hiddenRuns.has(r.run.id)}
                 name={r.run.name}
               />

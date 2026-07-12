@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { getActivityById, getAllActivities } from "../stravaClient";
+import {
+  getActivityById,
+  getAllActivities,
+  type StravaSummaryActivity,
+} from "../stravaClient";
 import { formatDuration, metersPerSecToPace } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
 import { BestEffortsOutputSchema, warnOnSchemaDrift } from "./outputs";
@@ -73,6 +77,11 @@ const STANDARD_DISTANCES = [
   "50K",
 ];
 
+const RUNNING_TYPES = ["Run", "TrailRun", "VirtualRun"];
+
+const isRunningActivity = (a: StravaSummaryActivity) =>
+  RUNNING_TYPES.includes(a.type ?? a.sport_type ?? "");
+
 interface BestEffort {
   activity_id: string;
   activity_name: string;
@@ -112,18 +121,17 @@ export const getBestEffortsTool = {
         `Fetching best efforts (scanning up to ${maxActivities} activities)...`,
       );
 
-      // Fetch running activities
+      // Fetch running activities. maxItems/countActivity stop the pagination
+      // once enough runs have arrived instead of walking the whole history.
       const allActivities = await getAllActivities(token, {
         perPage: Math.min(maxActivities, 200),
+        maxItems: maxActivities,
+        countActivity: isRunningActivity,
       });
 
       // Filter to running activities
       const runningActivities = allActivities
-        .filter((a) =>
-          ["Run", "TrailRun", "VirtualRun"].includes(
-            a.type ?? a.sport_type ?? "",
-          ),
-        )
+        .filter(isRunningActivity)
         .slice(0, maxActivities);
 
       console.error(

@@ -47,12 +47,22 @@ describe("getBestEffortsTool.execute", () => {
     expect(mockedList).not.toHaveBeenCalled();
   });
 
-  it("caps perPage at 200 when scanning", async () => {
+  it("caps perPage at 200 and bounds pagination to running activities", async () => {
     mockedList.mockResolvedValueOnce([]);
 
     await getBestEffortsTool.execute({ limit: 3, maxActivities: 1000 });
 
-    expect(mockedList).toHaveBeenCalledWith("test-token", { perPage: 200 });
+    expect(mockedList).toHaveBeenCalledWith("test-token", {
+      perPage: 200,
+      maxItems: 1000,
+      countActivity: expect.any(Function),
+    });
+
+    // The cap must count runs only, so mixed histories keep paginating
+    // until enough running activities have arrived.
+    const countActivity = mockedList.mock.calls[0]?.[1]?.countActivity;
+    expect(countActivity?.(asSummary(basicRunActivity))).toBe(true);
+    expect(countActivity?.(asSummary(rideActivity))).toBe(false);
   });
 
   it("only fetches details for running activities", async () => {

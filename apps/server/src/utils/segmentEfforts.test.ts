@@ -37,7 +37,6 @@ describe("processSegmentEfforts", () => {
   });
 
   it("labels a PR that is not also a top-10 as just the PR", () => {
-    // biome-ignore lint/style/noNonNullAssertion: fixture index is statically known
     const riverside = efforts[0]!;
     const prOnly = [{ ...riverside, pr_rank: 1, kom_rank: null }];
     const result = processSegmentEfforts(prOnly);
@@ -46,7 +45,6 @@ describe("processSegmentEfforts", () => {
   });
 
   it("labels a top-10 effort that is not a PR", () => {
-    // biome-ignore lint/style/noNonNullAssertion: fixture index is statically known
     const parkLoop = efforts[1]!;
     const onlyKom = [{ ...parkLoop, pr_rank: null, kom_rank: 5 }];
     const result = processSegmentEfforts(onlyKom);
