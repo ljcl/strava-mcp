@@ -1,5 +1,12 @@
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
-import { Legend, LegendItem, Pill, PillGroup } from "@strava-mcp/ui";
+import {
+  Legend,
+  LegendItem,
+  Pill,
+  PillGroup,
+  TooltipEntry,
+  Tooltip as UiTooltip,
+} from "@strava-mcp/ui";
 import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -28,6 +35,52 @@ interface OverlayViewProps {
 }
 
 type XMode = "distance" | "time";
+
+interface OverlayTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    dataKey?: string | number;
+    name?: string;
+    value?: number | null;
+    color?: string;
+  }>;
+  label?: number | string;
+  xMode: XMode;
+}
+
+/**
+ * Themed tooltip matching SharedTooltip in the Trend/Scatter views — the
+ * default Recharts tooltip is a hardcoded white box, unreadable in dark
+ * mode (#117). One entry per visible run at the hovered grid point.
+ */
+function OverlayTooltip({
+  active,
+  payload,
+  label,
+  xMode,
+}: OverlayTooltipProps) {
+  if (!active || !payload?.length) return null;
+  const entries = payload.filter((e) => e.value != null);
+  if (!entries.length) return null;
+
+  const x = Number(label);
+  const timestamp =
+    xMode === "distance" ? `${x.toFixed(1)} km` : `${x.toFixed(0)} min`;
+
+  return (
+    <UiTooltip timestamp={timestamp}>
+      {entries.map((entry) => (
+        <TooltipEntry
+          key={String(entry.dataKey ?? entry.name)}
+          color={entry.color ?? "var(--chart-cadence)"}
+          label={entry.name ?? ""}
+          value={`${Math.round(entry.value!)}`}
+          unit="spm"
+        />
+      ))}
+    </UiTooltip>
+  );
+}
 
 export function OverlayView({
   selectedRunIds,
@@ -165,14 +218,7 @@ export function OverlayView({
                     }
               }
             />
-            <RechartsTooltip
-              labelFormatter={(v) => {
-                const n = Number(v);
-                return xMode === "distance"
-                  ? `${n.toFixed(1)} km`
-                  : `${n.toFixed(0)} min`;
-              }}
-            />
+            <RechartsTooltip content={<OverlayTooltip xMode={xMode} />} />
             {runs.map((r, i) => (
               <Line
                 key={r.run.id}

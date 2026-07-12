@@ -25,8 +25,8 @@ Use Cases:
 
 Parameters:
 - distance (optional): Filter to a specific distance (e.g., "5K", "1 mile")
-- limit (optional): Maximum number of efforts to return per distance (default: 3)
-- maxActivities (optional): Maximum number of activities to scan (default: 100)
+- limit (optional): Maximum number of efforts to return per distance (default: 3, max: 50)
+- maxActivities (optional): Maximum number of activities to scan (default: 100, max: 200)
 
 Notes:
 - This tool fetches details for each activity, which can be slow for large histories
@@ -48,14 +48,18 @@ const inputSchema = z.object({
     .number()
     .int()
     .positive()
+    .max(50)
     .default(3)
-    .describe("Maximum number of efforts to return per distance (default: 3)"),
+    .describe(
+      "Maximum number of efforts to return per distance (default: 3, max: 50)",
+    ),
   maxActivities: z
     .number()
     .int()
     .positive()
+    .max(200)
     .default(100)
-    .describe("Maximum number of activities to scan (default: 100)"),
+    .describe("Maximum number of activities to scan (default: 100, max: 200)"),
 });
 
 type GetBestEffortsInput = z.infer<typeof inputSchema>;

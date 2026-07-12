@@ -22,6 +22,7 @@ import {
   type StravaDetailedActivity,
 } from "./stravaClient";
 import { READ_ONLY } from "./tools/_annotations";
+import { stravaIdInput } from "./tools/_ids";
 import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
@@ -42,6 +43,46 @@ import { starSegment } from "./tools/starSegment";
 import { updateActivityTool } from "./tools/updateActivity";
 
 const EMPTY_SCHEMA = { type: "object", properties: {}, required: [] } as const;
+
+/**
+ * Zod schemas for the MCP App tools (#107). Single source of truth: the
+ * advertised JSON Schemas in buildToolDefs derive from these, and dispatch
+ * validates every call against them, so a host omitting or mistyping an
+ * argument gets a structured error instead of `"undefined"`/NaN flowing
+ * into Strava request paths.
+ */
+const weeksInput = z
+  .number()
+  .int()
+  .positive()
+  .max(104)
+  .default(6)
+  .describe("Number of weeks of history to show (default: 6, max: 104)");
+
+const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
+  "view-activity-chart": z.object({
+    activity_id: stravaIdInput("The Strava activity ID to visualize."),
+  }),
+  "get-activity-streams-raw": z.object({
+    activity_id: stravaIdInput("The Strava activity ID."),
+  }),
+  "view-cadence-trends": z.object({ weeks: weeksInput }),
+  "get-cadence-trend-data": z.object({ weeks: weeksInput }),
+  "view-route-map": z.object({
+    activity_id: stravaIdInput("The Strava activity ID to map.").optional(),
+    route_id: stravaIdInput("The Strava route ID to map.").optional(),
+  }),
+  "get-route-map-data": z.object({
+    activity_id: stravaIdInput("The Strava activity ID.").optional(),
+    route_id: stravaIdInput("The Strava route ID.").optional(),
+  }),
+  "view-activity-segments": z.object({
+    activity_id: stravaIdInput("The Strava activity ID."),
+  }),
+  "get-activity-segments-data": z.object({
+    activity_id: stravaIdInput("The Strava activity ID."),
+  }),
+};
 
 /**
  * MCP App HTML paths resolved once at startup via each package's `./app.html`
@@ -118,16 +159,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open an interactive chart of one activity with selectable heart rate, power, pace, altitude, cadence, and grade overlays. " +
       "Prefer this over a text summary when the user wants to see or explore how metrics change over the course of an activity. Takes the activity id.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        activity_id: {
-          type: "string",
-          description: "The Strava activity ID to visualize",
-        },
-      },
-      required: ["activity_id"],
-    },
+    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-activity-chart"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://activity-chart/app.html" },
@@ -139,16 +171,9 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the activity chart UI: returns raw per-sample arrays (time, heartrate, watts, velocity_smooth, altitude, cadence, grade_smooth, distance) as JSON for one activity. " +
       "The view-activity-chart app calls this; not intended for direct model use.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        activity_id: {
-          type: "string",
-          description: "The Strava activity ID",
-        },
-      },
-      required: ["activity_id"],
-    },
+    inputSchema: z.toJSONSchema(
+      APP_TOOL_INPUT_SCHEMAS["get-activity-streams-raw"]!,
+    ),
     annotations: READ_ONLY,
     _meta: {
       ui: {
@@ -163,15 +188,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open an interactive cadence dashboard across recent runs: trend timeline, cadence-versus-pace scatter, pace-zone breakdown, and per-run overlay comparison. " +
       "Prefer this over text when the user wants to explore cadence patterns over time. Takes a number of weeks of history.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        weeks: {
-          type: "number",
-          description: "Number of weeks of history to show (default: 6)",
-        },
-      },
-    },
+    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-cadence-trends"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://cadence-trends/app.html" },
@@ -183,15 +200,9 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the cadence-trends UI: returns per-run summary cadence and pace for recent running activities as JSON. " +
       "The view-cadence-trends app calls this; not intended for direct model use.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        weeks: {
-          type: "number",
-          description: "Number of weeks of history (default: 6)",
-        },
-      },
-    },
+    inputSchema: z.toJSONSchema(
+      APP_TOOL_INPUT_SCHEMAS["get-cadence-trend-data"]!,
+    ),
     annotations: READ_ONLY,
     _meta: {
       ui: {
@@ -206,19 +217,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open an interactive map of one activity's or saved route's GPS track, fit to bounds with start and finish markers and a distance/elevation summary. " +
       "Prefer this over a text summary when the user wants to see where an activity or route went. Takes either an activity_id or a route_id (provide exactly one).",
-    inputSchema: {
-      type: "object",
-      properties: {
-        activity_id: {
-          type: "string",
-          description: "The Strava activity ID to map",
-        },
-        route_id: {
-          type: "string",
-          description: "The Strava route ID to map",
-        },
-      },
-    },
+    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-route-map"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://route-map/app.html" },
@@ -231,19 +230,7 @@ function buildToolDefs(): ToolDef[] {
       "Internal data feed for the route-map UI: returns decoded [lat, lng] coordinates plus start/end points, distance, elevation gain, and (for activities with GPS streams) index-aligned metric streams (time, distance, altitude, heartrate, watts, velocity_smooth, grade_smooth) " +
       "and annotation anchors (lap boundaries, segment-effort spans with PR/top-10 flags, geotagged photos) for one activity or route as JSON. " +
       "The view-route-map app calls this; not intended for direct model use.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        activity_id: {
-          type: "string",
-          description: "The Strava activity ID",
-        },
-        route_id: {
-          type: "string",
-          description: "The Strava route ID",
-        },
-      },
-    },
+    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["get-route-map-data"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: {
@@ -258,16 +245,9 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open a prioritised, scrollable list of the segments run in one activity: your PRs and top-10s pinned on top, then every segment in run order, each with pace, grade, and expandable heart-rate, cadence, and power detail. " +
       "Prefer this over text when the user wants to review the segments in a workout. Takes the activity id.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        activity_id: {
-          type: "string",
-          description: "The Strava activity ID",
-        },
-      },
-      required: ["activity_id"],
-    },
+    inputSchema: z.toJSONSchema(
+      APP_TOOL_INPUT_SCHEMAS["view-activity-segments"]!,
+    ),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://activity-segments/app.html" },
@@ -279,16 +259,9 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the activity-segments UI: returns the activity's segment efforts (name, time, distance, grade, climb category, PR/top-10 ranks, HR, power, cadence) as JSON. " +
       "The view-activity-segments app calls this; not intended for direct model use.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        activity_id: {
-          type: "string",
-          description: "The Strava activity ID",
-        },
-      },
-      required: ["activity_id"],
-    },
+    inputSchema: z.toJSONSchema(
+      APP_TOOL_INPUT_SCHEMAS["get-activity-segments-data"]!,
+    ),
     annotations: READ_ONLY,
     _meta: {
       ui: {
@@ -321,6 +294,16 @@ for (const tool of STRAVA_TOOLS) {
       isError?: boolean;
     }>,
   );
+}
+
+/** Tool name → zod input schema, enforced at dispatch time (#107). */
+const TOOL_INPUT_SCHEMAS = new Map<string, z.ZodType>();
+for (const tool of STRAVA_TOOLS) {
+  const schema = (tool as { inputSchema?: z.ZodType }).inputSchema;
+  if (schema) TOOL_INPUT_SCHEMAS.set(tool.name, schema);
+}
+for (const [name, schema] of Object.entries(APP_TOOL_INPUT_SCHEMAS)) {
+  TOOL_INPUT_SCHEMAS.set(name, schema);
 }
 
 const RAW_STREAM_TYPES = [
@@ -878,6 +861,76 @@ const ROUTE_MAP_CSP = {
   resourceDomains: ["https://tiles.openfreemap.org"],
 } as const;
 
+interface ToolCallResult {
+  // Index signature keeps this assignable to the SDK's ServerResult union.
+  [key: string]: unknown;
+  content: Array<{ type: string; text: string }>;
+  structuredContent?: unknown;
+  isError?: boolean;
+}
+
+/** MCP App tool name → handler (same dispatch path as the Strava tools). */
+const APP_TOOL_HANDLERS: Record<
+  string,
+  (args: Record<string, unknown>) => Promise<ToolCallResult>
+> = {
+  "view-activity-chart": handleViewActivityChart,
+  "get-activity-streams-raw": handleGetActivityStreamsRaw,
+  "view-cadence-trends": handleViewCadenceTrends,
+  "get-cadence-trend-data": handleGetCadenceTrendData,
+  "view-route-map": handleViewRouteMap,
+  "get-route-map-data": handleGetRouteMapData,
+  "view-activity-segments": handleViewActivitySegments,
+  "get-activity-segments-data": handleGetActivitySegmentsData,
+};
+
+/**
+ * Single dispatch path for every tool call. Validates the raw host args
+ * against the tool's zod schema BEFORE executing (#107), so defaults always
+ * apply and invalid types surface as a structured error instead of flowing
+ * into Strava URLs and math as `"undefined"` or NaN.
+ */
+export async function dispatchToolCall(
+  name: string,
+  rawArgs: Record<string, unknown> | undefined,
+): Promise<ToolCallResult> {
+  const handler = APP_TOOL_HANDLERS[name] ?? TOOL_EXECUTORS.get(name);
+  if (!handler) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: `Unknown tool: ${name}` }],
+    };
+  }
+
+  let args: Record<string, unknown> = rawArgs ?? {};
+  const schema = TOOL_INPUT_SCHEMAS.get(name);
+  if (schema) {
+    const parsed = schema.safeParse(args);
+    if (!parsed.success) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text",
+            text: `Invalid arguments for ${name}: ${z.prettifyError(parsed.error)}`,
+          },
+        ],
+      };
+    }
+    args = parsed.data as Record<string, unknown>;
+  }
+
+  try {
+    return await handler(args);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return {
+      isError: true,
+      content: [{ type: "text", text: `Tool error: ${message}` }],
+    };
+  }
+}
+
 export function createServer(): Server {
   const server = new Server(
     { name: "Strava MCP Server", version: "1.0.0" },
@@ -890,122 +943,7 @@ export function createServer(): Server {
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-
-    // Handle MCP App tools
-    if (name === "view-activity-chart") {
-      try {
-        return await handleViewActivityChart(args ?? {});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Tool error: ${message}` }],
-        };
-      }
-    }
-
-    if (name === "get-activity-streams-raw") {
-      try {
-        return await handleGetActivityStreamsRaw(args ?? {});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Tool error: ${message}` }],
-        };
-      }
-    }
-
-    if (name === "view-cadence-trends") {
-      try {
-        return await handleViewCadenceTrends(args ?? {});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Tool error: ${message}` }],
-        };
-      }
-    }
-
-    if (name === "get-cadence-trend-data") {
-      try {
-        return await handleGetCadenceTrendData(args ?? {});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Tool error: ${message}` }],
-        };
-      }
-    }
-
-    if (name === "view-route-map") {
-      try {
-        return await handleViewRouteMap(args ?? {});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Tool error: ${message}` }],
-        };
-      }
-    }
-
-    if (name === "get-route-map-data") {
-      try {
-        return await handleGetRouteMapData(args ?? {});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Tool error: ${message}` }],
-        };
-      }
-    }
-
-    if (name === "view-activity-segments") {
-      try {
-        return await handleViewActivitySegments(args ?? {});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Tool error: ${message}` }],
-        };
-      }
-    }
-
-    if (name === "get-activity-segments-data") {
-      try {
-        return await handleGetActivitySegmentsData(args ?? {});
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        return {
-          isError: true,
-          content: [{ type: "text", text: `Tool error: ${message}` }],
-        };
-      }
-    }
-
-    // Handle existing Strava tools
-    const executor = TOOL_EXECUTORS.get(name);
-    if (!executor) {
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Unknown tool: ${name}` }],
-      };
-    }
-
-    try {
-      return await executor(args ?? {});
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return {
-        isError: true,
-        content: [{ type: "text", text: `Tool error: ${message}` }],
-      };
-    }
+    return dispatchToolCall(name, args);
   });
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({

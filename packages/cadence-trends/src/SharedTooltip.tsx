@@ -1,6 +1,7 @@
 import { formatPace } from "@strava-mcp/data";
 import { Tooltip, TooltipEntry } from "@strava-mcp/ui";
 import { formatDuration } from "./normalize";
+import styles from "./SharedTooltip.module.css";
 
 interface RunTooltipPayloadItem {
   name?: string;
@@ -29,13 +30,7 @@ export function SharedTooltip({ active, payload }: SharedTooltipProps) {
 
   return (
     <Tooltip timestamp={date}>
-      {run.name && (
-        <div
-          style={{ fontWeight: "var(--font-weight-semibold)", marginBottom: 4 }}
-        >
-          {run.name}
-        </div>
-      )}
+      {run.name && <div className={styles.heading}>{run.name}</div>}
       {run.averageCadence !== undefined && run.averageCadence > 0 && (
         <TooltipEntry
           color="var(--chart-cadence)"

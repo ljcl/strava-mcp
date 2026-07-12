@@ -25,6 +25,23 @@ export const WithData = meta.story({
   },
 });
 
+/**
+ * Dark host theme (#117): the overlay tooltip must render via the shared
+ * themed Tooltip, not Recharts' default white box. Hover a line to verify.
+ */
+export const WithDataDark = meta.story({
+  args: {
+    selectedRunIds: new Set([10003, 10013]),
+    streamCache: mockStreamCache,
+    loadingStreams: new Set<number>(),
+    fetchStreamForRun: noop,
+  },
+  globals: {
+    backgrounds: { value: "dark" },
+    hostTheme: "claude",
+  },
+});
+
 export const Loading = meta.story({
   args: {
     selectedRunIds: new Set([10003, 10013]),
