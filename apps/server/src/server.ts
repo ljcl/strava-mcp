@@ -3,6 +3,8 @@ import { createRequire } from "node:module";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
   CallToolRequestSchema,
+  GetPromptRequestSchema,
+  ListPromptsRequestSchema,
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
@@ -13,6 +15,7 @@ import { mapActivitySegments } from "./activitySegments";
 import { stravaApi } from "./fetchClient";
 import { indexAtDistance, nearestCoordIndex } from "./mapAnchors";
 import { decodePolyline } from "./polyline";
+import { getPrompt, listPrompts } from "./prompts";
 import {
   getActivityById,
   getActivityLaps,
@@ -27,6 +30,7 @@ import { compareActivitiesTool } from "./tools/compareActivities";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
 import { exportRouteTcx } from "./tools/exportRouteTcx";
+import { getActivityLapsTool } from "./tools/getActivityLaps";
 import { getActivityPhotosTool } from "./tools/getActivityPhotos";
 import { getActivityZonesTool } from "./tools/getActivityZones";
 import { getAthleteStatsTool } from "./tools/getAthleteStats";
@@ -41,6 +45,7 @@ import { listSegmentEffortsTool } from "./tools/listSegmentEfforts";
 import { listStarredSegments } from "./tools/listStarredSegments";
 import { starSegment } from "./tools/starSegment";
 import { updateActivityTool } from "./tools/updateActivity";
+import { SERVER_VERSION } from "./version";
 
 const EMPTY_SCHEMA = { type: "object", properties: {}, required: [] } as const;
 
@@ -126,6 +131,7 @@ const STRAVA_TOOLS = [
   exportRouteGpx,
   exportRouteTcx,
   getActivityZonesTool,
+  getActivityLapsTool,
   getActivityPhotosTool,
   getRunningSummaryTool,
   getTrainingLoadTool,
@@ -933,13 +939,21 @@ export async function dispatchToolCall(
 
 export function createServer(): Server {
   const server = new Server(
-    { name: "Strava MCP Server", version: "1.0.0" },
-    { capabilities: { tools: {}, resources: {} } },
+    { name: "Strava MCP Server", version: SERVER_VERSION },
+    { capabilities: { tools: {}, resources: {}, prompts: {} } },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
     tools: TOOLS,
   }));
+
+  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+    prompts: listPrompts(),
+  }));
+
+  server.setRequestHandler(GetPromptRequestSchema, async (request) =>
+    getPrompt(request.params.name, request.params.arguments),
+  );
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;

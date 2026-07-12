@@ -1,0 +1,147 @@
+/**
+ * MCP prompts (#128): slash-invokable guided workflows packaging the
+ * "supplement the official Strava connector" story. Each prompt's text
+ * references both this server's tools and official-connector discovery
+ * (`list_activities`), mirroring the recommended workflow in the README.
+ *
+ * Prompts are data; the ListPrompts/GetPrompt handlers in server.ts serve
+ * from this table.
+ */
+
+export interface PromptArgumentDefinition {
+  name: string;
+  description: string;
+  required: boolean;
+}
+
+interface PromptDefinition {
+  name: string;
+  description: string;
+  arguments: PromptArgumentDefinition[];
+  /** Builds the user-message text from the (string) arguments. */
+  build: (args: Record<string, string>) => string;
+}
+
+const PROMPTS: PromptDefinition[] = [
+  {
+    name: "weekly-review",
+    description:
+      "Review recent training: load trend, key workouts, and cadence patterns, ending with focus points for next week.",
+    arguments: [
+      {
+        name: "weeks",
+        description: "How many weeks to review (default: 4)",
+        required: false,
+      },
+    ],
+    build: (args) => {
+      const weeks = args.weeks || "4";
+      return [
+        `Give me a training review of my last ${weeks} weeks.`,
+        "",
+        "Work through it in this order:",
+        `1. Call get-training-load with days=${Number(weeks) * 7 || 28} for volume, trend, and any overtraining warnings.`,
+        "2. If the official Strava connector is available, use its list_activities to identify the standout sessions (longest run, hardest effort); otherwise use the training-load breakdown.",
+        "3. For the 1-2 standout runs, call get-running-summary (and compare-activities if two are directly comparable).",
+        `4. Render view-cadence-trends with weeks=${weeks} so I can explore cadence patterns interactively.`,
+        "",
+        "Finish with: what went well, what to watch, and 2-3 concrete focus points for next week. Keep it grounded in the numbers you fetched.",
+      ].join("\n");
+    },
+  },
+  {
+    name: "annotate-last-run",
+    description:
+      "Analyse the most recent run and append a short coaching note to its Strava description (confirms before writing).",
+    arguments: [
+      {
+        name: "activity_id",
+        description: "Activity to annotate (default: find the most recent run)",
+        required: false,
+      },
+    ],
+    build: (args) => {
+      const target = args.activity_id
+        ? `Use activity ${args.activity_id}.`
+        : "Find my most recent run — via the official Strava connector's list_activities if available.";
+      return [
+        "Annotate my latest run with a short coaching note.",
+        "",
+        target,
+        "",
+        "Steps:",
+        "1. Call get-running-summary for the activity (pace, HR zones, cadence, laps).",
+        "2. Call get-activity-laps if the lap structure looks interesting (intervals, negative split).",
+        "3. Draft a 2-3 sentence coaching note: what the session shows, one thing to keep, one thing to adjust.",
+        "4. Show me the draft and ask before writing anything.",
+        "5. On my confirmation, append it to the activity description with update-activity (append, not overwrite).",
+      ].join("\n");
+    },
+  },
+  {
+    name: "segment-hunt",
+    description:
+      "Explore segments in an area, compare them with your starred list, and star the best candidates.",
+    arguments: [
+      {
+        name: "area",
+        description:
+          "Where to hunt — a place name or 'south-west lat,lng to north-east lat,lng' bounds",
+        required: true,
+      },
+    ],
+    build: (args) => {
+      return [
+        `Help me find good segments around: ${args.area}.`,
+        "",
+        "Steps:",
+        "1. Work out a bounding box for the area (south-west lat,lng and north-east lat,lng) and call explore-segments with it. Ask me to narrow the area if it is too broad.",
+        "2. Call list-starred-segments so we skip segments I already follow.",
+        "3. For the 2-3 most promising new segments, call get-segment for distance, grade, and my effort history.",
+        "4. Recommend which to add and, for each one I approve, star it with star-segment.",
+      ].join("\n");
+    },
+  },
+];
+
+/** ListPrompts payload: names, descriptions, and argument declarations. */
+export function listPrompts() {
+  return PROMPTS.map(({ name, description, arguments: args }) => ({
+    name,
+    description,
+    arguments: args,
+  }));
+}
+
+/**
+ * GetPrompt payload. Throws on unknown names and missing required
+ * arguments so the SDK surfaces a proper JSON-RPC error.
+ */
+export function getPrompt(
+  name: string,
+  args: Record<string, string> = {},
+): {
+  description: string;
+  messages: Array<{ role: "user"; content: { type: "text"; text: string } }>;
+} {
+  const prompt = PROMPTS.find((p) => p.name === name);
+  if (!prompt) {
+    throw new Error(`Unknown prompt: ${name}`);
+  }
+  for (const arg of prompt.arguments) {
+    if (arg.required && !args[arg.name]) {
+      throw new Error(
+        `Missing required argument "${arg.name}" for prompt ${name}`,
+      );
+    }
+  }
+  return {
+    description: prompt.description,
+    messages: [
+      {
+        role: "user",
+        content: { type: "text", text: prompt.build(args) },
+      },
+    ],
+  };
+}

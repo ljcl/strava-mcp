@@ -47,6 +47,7 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | ---- | ----------- |
 | `update-activity` | Update an activity's description, title, sport type, gear, or flags |
 | `get-activity-zones` | Time spent in each HR and power zone for an activity |
+| `get-activity-laps` | Laps of an activity with sport-aware pace/speed, HR, power, cadence |
 | `get-activity-photos` | Photos from an activity |
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
 | `get-training-load` | Training load summary with trend analysis |

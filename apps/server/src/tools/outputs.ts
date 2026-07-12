@@ -222,3 +222,32 @@ export const BestEffortsOutputSchema = z.object({
   activities_with_efforts: z.number().int(),
   note: z.string(),
 });
+
+// ---------- get-activity-laps ----------
+const LapEntrySchema = z.object({
+  lap_index: z.number().int(),
+  name: z.string(),
+  distance_km: z.number(),
+  elapsed_time_seconds: z.number().int(),
+  elapsed_time_formatted: z.string(),
+  moving_time_seconds: z.number().int(),
+  moving_time_formatted: z.string(),
+  pace: PaceSchema.nullable().describe("Set for runs; null for other sports"),
+  speed_kmh: z.number().nullable().describe("Set for non-run sports"),
+  average_watts: z.number().nullable(),
+  device_watts: z.boolean().nullable(),
+  average_cadence: z
+    .number()
+    .nullable()
+    .describe("spm (doubled) for runs, rpm for rides"),
+  average_heartrate: z.number().nullable(),
+  max_heartrate: z.number().nullable(),
+  total_elevation_gain_m: z.number().nullable(),
+});
+export const ActivityLapsOutputSchema = z.object({
+  activity_id: z.string(),
+  activity_name: z.string(),
+  sport_type: z.string(),
+  lap_count: z.number().int(),
+  laps: z.array(LapEntrySchema),
+});
