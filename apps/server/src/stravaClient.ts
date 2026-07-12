@@ -625,11 +625,14 @@ export async function getAllActivities(
     before,
     after,
     onProgress,
+    maxItems,
+    countActivity,
   } = params;
 
   const allActivities: StravaSummaryActivity[] = [];
   let currentPage = page;
   let hasMore = true;
+  let matchedCount = 0;
 
   try {
     while (hasMore) {
@@ -667,6 +670,9 @@ export async function getAllActivities(
 
       // Add activities to collection
       allActivities.push(...activities);
+      matchedCount += countActivity
+        ? activities.filter(countActivity).length
+        : activities.length;
 
       // Report progress if callback provided
       if (onProgress) {
@@ -675,7 +681,10 @@ export async function getAllActivities(
 
       // Check if we should continue
       // Stop if we got fewer activities than requested (indicating last page)
-      hasMore = activities.length === perPage;
+      // or once the caller's cap is satisfied.
+      hasMore =
+        activities.length === perPage &&
+        (maxItems === undefined || matchedCount < maxItems);
       currentPage += 1;
 
       // Add a small delay to be respectful of rate limits
@@ -1265,6 +1274,18 @@ export interface GetAllActivitiesParams {
   before?: number; // epoch timestamp in seconds
   after?: number; // epoch timestamp in seconds
   onProgress?: (fetched: number, page: number) => void;
+  /**
+   * Stop paginating once at least this many activities have been collected.
+   * The page that satisfies the cap is returned in full (no trimming), so
+   * callers apply their own final slice.
+   */
+  maxItems?: number;
+  /**
+   * Which activities count toward `maxItems` (default: all). Lets callers
+   * that post-filter (e.g. runs only) keep paginating until enough matching
+   * activities have arrived without fetching the whole history.
+   */
+  countActivity?: (activity: StravaSummaryActivity) => boolean;
 }
 
 /**

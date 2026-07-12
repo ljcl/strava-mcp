@@ -422,23 +422,12 @@ async function handleGetCadenceTrendData(
     (Date.now() - weeks * 7 * 24 * 60 * 60 * 1000) / 1000,
   );
 
-  const allActivities: Awaited<ReturnType<typeof getAllActivitiesFn>> = [];
-  let page = 1;
-  let hasMore = true;
-  while (hasMore && page <= 10) {
-    const pageActivities = await getAllActivitiesFn(token, {
-      page,
-      perPage: 200,
-      after,
-    });
-    if (pageActivities.length === 0) {
-      hasMore = false;
-    } else {
-      allActivities.push(...pageActivities);
-      hasMore = pageActivities.length === 200;
-      page += 1;
-    }
-  }
+  // getAllActivities paginates internally until the `after` window is
+  // exhausted; wrapping it in a second page loop would refetch everything.
+  const allActivities = await getAllActivitiesFn(token, {
+    perPage: 200,
+    after,
+  });
 
   const runs = allActivities.filter((a) => a.type && RUNNING_TYPES.has(a.type));
 

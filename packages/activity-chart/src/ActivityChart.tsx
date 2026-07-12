@@ -191,13 +191,13 @@ function PresetSelector({
 
 interface ChartTooltipProps {
   active?: boolean;
-  payload?: Array<{ name: string; value: number; color: string }>;
+  payload?: Array<{ name: string; value: number | null; color: string }>;
   label?: number;
   meta: ActivityMeta;
   xIsDistance?: boolean;
 }
 
-function ChartTooltip({
+export function ChartTooltip({
   active,
   payload,
   label,
@@ -205,8 +205,9 @@ function ChartTooltip({
   xIsDistance,
 }: ChartTooltipProps) {
   if (!active || !payload?.length) return null;
+  // Keep zeros: 0 W (coasting), 0% grade, and cadence 0 are real readings.
   const filtered = payload.filter(
-    (e) => !e.name.includes("Area") && e.value !== 0,
+    (e): e is { name: string; value: number; color: string } => e.value != null,
   );
   if (!filtered.length) return null;
 

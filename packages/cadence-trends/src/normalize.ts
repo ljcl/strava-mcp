@@ -166,6 +166,69 @@ export function toOverlayPoints(data: OverlayStreamData): OverlayPoint[] {
   return points;
 }
 
+export type OverlayXMode = "distance" | "time";
+
+/**
+ * Resample each run's cadence onto a shared x grid via linear interpolation,
+ * producing one merged Recharts dataset with a `cadence_<id>` key per run.
+ * Every run keeps its own x values (runs at different speeds stay aligned),
+ * and grid points beyond a run's extent are left undefined so its line ends
+ * there instead of flat-lining out to the longest run.
+ */
+export function resampleOverlayRuns(
+  runs: Array<{ id: number; points: OverlayPoint[] }>,
+  xMode: OverlayXMode,
+  gridSize = 500,
+): Array<Record<string, number | undefined>> {
+  const series = runs.map((run) => ({
+    key: `cadence_${run.id}`,
+    samples: run.points
+      .filter((p) => p.cadence !== undefined)
+      .map((p) => ({
+        x: xMode === "distance" ? p.distance : p.time,
+        y: p.cadence!,
+      })),
+  }));
+
+  const maxX = Math.max(
+    0,
+    ...series.map((s) =>
+      s.samples.length > 0 ? s.samples[s.samples.length - 1]!.x : 0,
+    ),
+  );
+  if (maxX <= 0 || gridSize < 1) return [];
+
+  // One ascending cursor per series: the grid ascends too, so interpolation
+  // over the whole grid stays O(points + grid) instead of O(points * grid).
+  const cursors = series.map(() => 0);
+  const rows: Array<Record<string, number | undefined>> = [];
+
+  for (let g = 0; g <= gridSize; g += 1) {
+    const x = (maxX * g) / gridSize;
+    const row: Record<string, number | undefined> = { x };
+
+    series.forEach((s, si) => {
+      const pts = s.samples;
+      if (pts.length === 0) return;
+      // Outside this run's extent: leave undefined so the line terminates.
+      if (x < pts[0]!.x || x > pts[pts.length - 1]!.x) return;
+
+      let i = cursors[si]!;
+      while (i < pts.length - 1 && pts[i + 1]!.x < x) i += 1;
+      cursors[si] = i;
+
+      const a = pts[i]!;
+      const b = pts[Math.min(i + 1, pts.length - 1)]!;
+      row[s.key] =
+        b.x === a.x ? a.y : a.y + ((b.y - a.y) * (x - a.x)) / (b.x - a.x);
+    });
+
+    rows.push(row);
+  }
+
+  return rows;
+}
+
 /** Apply simple moving average to overlay points */
 export function smoothOverlayPoints(
   points: OverlayPoint[],
