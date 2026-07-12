@@ -1,14 +1,15 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
-import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { getHostLayout } from "@strava-mcp/data";
 import {
   type AppMode,
   AppShell,
+  ErrorState,
   type HostCtx,
   Skeleton,
   useHostRoot,
+  useServerToolData,
 } from "@strava-mcp/ui";
-import { StrictMode, useCallback, useEffect, useState } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { type CadenceTrendData } from "./types";
@@ -18,15 +19,13 @@ interface ToolArgs {
   weeks?: number;
 }
 
-function parseTrendData(result: CallToolResult): CadenceTrendData | null {
-  const text = result.content?.find((c) => c.type === "text")?.text;
-  if (!text) return null;
-  try {
-    return JSON.parse(text) as CadenceTrendData;
-  } catch {
-    return null;
-  }
-}
+const LoadingSkeleton = () => (
+  <>
+    <Skeleton variant="bar" />
+    <Skeleton variant="pills" />
+    <Skeleton variant="chart" />
+  </>
+);
 
 interface AppContentProps {
   app: ReturnType<typeof useApp>["app"];
@@ -37,59 +36,24 @@ interface AppContentProps {
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
   const layout = getHostLayout(hostCtx, mode === "mobile");
-  const [data, setData] = useState<CadenceTrendData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!app) return;
-    try {
-      setLoading(true);
-      setError(null);
-      const result = await app.callServerTool({
-        name: "get-cadence-trend-data",
-        arguments: { weeks: toolArgs.weeks ?? 6 },
-      });
-      const trendData = parseTrendData(result);
-      if (!trendData) {
-        setError("Failed to parse trend data");
-        return;
-      }
-      setData(trendData);
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [app, toolArgs.weeks]);
-
-  useEffect(() => {
-    void fetchData();
-  }, [fetchData]);
-
-  if (loading) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <Skeleton variant="bar" />
-        <Skeleton variant="pills" />
-        <Skeleton variant="chart" />
-      </AppShell>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <div style={{ color: "var(--color-text-danger, #c00)" }}>
-          {error ?? "No cadence data available"}
-        </div>
-      </AppShell>
-    );
-  }
+  const { data, loading, error, retry } = useServerToolData<CadenceTrendData>(
+    app,
+    "get-cadence-trend-data",
+    { weeks: toolArgs.weeks ?? 6 },
+  );
 
   return (
     <AppShell hostCtx={hostCtx} mode={mode}>
-      <App app={app} data={data} layout={layout} mode={mode} />
+      {loading ? (
+        <LoadingSkeleton />
+      ) : error || !data ? (
+        <ErrorState
+          message={error ?? "No cadence data available"}
+          onRetry={retry}
+        />
+      ) : (
+        <App app={app} data={data} layout={layout} mode={mode} />
+      )}
     </AppShell>
   );
 }
@@ -100,19 +64,20 @@ function Root() {
     parseToolInput: (args) => (args as ToolArgs | undefined) ?? {},
   });
 
-  if (connectError)
+  // Pre-connect states render inside the same shell as the loaded app so
+  // the card chrome is stable from first paint (#116).
+  if (connectError) {
     return (
-      <div style={{ padding: "24px" }}>
-        Connection error: {connectError.message}
-      </div>
+      <AppShell hostCtx={hostCtx} mode={mode}>
+        <ErrorState message={`Connection error: ${connectError.message}`} />
+      </AppShell>
     );
+  }
   if (!app || !toolArgs) {
     return (
-      <>
-        <Skeleton variant="bar" />
-        <Skeleton variant="pills" />
-        <Skeleton variant="chart" />
-      </>
+      <AppShell hostCtx={hostCtx} mode={mode}>
+        <LoadingSkeleton />
+      </AppShell>
     );
   }
 
