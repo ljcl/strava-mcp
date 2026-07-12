@@ -1,21 +1,4 @@
-@import "@strava-mcp/design-system/tokens.css";
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-html,
-body,
-#root {
-  width: 100%;
-  font-family: var(--font-sans);
-  font-size: var(--font-text-sm-size);
-  line-height: var(--font-text-sm-line-height);
-  color: var(--color-text-primary);
-  background: transparent;
-}
+@import "@strava-mcp/design-system/reset.css";
 
 /* Theme MapLibre's hover popups (lap/photo markers) with host design tokens.
  * The library default is a hard-coded white box, unreadable on the dark map.

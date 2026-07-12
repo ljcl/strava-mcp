@@ -1,0 +1,21 @@
+/* Shared MCP App reset (#116): every app's global.css imports this instead
+ * of carrying an identical copy. Pulls the design tokens along so apps need
+ * exactly one import. */
+@import "./tokens.css";
+
+* {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--font-text-sm-size);
+  line-height: var(--font-text-sm-line-height);
+  color: var(--color-text-primary);
+  background: transparent;
+}

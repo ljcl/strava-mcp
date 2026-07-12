@@ -6,6 +6,7 @@ export {
   type UseHostRootOptions,
   useHostRoot,
 } from "./AppShell";
+export { ErrorState, type ErrorStateProps } from "./ErrorState";
 export { Legend, LegendItem } from "./Legend";
 export { MobileCardShell } from "./MobileCardShell";
 export { Pill, PillGroup } from "./Pill";
@@ -23,3 +24,7 @@ export {
   type ModelContextApp,
   useModelContextSync,
 } from "./useModelContextSync";
+export {
+  type ServerToolData,
+  useServerToolData,
+} from "./useServerToolData";
