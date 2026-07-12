@@ -44,3 +44,6 @@ yarn-error.log*
 cursor_rules.json
 .mcpregistry_registry_token
 .mcpregistry_github_token
+
+# Playwright/vitest run artifacts
+test-results/

@@ -67,11 +67,30 @@ board (see CLAUDE.md "Backlog and issue tracking" for labels and board fields).
    PR). File them with `type:*` / `area:*` labels; new issues auto-add to the
    board's Backlog column. Reference the PR that introduced the gap.
 
-5. **Report.** Summarize per issue: confirmed-fresh (with what was checked),
-   updated (what changed), closed (with evidence), newly filed. Note anything
-   needing a manual pass — the Project board's Priority/Effort/Status fields are
-   not writable through the API tooling available to agents, so re-prioritising
-   (e.g. a newly unblocked issue) is flagged for the maintainer, not done.
+5. **Report and re-prioritise.** Summarize per issue: confirmed-fresh (with
+   what was checked), updated (what changed), closed (with evidence), newly
+   filed. The Project board's Status/Priority/Effort fields **are** writable by
+   agents, so apply re-prioritisation (e.g. a newly unblocked issue) directly.
+   Two paths, by session type:
+
+   - **Local sessions** (gh CLI with `project` scope):
+     `gh project item-edit --project-id PVT_kwHOABzAhM4BZ7u2 --id <item-id>
+     --field-id <field-id> --single-select-option-id <option-id>`. Discover
+     item/field/option ids with `gh project item-list 1 --owner ljcl --format
+     json` and `gh project field-list 1 --owner ljcl --format json`.
+   - **Cloud/iOS sessions** (no gh): the `github-projects` MCP server from
+     `.mcp.json` (hosted GitHub MCP, projects toolset, auth via the
+     `GH_MCP_PAT` env var in the cloud environment config). Hosted-build
+     caveats: pass numeric field ids via the `fields` param
+     (`field_names` is not deployed yet), and `update_project_item` needs the
+     numeric `item_id` plus the option **id** (not name) for single-select
+     values. Ids are discoverable at runtime via `list_project_fields`.
+
+   Constants for this board: project number 1, owner `ljcl`; field ids:
+   Status 355919451, Priority 355919475, Effort 355919489; Status options:
+   Backlog f75ad846, Ready a057814c, In progress 47fc9ee4, In review 2ba31d84,
+   Done 98236657; Priority options: P1 fc38b480, P2 d2ef2472, P3 5197fbf4;
+   Effort options: S ed6278ac, M c5c30106, L 7270adf2.
 
 ## Conventions
 

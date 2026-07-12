@@ -14,9 +14,11 @@ Remote MCP server for connecting AI tools to your Strava data.
 ## Key Directories
 
 - `apps/server/` — MCP server (tools, auth, token management)
+- `apps/storybook/` — Storybook host rendering the UI packages (co-located stories)
 - `packages/activity-chart/` — React + Recharts MCP App for interactive activity charts
 - `packages/cadence-trends/` — React + Recharts MCP App for cadence trend analysis
-- `packages/route-map/` — React (pure SVG, no Recharts) MCP App for activity/route GPS maps
+- `packages/route-map/` — React MCP App for activity/route GPS maps (MapLibre basemap by default, pure-SVG offline grid fallback; no Recharts)
+- `packages/activity-segments/` — React MCP App listing one activity's segment efforts (no Recharts, no MapLibre)
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
@@ -326,6 +328,9 @@ cd packages/cadence-trends
 INPUT=app.html bunx vite build  # Rebuild single-file HTML
 
 cd packages/route-map
+INPUT=app.html bunx vite build  # Rebuild single-file HTML
+
+cd packages/activity-segments
 INPUT=app.html bunx vite build  # Rebuild single-file HTML
 
 # Docker

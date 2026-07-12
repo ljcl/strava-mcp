@@ -154,15 +154,3 @@ export const exploreSegments = {
     }
   },
 };
-
-// Remove the old registration function
-/*
-export function registerExploreSegmentsTool(server: McpServer) {
-    server.tool(
-        exploreSegments.name,
-        exploreSegments.description,
-        exploreSegments.inputSchema.shape,
-        exploreSegments.execute
-    );
-}
-*/

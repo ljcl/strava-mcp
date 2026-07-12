@@ -21,6 +21,10 @@ export default {
       entry: ["src/main.tsx"],
       project: ["src/**/*.{ts,tsx}"],
     },
+    "packages/cadence-trends": {
+      entry: ["src/main.tsx"],
+      project: ["src/**/*.{ts,tsx}"],
+    },
     "packages/route-map": {
       entry: ["src/main.tsx"],
       project: ["src/**/*.{ts,tsx}"],

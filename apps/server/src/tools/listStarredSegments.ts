@@ -86,14 +86,3 @@ export const listStarredSegments = {
     }
   },
 };
-
-// Remove the old registration function
-/*
-export function registerListStarredSegmentsTool(server: McpServer) {
-    server.tool(
-        listStarredSegments.name,
-        listStarredSegments.description,
-        listStarredSegments.execute // No input schema
-    );
-}
-*/
