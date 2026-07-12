@@ -76,7 +76,7 @@ export function ScatterView({
 
   if (chartData.length === 0) {
     return (
-      <div style={{ height: 320 }}>
+      <div className={styles.empty}>
         No runs with cadence data in this period.
       </div>
     );

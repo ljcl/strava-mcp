@@ -86,11 +86,15 @@ Add to your Claude configuration (`~/Library/Application Support/Claude/claude_d
   "mcpServers": {
     "strava": {
       "type": "url",
-      "url": "https://your-public-url/mcp"
+      "url": "https://your-public-url/mcp",
+      "headers": { "Authorization": "Bearer your-mcp-auth-token" }
     }
   }
 }
 ```
+
+The `headers` entry is only needed when `MCP_AUTH_TOKEN` is set (recommended
+for tunnel-exposed servers — see [Securing the endpoint](#securing-the-endpoint)).
 
 Restart Claude Desktop to load the new configuration.
 
@@ -117,6 +121,16 @@ Set `PUBLIC_URL` in your `.env` to the resulting URL.
 cloudflared tunnel --url http://localhost:3000
 ```
 
+### Securing the endpoint
+
+A tunnel makes `/mcp` reachable by anyone who discovers the URL — including the
+`update-activity` write tool. Set `MCP_AUTH_TOKEN` to a long random secret
+(e.g. `openssl rand -hex 32`) and the server requires
+`Authorization: Bearer <token>` on every `/mcp` request, returning 401
+otherwise. Each client snippet below shows where the header goes. Without
+`MCP_AUTH_TOKEN` the endpoint stays open (unchanged behaviour) and the server
+logs a startup warning when `PUBLIC_URL` is configured.
+
 ### Architecture
 
 ```text
@@ -133,12 +147,13 @@ Strava API
 
 The server works with any MCP client that supports the Streamable HTTP transport. In every
 snippet below, replace `https://your-public-url` with your tunnel URL (or `http://localhost:3000`
-for local development).
+for local development), and include the `Authorization` header only if you set `MCP_AUTH_TOKEN`.
 
 #### Claude Code
 
 ```bash
-claude mcp add --transport http strava https://your-public-url/mcp
+claude mcp add --transport http strava https://your-public-url/mcp \
+  --header "Authorization: Bearer your-mcp-auth-token"
 ```
 
 #### Cursor
@@ -149,7 +164,8 @@ Add to `.cursor/mcp.json` in your project (or `~/.cursor/mcp.json` for all proje
 {
   "mcpServers": {
     "strava": {
-      "url": "https://your-public-url/mcp"
+      "url": "https://your-public-url/mcp",
+      "headers": { "Authorization": "Bearer your-mcp-auth-token" }
     }
   }
 }
@@ -164,7 +180,8 @@ Add to `.vscode/mcp.json` in your workspace (or run **MCP: Add Server** from the
   "servers": {
     "strava": {
       "type": "http",
-      "url": "https://your-public-url/mcp"
+      "url": "https://your-public-url/mcp",
+      "headers": { "Authorization": "Bearer your-mcp-auth-token" }
     }
   }
 }
@@ -177,6 +194,8 @@ can connect to the `/mcp` endpoint directly:
 
 - POST JSON-RPC messages to `https://your-public-url/mcp` with an
   `Accept: application/json, text/event-stream` header.
+- If `MCP_AUTH_TOKEN` is set, also send `Authorization: Bearer <token>`
+  on every request.
 - The `initialize` response includes an `Mcp-Session-Id` header; echo it on every
   subsequent request in the same session.
 
@@ -258,6 +277,7 @@ The setup script will guide you through the OAuth flow using `localhost` as the 
 | `PUBLIC_URL`           | Yes*     | Public URL for OAuth callback (required for web auth)      |
 | `STRAVA_ACCESS_TOKEN`  | No       | Initial access token (from `bun run setup-auth`)                  |
 | `STRAVA_REFRESH_TOKEN` | No       | Initial refresh token (from `bun run setup-auth`)                 |
+| `MCP_AUTH_TOKEN`       | No       | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>` |
 | `ROUTE_EXPORT_PATH`    | No       | Absolute path for saving exported route files              |
 | `TOKEN_DATA_DIR`       | No       | Override token storage directory (default: `./data`)       |
 | `PORT`                 | No       | Server port (default: `3000`)                              |

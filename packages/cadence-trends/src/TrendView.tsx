@@ -73,7 +73,7 @@ export function TrendView({
 
   if (chartData.length === 0) {
     return (
-      <div className={styles.container}>
+      <div className={styles.empty}>
         No runs with cadence data in this period.
       </div>
     );

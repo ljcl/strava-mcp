@@ -388,6 +388,7 @@ curl -X POST http://localhost:3000/mcp \
 | `PUBLIC_URL` | Yes* | Public URL for OAuth callback (required for web auth) |
 | `STRAVA_ACCESS_TOKEN` | No | Initial access token (from `bun run setup-auth`) |
 | `STRAVA_REFRESH_TOKEN` | No | Initial refresh token (from `bun run setup-auth`) |
+| `MCP_AUTH_TOKEN` | No | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>` |
 | `ROUTE_EXPORT_PATH` | No | Absolute path for saving exported route files |
 | `TOKEN_DATA_DIR` | No | Override token storage directory (default: `./data`) |
 | `PORT` | No | Server port (default: `3000`) |

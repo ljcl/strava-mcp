@@ -3,6 +3,7 @@ import path from "node:path";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
 import * as dotenv from "dotenv";
+import { unauthorizedMcpResponse, warnIfMcpUnprotected } from "./mcpAuth";
 import { createServer } from "./server";
 import {
   ensureValidToken,
@@ -214,6 +215,7 @@ async function handleAuthStatus(): Promise<Response> {
 // --- Server Startup ---
 
 console.error("Starting Strava MCP Server...");
+warnIfMcpUnprotected();
 console.error("Checking Strava token validity...");
 await ensureValidToken();
 console.error("Token validation complete.");
@@ -225,6 +227,8 @@ const httpServer = Bun.serve({
     const url = new URL(req.url);
 
     if (url.pathname === "/mcp") {
+      const denied = unauthorizedMcpResponse(req);
+      if (denied) return denied;
       return handleMcp(req);
     }
 

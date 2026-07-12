@@ -34,8 +34,11 @@ const inputSchema = z.object({
     .number()
     .int()
     .positive()
+    .max(365)
     .default(28)
-    .describe("Number of days to look back (default: 28 for 4 weeks)"),
+    .describe(
+      "Number of days to look back (default: 28 for 4 weeks, max: 365)",
+    ),
   activityTypes: z
     .array(z.string())
     .default(["Run", "TrailRun", "VirtualRun"])
