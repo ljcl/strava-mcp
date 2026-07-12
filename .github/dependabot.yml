@@ -37,3 +37,22 @@ updates:
           - patch
     reviewers:
       - ljcl
+
+  - package-ecosystem: docker
+    directory: "/apps/server"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Australia/Melbourne
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      docker-minor-patch:
+        applies-to: version-updates
+        update-types:
+          - minor
+          - patch
+    reviewers:
+      - ljcl
