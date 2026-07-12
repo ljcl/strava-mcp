@@ -8,6 +8,7 @@ import {
   handleAuthStart,
   handleAuthStatus,
 } from "./authRoutes";
+import { handleHealth } from "./health";
 import { unauthorizedMcpResponse, warnIfMcpUnprotected } from "./mcpAuth";
 import { createServer } from "./server";
 import { ensureValidToken } from "./tokenManager";
@@ -106,7 +107,7 @@ const httpServer = Bun.serve({
     }
 
     if (url.pathname === "/health") {
-      return new Response("ok");
+      return handleHealth(req, url);
     }
 
     if (url.pathname === "/auth/start") {
