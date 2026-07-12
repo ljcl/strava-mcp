@@ -11,6 +11,7 @@
   "scripts": {
     "build": "turbo run build",
     "test": "turbo run test",
+    "test:coverage": "turbo run test:coverage",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "dev": "turbo run dev",
@@ -22,10 +23,12 @@
     "typecheck:affected": "turbo run typecheck --affected",
     "knip": "knip",
     "storybook": "turbo run storybook --filter=@strava-mcp/storybook",
-    "build-storybook": "turbo run build:storybook --filter=@strava-mcp/storybook"
+    "build-storybook": "turbo run build:storybook --filter=@strava-mcp/storybook",
+    "coverage:summary": "bun scripts/coverage-summary.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.3",
+    "@vitest/coverage-v8": "4.1.10",
     "knip": "6.26.0",
     "turbo": "2.10.4"
   }

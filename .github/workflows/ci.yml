@@ -51,6 +51,14 @@ jobs:
           bun run turbo run lint test typecheck build knip
           bun run turbo boundaries
 
+      # Coverage is computed on every run and surfaced in the job summary,
+      # so test-depth regressions are visible at review time (#135).
+      - name: Coverage
+        run: bun run turbo run test:coverage
+
+      - name: Publish coverage summary
+        run: bun run coverage:summary >> "$GITHUB_STEP_SUMMARY"
+
   audit:
     runs-on: ubuntu-latest
     timeout-minutes: 10

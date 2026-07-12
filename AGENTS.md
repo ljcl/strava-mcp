@@ -302,6 +302,8 @@ bun run check:affected    # Same, but only packages changed since main
 bun run build             # Build all packages (via Turborepo)
 bun run build:affected    # Build only changed packages
 bun run test              # Run all tests (via Turborepo)
+bun run test:coverage     # Tests with coverage (per-package coverage/ output)
+bun run coverage:summary  # Aggregate coverage into one markdown table (CI job summary)
 bun run typecheck         # Typecheck all packages (via Turborepo)
 bun run typecheck:affected # Typecheck only changed packages
 bun run lint              # Lint all packages (Biome, root task)

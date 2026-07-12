@@ -6,6 +6,8 @@ export default defineConfig({
     include: ["src/**/*.test.ts"],
     coverage: {
       provider: "v8",
+      // json-summary feeds the CI job-summary table (scripts/coverage-summary.ts).
+      reporter: ["text", "json-summary"],
       include: ["src/**/*.ts"],
       exclude: [
         "src/**/*.test.ts",
