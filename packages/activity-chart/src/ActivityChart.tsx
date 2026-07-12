@@ -153,10 +153,20 @@ function computeHiddenSet(
   return hidden;
 }
 
-function seriesOpacity(key: string, hoveredKey: string | null): number {
-  if (!hoveredKey || key === hoveredKey) return 1;
-  return 0.15;
-}
+/**
+ * Per-series class names for the CSS legend-hover dimming (#133): hover
+ * state is applied as a `data-hovered` attribute on the chart wrapper and
+ * resolved in CSS, so hovering the legend never re-renders the memoized
+ * Recharts tree.
+ */
+const SERIES_CLASS: Record<MetricKey, string> = {
+  heartrate: `${styles.series} ${styles.seriesHeartrate}`,
+  power: `${styles.series} ${styles.seriesPower}`,
+  pace: `${styles.series} ${styles.seriesPace}`,
+  altitude: `${styles.series} ${styles.seriesAltitude}`,
+  cadence: `${styles.series} ${styles.seriesCadence}`,
+  grade: `${styles.series} ${styles.seriesGrade}`,
+};
 
 /* ── PresetSelector component ─────────────────────────────────── */
 
@@ -281,34 +291,27 @@ export function ActivityChart({
   // Legacy compact flag still used by the CSS module for header/footer
   // spacing; any mobile render counts as compact.
   const isCompact = isMobile || layout?.mode === "mobile";
-  const chartTokens = getChartTokens(mode);
-  const tokens = {
-    ...chartTokens,
-    // Alias for the cadence overlay; it's the secondary stroke semantically.
-    cadenceStrokeWidth: chartTokens.secondaryStrokeWidth,
-    // activity-chart is a hero chart and reclaims YAxis space with negative outer margin.
-    chartMarginX: isMobile ? -20 : -30,
-    // Slight top margin to separate the header from the chart plot area.
-    chartMarginTop: isMobile ? 8 : 5,
-  };
-  // Determine which series have data
-  const hasHeartrate = data.some((d) => d.heartrate !== undefined);
-  const hasPower = data.some((d) => d.power !== undefined);
-  const hasPace = data.some((d) => d.pace !== undefined);
-  const hasAltitude = data.some((d) => d.altitude !== undefined);
-  const hasCadence = data.some((d) => d.cadence !== undefined);
-  const hasGrade = data.some((d) => d.grade !== undefined);
+  const tokens = useMemo(() => {
+    const chartTokens = getChartTokens(mode);
+    return {
+      ...chartTokens,
+      // Alias for the cadence overlay; it's the secondary stroke semantically.
+      cadenceStrokeWidth: chartTokens.secondaryStrokeWidth,
+      // activity-chart is a hero chart and reclaims YAxis space with negative outer margin.
+      chartMarginX: isMobile ? -20 : -30,
+      // Slight top margin to separate the header from the chart plot area.
+      chartMarginTop: isMobile ? 8 : 5,
+    };
+  }, [mode, isMobile]);
 
+  // Which series have data — one memoized scan instead of six per render.
   const availableMetrics = useMemo(() => {
     const s = new Set<MetricKey>();
-    if (hasHeartrate) s.add("heartrate");
-    if (hasPower) s.add("power");
-    if (hasPace) s.add("pace");
-    if (hasAltitude) s.add("altitude");
-    if (hasCadence) s.add("cadence");
-    if (hasGrade) s.add("grade");
+    for (const metric of ALL_METRICS) {
+      if (data.some((d) => d[metric] !== undefined)) s.add(metric);
+    }
     return s;
-  }, [hasHeartrate, hasPower, hasPace, hasAltitude, hasCadence, hasGrade]);
+  }, [data]);
 
   const presets = useMemo(
     () => getAvailablePresets(meta, availableMetrics),
@@ -372,45 +375,44 @@ export function ActivityChart({
     });
   };
 
-  const show = (key: string) => !hidden.has(key);
-
   const legendItems: LegendEntry[] = [];
-  if (hasHeartrate)
+  if (availableMetrics.has("heartrate"))
     legendItems.push({
       key: "heartrate",
       color: COLORS.heartrate,
       label: "Heart Rate",
     });
-  if (hasPower)
+  if (availableMetrics.has("power"))
     legendItems.push({ key: "power", color: COLORS.power, label: "Power" });
-  if (hasPace)
+  if (availableMetrics.has("pace"))
     legendItems.push({
       key: "pace",
       color: COLORS.pace,
       label: meta.isRunning ? "Pace" : "Speed",
     });
-  if (hasAltitude)
+  if (availableMetrics.has("altitude"))
     legendItems.push({
       key: "altitude",
       color: COLORS.altitude,
       label: "Altitude",
     });
-  if (hasCadence)
+  if (availableMetrics.has("cadence"))
     legendItems.push({
       key: "cadence",
       color: COLORS.cadence,
       label: "Cadence",
     });
-  if (hasGrade && !isMobile)
+  if (availableMetrics.has("grade") && !isMobile)
     legendItems.push({ key: "grade", color: COLORS.grade, label: "Grade" });
 
-  return (
-    <div className={styles.activityChart} data-compact={isCompact || undefined}>
-      <div className={styles.header}>
-        <div className={styles.title}>{meta.name}</div>
-        <div className={styles.subtitle}>{meta.activityType}</div>
-      </div>
-
+  // The Recharts tree is memoized WITHOUT the hover state: hovering the
+  // legend only flips a data attribute on the wrapper div (dimming is CSS),
+  // so the element below stays referentially stable and React bails out of
+  // re-rendering the chart over per-second stream data (#133).
+  const chart = useMemo(() => {
+    const show = (key: MetricKey) =>
+      availableMetrics.has(key) && !hidden.has(key);
+    return (
       <ResponsiveContainer width="100%" aspect={aspect}>
         <ComposedChart
           data={displayData}
@@ -531,98 +533,123 @@ export function ActivityChart({
             })}
 
           {/* Altitude area fill */}
-          {hasAltitude && show("altitude") && (
+          {show("altitude") && (
             <Area
               yAxisId="right"
               type="monotone"
               dataKey="altitude"
+              className={SERIES_CLASS.altitude}
               fill="url(#gradAltitude)"
               stroke={COLORS.altitude}
               strokeWidth={1}
               connectNulls
               name="Altitude"
-              strokeOpacity={seriesOpacity("altitude", hoveredLegendKey)}
-              fillOpacity={seriesOpacity("altitude", hoveredLegendKey) * 0.25}
+              fillOpacity={0.25}
             />
           )}
 
           {/* Heart rate */}
-          {hasHeartrate && show("heartrate") && (
+          {show("heartrate") && (
             <Line
               yAxisId="left"
               type="monotone"
               dataKey="heartrate"
               name="Heart Rate"
+              className={SERIES_CLASS.heartrate}
               stroke={COLORS.heartrate}
               dot={false}
               strokeWidth={tokens.strokeWidth}
               connectNulls
-              strokeOpacity={seriesOpacity("heartrate", hoveredLegendKey)}
             />
           )}
 
           {/* Power */}
-          {hasPower && show("power") && (
+          {show("power") && (
             <Line
               yAxisId="left"
               type="monotone"
               dataKey="power"
               name="Power"
+              className={SERIES_CLASS.power}
               stroke={COLORS.power}
               dot={false}
               strokeWidth={tokens.strokeWidth}
               connectNulls
-              strokeOpacity={seriesOpacity("power", hoveredLegendKey)}
             />
           )}
 
           {/* Pace / Speed */}
-          {hasPace && show("pace") && (
+          {show("pace") && (
             <Line
               yAxisId="pace"
               type="monotone"
               dataKey="pace"
               name="Pace"
+              className={SERIES_CLASS.pace}
               stroke={COLORS.pace}
               dot={false}
               strokeWidth={tokens.strokeWidth}
               connectNulls
-              strokeOpacity={seriesOpacity("pace", hoveredLegendKey)}
             />
           )}
 
           {/* Cadence */}
-          {hasCadence && show("cadence") && (
+          {show("cadence") && (
             <Line
               yAxisId="left"
               type="monotone"
               dataKey="cadence"
               name="Cadence"
+              className={SERIES_CLASS.cadence}
               stroke={COLORS.cadence}
               dot={false}
               strokeWidth={tokens.cadenceStrokeWidth}
               connectNulls
-              strokeOpacity={seriesOpacity("cadence", hoveredLegendKey)}
             />
           )}
 
           {/* Grade — hidden on mobile because it crowds the altitude
               axis and its info value is low at a glance */}
-          {!isMobile && hasGrade && show("grade") && (
+          {!isMobile && show("grade") && (
             <Line
               yAxisId="left"
               type="monotone"
               dataKey="grade"
               name="Grade"
+              className={SERIES_CLASS.grade}
               stroke={COLORS.grade}
               dot={false}
               strokeWidth={1}
               connectNulls
-              strokeOpacity={seriesOpacity("grade", hoveredLegendKey)}
             />
           )}
         </ComposedChart>
       </ResponsiveContainer>
+    );
+  }, [
+    aspect,
+    displayData,
+    tokens,
+    meta,
+    laps,
+    isMobile,
+    availableMetrics,
+    hidden,
+  ]);
+
+  return (
+    <div className={styles.activityChart} data-compact={isCompact || undefined}>
+      <div className={styles.header}>
+        <div className={styles.title}>{meta.name}</div>
+        <div className={styles.subtitle}>{meta.activityType}</div>
+      </div>
+
+      <div
+        className={styles.chartArea}
+        data-hovered={hoveredLegendKey ?? undefined}
+      >
+        {chart}
+      </div>
 
       {/* Footer: presets + smooth (left) | legend (right) */}
       <div className={styles.footer}>
