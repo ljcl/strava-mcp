@@ -18,7 +18,10 @@ import {
   useRef,
   useState,
 } from "react";
-import { buildRouteMapA11yDescription } from "./a11yDescription";
+import {
+  buildElevationStripDescription,
+  buildRouteMapA11yDescription,
+} from "./a11yDescription";
 import {
   buildPhotoMarkers,
   buildSplitMarkers,
@@ -419,6 +422,7 @@ export function RouteMap({
   const uid = useId();
   const mapTitleId = `${uid}-map-title`;
   const mapDescId = `${uid}-map-desc`;
+  const stripDescId = `${uid}-strip-desc`;
 
   useModelContextSync(
     app,
@@ -786,10 +790,17 @@ export function RouteMap({
           preserveAspectRatio="xMidYMid meet"
           role="img"
           aria-label={`Elevation profile of ${data.name}`}
+          aria-describedby={stripDescId}
           data-scrub={canScrub || undefined}
           onPointerMove={handleStripPointerMove}
           onPointerLeave={() => setScrubIndex(null)}
         >
+          <desc id={stripDescId}>
+            {buildElevationStripDescription(
+              data.streams?.altitude ?? [],
+              distanceKm,
+            )}
+          </desc>
           <path
             d={profile.areaPath}
             fill="var(--chart-altitude)"

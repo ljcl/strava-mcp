@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
 import { poolSwim } from "./__fixtures__/pool-swim";
 import { tempoRun } from "./__fixtures__/tempo-run";
@@ -33,21 +33,12 @@ export const PoolSwim = meta.story({
 });
 
 export const DarkTempoRun = meta.story({
-  globals: {
-    backgrounds: { value: "dark" },
-  },
+  globals: darkGlobals,
   args: {
     data: toChartData(tempoRun),
     meta: extractMeta(tempoRun),
     laps: toLapData(tempoRun),
   },
-  decorators: [
-    (StoryFn) => (
-      <div data-theme="dark">
-        <StoryFn />
-      </div>
-    ),
-  ],
 });
 
 export const CyclingRide = meta.story({
@@ -64,9 +55,7 @@ export const CyclingRide = meta.story({
 });
 
 export const DarkPoolSwim = meta.story({
-  globals: {
-    backgrounds: { value: "dark" },
-  },
+  globals: darkGlobals,
   args: {
     data: toChartData(poolSwim),
     meta: extractMeta(poolSwim),

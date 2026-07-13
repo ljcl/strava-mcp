@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { Tooltip, TooltipEntry } from "./Tooltip";
 
 function TooltipDemo() {
@@ -29,3 +29,7 @@ function TooltipDemo() {
 const meta = preview.meta({ component: TooltipDemo });
 
 export const Default = meta.story({});
+
+export const Dark = meta.story({
+  globals: darkGlobals,
+});

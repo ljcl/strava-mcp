@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { buildZonesA11y } from "./a11y";
 import styles from "./chartView.module.css";
 import { computeZoneStats } from "./normalize";
 import { type RunSummary } from "./types";
@@ -50,6 +51,8 @@ export function ZonesView({ activities, mode = "desktop" }: ZonesViewProps) {
     [zoneStats],
   );
 
+  const a11y = useMemo(() => buildZonesA11y(chartData), [chartData]);
+
   if (chartData.length === 0) {
     return (
       <div className={styles.empty}>
@@ -62,6 +65,9 @@ export function ZonesView({ activities, mode = "desktop" }: ZonesViewProps) {
     <div className={styles.container}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
+          accessibilityLayer
+          title={a11y.title}
+          desc={a11y.desc}
           data={chartData}
           margin={{
             top: tokens.marginTop,

@@ -1,6 +1,8 @@
 import preview from "@strava-mcp/design-system/preview";
 
-const colorTokens = {
+type ColorToken = { var: string; label: string; note?: string };
+
+const colorTokens: Record<string, ColorToken[]> = {
   Background: [
     { var: "--color-background-primary", label: "Primary" },
     { var: "--color-background-secondary", label: "Secondary" },
@@ -28,9 +30,29 @@ const colorTokens = {
     { var: "--chart-cadence", label: "Cadence" },
     { var: "--chart-grade", label: "Grade" },
   ],
+  Tier: [
+    {
+      var: "--color-tier-pr",
+      label: "PR (gold)",
+      note: "Personal-record badge in activity-segments; PR effort halo in route-map. Theme-invariant.",
+    },
+    {
+      var: "--color-tier-top10",
+      label: "Top 10 (light purple)",
+      note: "Top-10 badge in activity-segments; top-10 effort halo in route-map. Theme-invariant.",
+    },
+  ],
 };
 
-function Swatch({ variable, label }: { variable: string; label: string }) {
+function Swatch({
+  variable,
+  label,
+  note,
+}: {
+  variable: string;
+  label: string;
+  note?: string;
+}) {
   return (
     <div
       style={{
@@ -67,6 +89,17 @@ function Swatch({ variable, label }: { variable: string; label: string }) {
         >
           {variable}
         </code>
+        {note ? (
+          <div
+            style={{
+              fontSize: "var(--font-text-xs-size)",
+              color: "var(--color-text-secondary)",
+              marginTop: "var(--space-0-5)",
+            }}
+          >
+            {note}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -95,7 +128,12 @@ function ColorGrid() {
             }}
           >
             {tokens.map((t) => (
-              <Swatch key={t.var} variable={t.var} label={t.label} />
+              <Swatch
+                key={t.var}
+                variable={t.var}
+                label={t.label}
+                note={t.note}
+              />
             ))}
           </div>
         </div>

@@ -1,0 +1,103 @@
+import { formatPace, formatTime } from "@strava-mcp/data";
+import {
+  type ActivityMeta,
+  type ChartDataPoint,
+  type MetricKey,
+} from "./types";
+
+/**
+ * Screen-reader narration for the activity chart (#28). Recharts'
+ * accessibilityLayer provides keyboard focus and arrow-key tooltip stepping,
+ * but the SVG carries no accessible name or content summary of its own.
+ * These strings feed the chart's `title`/`desc` props (rendered as SVG
+ * <title>/<desc>), mirroring route-map's a11yDescription.ts: what the chart
+ * shows, over what extent, and the value range of each visible series.
+ */
+export interface ChartA11yInput {
+  meta: ActivityMeta;
+  data: ChartDataPoint[];
+  /** Metrics with data that are currently drawn, in render order. */
+  visibleMetrics: MetricKey[];
+  /** Laps drawn as shaded bands (zero-width swim rests already excluded). */
+  lapCount?: number;
+  smoothed?: boolean;
+}
+
+function seriesRange(
+  data: ChartDataPoint[],
+  key: MetricKey,
+): { min: number; max: number } | null {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const point of data) {
+    const value = point[key];
+    if (value === undefined) continue;
+    if (value < min) min = value;
+    if (value > max) max = value;
+  }
+  return min === Infinity ? null : { min, max };
+}
+
+function describeSeries(
+  key: MetricKey,
+  range: { min: number; max: number },
+  meta: ActivityMeta,
+): string {
+  switch (key) {
+    case "heartrate":
+      return `Heart rate ranges from ${Math.round(range.min)} to ${Math.round(range.max)} bpm.`;
+    case "power":
+      return `Power ranges from ${Math.round(range.min)} to ${Math.round(range.max)} W.`;
+    case "pace":
+      if (meta.isRunning || meta.isSwimming) {
+        const unit = meta.isSwimming ? "per 100 m" : "min/km";
+        // min is the fastest split; narrate fastest-to-slowest.
+        return `Pace ranges between ${formatPace(range.min)} and ${formatPace(range.max)} ${unit}.`;
+      }
+      return `Speed ranges from ${range.min.toFixed(1)} to ${range.max.toFixed(1)} km/h.`;
+    case "altitude":
+      return `Altitude ranges from ${Math.round(range.min)} to ${Math.round(range.max)} m.`;
+    case "cadence":
+      return `Cadence ranges from ${Math.round(range.min)} to ${Math.round(range.max)} ${meta.isRunning ? "spm" : "rpm"}.`;
+    case "grade":
+      return `Grade ranges from ${range.min.toFixed(1)}% to ${range.max.toFixed(1)}%.`;
+  }
+}
+
+export function buildChartA11yTitle(meta: ActivityMeta): string {
+  return `Chart of ${meta.activityType} activity "${meta.name}"`;
+}
+
+export function buildChartA11yDescription(input: ChartA11yInput): string {
+  const { meta, data, visibleMetrics, lapCount, smoothed } = input;
+  const parts: string[] = [];
+
+  const lastPoint = data[data.length - 1];
+  if (meta.isSwimming && lastPoint?.distance !== undefined) {
+    parts.push(`Chart over ${Math.round(lastPoint.distance)} m, by distance.`);
+  } else if (lastPoint) {
+    parts.push(`Chart over ${formatTime(lastPoint.time)}, by time.`);
+  }
+
+  const described = visibleMetrics
+    .map((key) => {
+      const range = seriesRange(data, key);
+      return range ? describeSeries(key, range, meta) : null;
+    })
+    .filter((text): text is string => text !== null);
+
+  if (described.length === 0) {
+    parts.push("No metrics are currently shown.");
+  } else {
+    parts.push(...described);
+  }
+
+  if (lapCount) {
+    parts.push(`${lapCount} lap${lapCount === 1 ? "" : "s"} shaded as bands.`);
+  }
+  if (smoothed) {
+    parts.push("Values are smoothed.");
+  }
+
+  return parts.join(" ");
+}

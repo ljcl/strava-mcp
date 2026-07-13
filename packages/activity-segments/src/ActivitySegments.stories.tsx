@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
 import {
   defaultActivity,
@@ -14,15 +14,8 @@ export const Default = meta.story({
 });
 
 export const Dark = meta.story({
-  globals: { backgrounds: { value: "dark" } },
+  globals: darkGlobals,
   args: { data: defaultActivity, mode: "desktop" },
-  decorators: [
-    (StoryFn) => (
-      <div data-theme="dark">
-        <StoryFn />
-      </div>
-    ),
-  ],
 });
 
 export const NoHighlights = meta.story({

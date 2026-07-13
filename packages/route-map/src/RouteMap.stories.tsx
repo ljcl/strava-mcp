@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
 import {
   annotatedActivity,
@@ -25,15 +25,8 @@ export const MetricColoredTrack = meta.story({
 });
 
 export const DarkMetricColoredTrack = meta.story({
-  globals: { backgrounds: { value: "dark" } },
+  globals: darkGlobals,
   args: { data: streamLoopActivity, basemapEnabled: false },
-  decorators: [
-    (StoryFn) => (
-      <div data-theme="dark">
-        <StoryFn />
-      </div>
-    ),
-  ],
 });
 
 export const SavedRoute = meta.story({
@@ -41,15 +34,8 @@ export const SavedRoute = meta.story({
 });
 
 export const DarkActivityLoop = meta.story({
-  globals: { backgrounds: { value: "dark" } },
+  globals: darkGlobals,
   args: { data: loopActivity, basemapEnabled: false },
-  decorators: [
-    (StoryFn) => (
-      <div data-theme="dark">
-        <StoryFn />
-      </div>
-    ),
-  ],
 });
 
 export const NoGeometry = meta.story({

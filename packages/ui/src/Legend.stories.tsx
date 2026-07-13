@@ -1,10 +1,22 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { Legend, LegendItem } from "./Legend";
 import { MobileCardShell } from "./MobileCardShell";
 
 const meta = preview.meta({ component: Legend });
 
 export const Default = meta.story({
+  render: () => (
+    <Legend>
+      <LegendItem color="var(--chart-heartrate)" label="Heart Rate" />
+      <LegendItem color="var(--chart-power)" label="Power" />
+      <LegendItem color="var(--chart-pace)" label="Pace" hidden />
+      <LegendItem color="var(--chart-altitude)" label="Altitude" />
+    </Legend>
+  ),
+});
+
+export const Dark = meta.story({
+  globals: darkGlobals,
   render: () => (
     <Legend>
       <LegendItem color="var(--chart-heartrate)" label="Heart Rate" />

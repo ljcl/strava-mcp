@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
 import { mockRuns } from "./__fixtures__/runs";
 import { ZonesView } from "./ZonesView";
@@ -6,6 +6,11 @@ import { ZonesView } from "./ZonesView";
 const meta = preview.meta({ component: ZonesView });
 
 export const Default = meta.story({
+  args: { activities: mockRuns },
+});
+
+export const Dark = meta.story({
+  globals: darkGlobals,
   args: { activities: mockRuns },
 });
 

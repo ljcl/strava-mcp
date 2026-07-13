@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { buildTrendA11y } from "./a11y";
 import styles from "./chartView.module.css";
 import { dotSize, rollingAverage } from "./normalize";
 import { SharedTooltip } from "./SharedTooltip";
@@ -71,6 +72,8 @@ export function TrendView({
     [sorted, trend, maxDistance, tokens.dotScale],
   );
 
+  const a11y = useMemo(() => buildTrendA11y(sorted), [sorted]);
+
   if (chartData.length === 0) {
     return (
       <div className={styles.empty}>
@@ -83,6 +86,9 @@ export function TrendView({
     <div className={styles.container}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
+          accessibilityLayer
+          title={a11y.title}
+          desc={a11y.desc}
           data={chartData}
           margin={{
             top: 8,
