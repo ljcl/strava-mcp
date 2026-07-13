@@ -1,0 +1,27 @@
+.container {
+  --chart-height: 320px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  font-family: var(--font-sans);
+}
+
+.container[data-compact] {
+  --chart-height: 260px;
+}
+
+.viewContainer {
+  flex: 1;
+  padding: var(--space-4) 0 0;
+}
+
+.container[data-compact] .viewContainer {
+  padding: var(--space-2) 0 0;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  padding: var(--space-1) 0 0;
+}

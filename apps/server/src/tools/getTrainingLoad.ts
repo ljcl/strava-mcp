@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getAllActivities } from "../stravaClient";
+import { computeWeekWarnings, getWeekStart } from "../trainingLoad";
 import { formatDuration } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
 import { TrainingLoadOutputSchema, warnOnSchemaDrift } from "./outputs";
@@ -60,50 +61,16 @@ interface WeekData {
   }>;
 }
 
-function getWeekStart(date: Date): string {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Monday start
-  d.setDate(diff);
-  return d.toISOString().split("T")[0]!;
-}
-
+/**
+ * Prose warnings from the shared per-week rules, so this tool and the
+ * training-load MCP App feed (`get-training-load-data`) stay consistent.
+ */
 function generateWarnings(
   weeklyBreakdown: Array<{ week_starting: string; distance_km: number }>,
 ): string[] {
-  const warnings: string[] = [];
-
-  if (weeklyBreakdown.length < 2) {
-    return warnings;
-  }
-
-  // Check for sudden volume increases (>30% week over week)
-  for (let i = 1; i < weeklyBreakdown.length; i += 1) {
-    const prevDist = weeklyBreakdown[i - 1]!.distance_km;
-    const currDist = weeklyBreakdown[i]!.distance_km;
-
-    if (prevDist > 0 && currDist > prevDist * 1.3) {
-      const increase = Math.round((currDist / prevDist - 1) * 100);
-      warnings.push(
-        `Week of ${weeklyBreakdown[i]!.week_starting}: Volume increased ${increase}% from previous week - consider injury risk`,
-      );
-    }
-  }
-
-  // Check for very high weeks compared to average
-  const avgDistance =
-    weeklyBreakdown.reduce((sum, w) => sum + w.distance_km, 0) /
-    weeklyBreakdown.length;
-
-  for (const week of weeklyBreakdown) {
-    if (week.distance_km > avgDistance * 1.5 && week.distance_km > 30) {
-      warnings.push(
-        `Week of ${week.week_starting}: Unusually high volume (${week.distance_km} km vs ${Math.round(avgDistance)} km average)`,
-      );
-    }
-  }
-
-  return warnings;
+  return computeWeekWarnings(weeklyBreakdown).map(
+    (w) => `Week of ${w.week_starting}: ${w.reason}`,
+  );
 }
 
 export const getTrainingLoadTool = {

@@ -1,0 +1,7 @@
+.warning {
+  max-width: 220px;
+  margin-top: var(--space-1);
+  font-size: var(--font-text-xs-size);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-danger);
+}

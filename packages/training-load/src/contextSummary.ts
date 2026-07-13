@@ -1,0 +1,30 @@
+import { countWarningWeeks } from "./normalize";
+import { type TrainingLoadData } from "./types";
+
+/**
+ * One-line summary of what the chart is showing, synced to the host so the
+ * model can talk about the visible state without re-calling the data tool.
+ */
+export function buildTrainingLoadContextSummary(
+  data: TrainingLoadData,
+): string | null {
+  if (!data.days) return null;
+
+  const parts = [
+    `Training load, last ${data.days} day${data.days === 1 ? "" : "s"}.`,
+    `${data.totals.runs} run${data.totals.runs === 1 ? "" : "s"}, ${data.totals.distanceKm} km over ${data.weeks.length} week${data.weeks.length === 1 ? "" : "s"}.`,
+  ];
+
+  const warningWeeks = countWarningWeeks(data.weeks);
+  if (warningWeeks > 0) {
+    const flagged = data.weeks
+      .filter((w) => w.warning)
+      .map((w) => `week of ${w.weekStarting}`)
+      .join(", ");
+    parts.push(`Injury-risk warnings on ${flagged}.`);
+  } else {
+    parts.push("No injury-risk warnings.");
+  }
+
+  return parts.join(" ");
+}
