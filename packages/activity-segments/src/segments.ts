@@ -66,6 +66,26 @@ export function summaryCounts(efforts: SegmentEffortRow[]): {
   };
 }
 
+/** "12 segments, 2 PRs, 1 top-10" — plural-aware, omits zero tiers. */
+export function summaryLine(efforts: SegmentEffortRow[]): string {
+  const counts = summaryCounts(efforts);
+  const parts = [
+    `${counts.total} ${counts.total === 1 ? "segment" : "segments"}`,
+  ];
+  if (counts.prs > 0)
+    parts.push(`${counts.prs} ${counts.prs === 1 ? "PR" : "PRs"}`);
+  if (counts.top10 > 0) parts.push(`${counts.top10} top-10`);
+  return parts.join(", ");
+}
+
+/**
+ * Stable identity for an effort. The same segment can be ridden twice in one
+ * activity, so the segment id alone is not unique; startIndex disambiguates.
+ */
+export function effortKey(e: SegmentEffortRow): string {
+  return `${e.segmentId}-${e.startIndex ?? "x"}`;
+}
+
 /** Pace for runs ("3'45 /km"), speed for rides ("28.4 km/h"), "—" if paused. */
 export function formatEffortPace(
   e: SegmentEffortRow,

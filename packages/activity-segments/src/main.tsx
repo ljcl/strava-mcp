@@ -44,7 +44,7 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
           onRetry={retry}
         />
       ) : (
-        <ActivitySegments data={data} mode={mode} />
+        <ActivitySegments data={data} mode={mode} app={app ?? undefined} />
       )}
     </AppShell>
   );

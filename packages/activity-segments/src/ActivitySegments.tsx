@@ -1,41 +1,33 @@
 import { Collapsible } from "@base-ui/react/collapsible";
 import { isRunning } from "@strava-mcp/data";
-import { type ReactNode, useMemo } from "react";
+import { type ModelContextApp, useModelContextSync } from "@strava-mcp/ui";
+import { type ReactNode, useCallback, useMemo, useState } from "react";
 import styles from "./ActivitySegments.module.css";
+import { buildSegmentsContextSummary } from "./contextSummary";
 import {
   buildHeatDomain,
   type Domain,
+  effortKey,
   formatClock,
   formatEffortPace,
   heatColor,
   runOrder,
   selectHighlights,
-  summaryCounts,
+  summaryLine,
 } from "./segments";
 import { type ActivitySegmentsData, type SegmentEffortRow } from "./types";
 
 interface ActivitySegmentsProps {
   data: ActivitySegmentsData;
   mode: "mobile" | "desktop";
-}
-
-/** "12 segments, 2 PRs, 1 top-10" — plural-aware, omits zero tiers. */
-function summaryLine(data: ActivitySegmentsData): string {
-  const counts = summaryCounts(data.segments);
-  const parts = [
-    `${counts.total} ${counts.total === 1 ? "segment" : "segments"}`,
-  ];
-  if (counts.prs > 0)
-    parts.push(`${counts.prs} ${counts.prs === 1 ? "PR" : "PRs"}`);
-  if (counts.top10 > 0) parts.push(`${counts.top10} top-10`);
-  return parts.join(", ");
+  app?: ModelContextApp;
 }
 
 function formatGrade(grade: number): string {
   return `${grade >= 0 ? "+" : ""}${grade.toFixed(1)}%`;
 }
 
-export function ActivitySegments({ data, mode }: ActivitySegmentsProps) {
+export function ActivitySegments({ data, mode, app }: ActivitySegmentsProps) {
   const isMobile = mode === "mobile";
   const activityType = data.activityType;
 
@@ -46,11 +38,43 @@ export function ActivitySegments({ data, mode }: ActivitySegmentsProps) {
   );
   const all = useMemo(() => runOrder(data.segments), [data.segments]);
 
+  // Open rows tracked as "<group>:<effortKey>" — a PR effort renders in both
+  // Highlights and All segments, and each copy expands independently.
+  const [openRowIds, setOpenRowIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const onRowOpenChange = useCallback((rowId: string, open: boolean) => {
+    setOpenRowIds((prev) => {
+      const next = new Set(prev);
+      if (open) next.add(rowId);
+      else next.delete(rowId);
+      return next;
+    });
+  }, []);
+
+  const expanded = useMemo(() => {
+    const keys = new Set(
+      [...openRowIds].map((id) => id.slice(id.indexOf(":") + 1)),
+    );
+    return all.filter((e) => keys.has(effortKey(e)));
+  }, [openRowIds, all]);
+
+  useModelContextSync(
+    app,
+    () =>
+      buildSegmentsContextSummary({
+        activityName: data.name,
+        segments: data.segments,
+        expanded,
+      }),
+    [data, expanded],
+  );
+
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
       <div className={styles.header}>
         <div className={styles.title}>{data.name}</div>
-        <div className={styles.subtitle}>{summaryLine(data)}</div>
+        <div className={styles.subtitle}>{summaryLine(data.segments)}</div>
       </div>
 
       {data.segments.length === 0 ? (
@@ -60,16 +84,20 @@ export function ActivitySegments({ data, mode }: ActivitySegmentsProps) {
           {highlights.length > 0 && (
             <SegmentGroup
               title="Highlights"
+              groupId="highlights"
               rows={highlights}
               domain={domain}
               activityType={activityType}
+              onRowOpenChange={onRowOpenChange}
             />
           )}
           <SegmentGroup
             title="All segments"
+            groupId="all"
             rows={all}
             domain={domain}
             activityType={activityType}
+            onRowOpenChange={onRowOpenChange}
           />
         </>
       )}
@@ -79,16 +107,20 @@ export function ActivitySegments({ data, mode }: ActivitySegmentsProps) {
 
 interface SegmentGroupProps {
   title: string;
+  groupId: string;
   rows: SegmentEffortRow[];
   domain: Domain;
   activityType: string | null;
+  onRowOpenChange: (rowId: string, open: boolean) => void;
 }
 
 function SegmentGroup({
   title,
+  groupId,
   rows,
   domain,
   activityType,
+  onRowOpenChange,
 }: SegmentGroupProps) {
   return (
     <div className={styles.group}>
@@ -96,10 +128,12 @@ function SegmentGroup({
       <div className={styles.rows}>
         {rows.map((effort) => (
           <Row
-            key={`${effort.segmentId}-${effort.startIndex ?? "x"}`}
+            key={effortKey(effort)}
+            rowId={`${groupId}:${effortKey(effort)}`}
             effort={effort}
             domain={domain}
             activityType={activityType}
+            onOpenChange={onRowOpenChange}
           />
         ))}
       </div>
@@ -108,12 +142,14 @@ function SegmentGroup({
 }
 
 interface RowProps {
+  rowId: string;
   effort: SegmentEffortRow;
   domain: Domain;
   activityType: string | null;
+  onOpenChange: (rowId: string, open: boolean) => void;
 }
 
-function Row({ effort, domain, activityType }: RowProps) {
+function Row({ rowId, effort, domain, activityType, onOpenChange }: RowProps) {
   const running = activityType ? isRunning(activityType) : true;
   const tier =
     effort.prRank != null
@@ -150,7 +186,10 @@ function Row({ effort, domain, activityType }: RowProps) {
   details.push({ label: "Moving", value: formatClock(effort.movingTime) });
 
   return (
-    <Collapsible.Root className={styles.row}>
+    <Collapsible.Root
+      className={styles.row}
+      onOpenChange={(open) => onOpenChange(rowId, open)}
+    >
       <Collapsible.Trigger className={styles.trigger}>
         <span
           className={styles.dot}
