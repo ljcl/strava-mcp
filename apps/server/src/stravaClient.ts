@@ -3,7 +3,9 @@ import { z } from "zod";
 import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
 import { refreshAccessToken, TokenRevokedError } from "./tokenManager";
 import {
+  buildCreateActivityBody,
   buildUpdateActivityBody,
+  type CreateActivityParams,
   type UpdateActivityParams,
 } from "./utils/activityWrite";
 
@@ -1841,6 +1843,59 @@ export async function updateActivity(
       async () => {
         const newToken = process.env.STRAVA_ACCESS_TOKEN!;
         return updateActivity(newToken, activityId, updates);
+      },
+    );
+  }
+}
+
+/**
+ * Creates a manual activity (no device recording) on the authenticated
+ * athlete's timeline. Requires the activity:write scope.
+ *
+ * @param accessToken - The Strava API access token.
+ * @param params - The manual entry: name, sport type, local start time,
+ *   elapsed time, and optional distance/description/flags.
+ * @returns The created detailed activity.
+ */
+export async function createActivity(
+  accessToken: string,
+  params: CreateActivityParams,
+): Promise<StravaDetailedActivity> {
+  if (!accessToken) {
+    throw new Error("Strava access token is required.");
+  }
+
+  const body = buildCreateActivityBody(params);
+
+  try {
+    const response = await stravaApi.post<unknown>("/activities", body, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    const validationResult = ExtendedDetailedActivitySchema.safeParse(
+      response.data,
+    );
+
+    if (!validationResult.success) {
+      console.error(
+        "Strava API validation failed (createActivity):",
+        validationResult.error,
+      );
+      throw new Error(
+        `Invalid data format received from Strava API: ${validationResult.error.message}`,
+      );
+    }
+    return validationResult.data;
+  } catch (error) {
+    return await handleApiError<StravaDetailedActivity>(
+      error,
+      `createActivity "${params.name}"`,
+      async () => {
+        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+        return createActivity(newToken, params);
       },
     );
   }

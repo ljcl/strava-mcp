@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TOOLS } from "./server";
 import {
   READ_ONLY,
+  WRITE_CREATE,
   WRITE_DESTRUCTIVE,
   WRITE_IDEMPOTENT,
 } from "./tools/_annotations";
@@ -15,6 +16,11 @@ describe("annotation constants", () => {
     expect(WRITE_DESTRUCTIVE.destructiveHint).toBe(true);
     expect(WRITE_DESTRUCTIVE.idempotentHint).toBe(false);
     expect(WRITE_DESTRUCTIVE.readOnlyHint).toBe(false);
+  });
+  it("creates are non-destructive but not idempotent", () => {
+    expect(WRITE_CREATE.readOnlyHint).toBe(false);
+    expect(WRITE_CREATE.destructiveHint).toBe(false);
+    expect(WRITE_CREATE.idempotentHint).toBe(false);
   });
   it("idempotent writes are not destructive", () => {
     expect(WRITE_IDEMPOTENT.idempotentHint).toBe(true);
