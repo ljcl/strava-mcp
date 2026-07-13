@@ -363,6 +363,7 @@ The server exposes the following MCP tools:
 
 | Tool | Description |
 | ---- | ----------- |
+| `create-activity` | Create a manual activity (no device recording), e.g. strength or yoga |
 | `update-activity` | Update an activity's description, title, sport type, gear, or flags |
 | `get-activity-zones` | Time spent in each HR and power zone for an activity |
 | `get-activity-laps` | Laps of an activity with sport-aware pace/speed, HR, power, cadence |

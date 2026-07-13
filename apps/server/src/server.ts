@@ -27,6 +27,7 @@ import {
 import { READ_ONLY } from "./tools/_annotations";
 import { stravaIdInput } from "./tools/_ids";
 import { compareActivitiesTool } from "./tools/compareActivities";
+import { createActivityTool } from "./tools/createActivity";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportActivityGpx } from "./tools/exportActivityGpx";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
@@ -120,6 +121,7 @@ interface ToolDef {
 /** All existing Strava tools */
 const STRAVA_TOOLS = [
   getAthleteStatsTool,
+  createActivityTool,
   updateActivityTool,
   listStarredSegments,
   getSegmentTool,
