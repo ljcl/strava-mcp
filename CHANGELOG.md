@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.4.0](https://github.com/ljcl/strava-mcp/compare/v2.3.0...v2.4.0) (2026-07-13)
+
+
+### Features
+
+* add get-activity-laps tool, MCP prompts, and structured /health ([#148](https://github.com/ljcl/strava-mcp/issues/148)) ([abb98ed](https://github.com/ljcl/strava-mcp/commit/abb98ed201b38b1396ea3a8b8326e92ee2061469))
+* export activity GPX built from streams ([#158](https://github.com/ljcl/strava-mcp/issues/158)) ([be52920](https://github.com/ljcl/strava-mcp/commit/be52920a607c3e7f782a19f14ab3ee77a67fe85a))
+
+
+### Bug Fixes
+
+* bound 401 refresh-retry and accept 64-bit string ids in tool inputs ([#143](https://github.com/ljcl/strava-mcp/issues/143)) ([14fba2c](https://github.com/ljcl/strava-mcp/commit/14fba2c74f4b72be02de2ec92f7fc6f8701614ff))
+* bound best-efforts pagination, align overlay runs, keep tooltip zeros, sync turbo pin ([#145](https://github.com/ljcl/strava-mcp/issues/145)) ([3292a6d](https://github.com/ljcl/strava-mcp/commit/3292a6d186217c4bd83dac8feba8ef773e1f5dfb))
+* enforce tool input schemas at dispatch, add optional /mcp bearer auth, theme overlay tooltip ([#146](https://github.com/ljcl/strava-mcp/issues/146)) ([aff7267](https://github.com/ljcl/strava-mcp/commit/aff72672e21086d5e4dd9d03aca4b34b2e674de8))
+* reject non-numeric route ids and contain export paths in route export tools ([#141](https://github.com/ljcl/strava-mcp/issues/141)) ([d332012](https://github.com/ljcl/strava-mcp/commit/d332012f33a8734c781afa3f5a43f6955cdb9a8e))
+* validate OAuth state and stop /auth routes overwriting stored tokens ([#147](https://github.com/ljcl/strava-mcp/issues/147)) ([a663af3](https://github.com/ljcl/strava-mcp/commit/a663af3bc77258f94c457a6597af1273be55f622))
+
+
+### Performance Improvements
+
+* stop legend hover re-rendering the ActivityChart Recharts tree ([#151](https://github.com/ljcl/strava-mcp/issues/151)) ([f28c718](https://github.com/ljcl/strava-mcp/commit/f28c7188c96fabc9db0d42b70f6173c92abf8089))
+
 ## [2.3.0](https://github.com/ljcl/strava-mcp/compare/v2.2.0...v2.3.0) (2026-07-10)
 
 
