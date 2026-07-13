@@ -412,6 +412,8 @@ The server exposes the following MCP tools:
 | `get-route-map-data` | Decoded `[lat, lng]` coordinates for the route map UI (app-only) |
 | `view-activity-segments` | Prioritised, scrollable list of one activity's segment efforts: PRs/top-10 pinned, then run order, pace-heat with expandable effort detail (MCP App) |
 | `get-activity-segments-data` | Segment-effort rows (time, pace, grade, ranks, HR/power/cadence) for the activity-segments UI (app-only) |
+| `view-compare-activities` | Interactive overlay of two activities' streams on a shared distance/time axis with a delta summary (MCP App) |
+| `get-compare-activities-data` | Aggregate comparison (summaries, differences, efficiency) for the compare-activities UI (app-only) |
 
 ## Project Structure
 
@@ -422,6 +424,7 @@ packages/activity-chart/     Interactive activity chart (MCP App)
 packages/cadence-trends/     Cadence trend analysis (MCP App)
 packages/route-map/          Activity/route GPS map (MCP App)
 packages/activity-segments/  Activity segment-effort list (MCP App)
+packages/compare-activities/ Two-activity stream overlay (MCP App)
 packages/data/               Shared pure data utilities
 packages/ui/                 Shared presentational React components
 packages/design-system/      Design tokens, color constants, Storybook preview

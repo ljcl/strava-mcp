@@ -20,6 +20,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `packages/training-load/` — React + Recharts MCP App for weekly training volume with trend line and injury-risk warnings
 - `packages/route-map/` — React MCP App for activity/route GPS maps (MapLibre basemap by default, pure-SVG offline grid fallback; no Recharts)
 - `packages/activity-segments/` — React MCP App listing one activity's segment efforts (no Recharts, no MapLibre)
+- `packages/compare-activities/` — React + Recharts MCP App overlaying two activities' streams with a delta summary
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
@@ -99,6 +100,8 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | `get-activity-segments-data` | Segment-effort rows (time, pace, grade, ranks, HR/power/cadence) for the activity-segments UI (app-only) |
 | `view-training-load` | Weekly running-volume bars with a rolling trend line and injury-risk warning weeks (MCP App) |
 | `get-training-load-data` | Per-week volume, trend value, and warning flags for the training-load UI (app-only) |
+| `view-compare-activities` | Interactive overlay of two activities' streams on a shared distance/time axis with a delta summary (MCP App) |
+| `get-compare-activities-data` | Aggregate comparison (summaries, activity2−activity1 differences, efficiency) for the compare-activities UI (app-only) |
 
 ## Styling
 
@@ -196,6 +199,18 @@ The `view-training-load` tool renders weekly running volume as a bar chart with 
 - The server-side aggregation is pure and unit-tested in `apps/server/src/trainingLoad.ts` (`buildTrainingLoadData`): Monday-start weekly buckets, gap weeks zero-filled so the timeline stays continuous, a centered rolling-average trend per week, and per-week warning flags with reasons. The warning rules (`computeWeekWarnings`: >30% week-over-week spike, >150%-of-average high week) are shared with the `get-training-load` text tool so chart and prose can never drift
 - Recharts `ComposedChart`: weekly distance bars (warning weeks recolored in the heart-rate/danger hue) plus the trend `Line`; the shared scrub tooltip lists distance, runs, time, elevation, and any warning reasons for the hovered week
 - Footer `Legend` toggles the trend line and the warning highlighting; totals (runs, distance, time, elevation) render in the shared `SummaryBar` from `@strava-mcp/ui` (also used by cadence-trends)
+
+## MCP App (Compare Activities)
+
+The `view-compare-activities` tool overlays two activities' streams so the user can see WHERE in the run the difference happened (the text `compare-activities` tool only reports aggregates).
+
+- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); Recharts, bundled as a single HTML file via `vite-plugin-singlefile`
+- Served as MCP resource at `ui://compare-activities/app.html`; takes `activity_id_1` + `activity_id_2`
+- Calls `get-activity-streams-raw` once per activity (cross-app reuse; TTL-cached server-side) for the overlay, and `get-compare-activities-data` (app-only) for the delta summary bar. That tool reuses the text tool's aggregate logic, extracted as the pure `buildComparison` in `apps/server/src/tools/compareActivities.ts` (unit-tested)
+- Alignment is pure and unit-tested in `src/align.ts`: both activities are resampled onto one uniform grid over the shared distance or time axis (`alignSeries`, linear interpolation, light post-smoothing), so the tooltip can show a per-point activity2−activity1 delta and a shorter activity's line simply ends. Pace is only rendered as pace (min/km, reversed axis) when BOTH activities are pace sports; mixed pairs fall back to km/h (`paceCategory`)
+- One metric at a time (pace/HR/power/cadence/altitude pills, intersection of what both activities recorded), distance/time axis toggle (distance only when both recorded it), legend toggles per activity line (activity 1 blue, activity 2 orange)
+- Delta summary header renders from the compare payload (distance, time, pace, HR, cadence, elevation, efficiency tiles; better/worse coloring); it degrades away if that fetch fails while the overlay still renders
+- View state is reported to the host via `useModelContextSync` (`src/contextSummary.ts`, unit-tested); screen-reader narration via `accessibilityLayer` + SVG `<title>`/`<desc>` (`src/a11y.ts`, unit-tested), per the chart accessibility convention
 
 ## Targeting Mobile for MCP Apps
 
