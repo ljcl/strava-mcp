@@ -42,7 +42,7 @@ describe("RouteMap accessibility wiring", () => {
     );
   });
 
-  it("labels the elevation strip with the route name", () => {
+  it("labels and describes the elevation strip", () => {
     const withAltitude = {
       ...loopActivity,
       streams: {
@@ -55,6 +55,14 @@ describe("RouteMap accessibility wiring", () => {
     );
     expect(markup).toContain(
       'aria-label="Elevation profile of Golden Gate Park Loop"',
+    );
+    const [, stripDescribedBy] =
+      markup.match(
+        /aria-label="Elevation profile[^"]*" aria-describedby="([^"]+)"/,
+      ) ?? [];
+    expect(stripDescribedBy).toBeTruthy();
+    expect(markup).toContain(
+      `<desc id="${stripDescribedBy}">Altitude ranges from 10 m to ${10 + loopActivity.coordinates.length - 1} m over 8.2 km.</desc>`,
     );
   });
 });

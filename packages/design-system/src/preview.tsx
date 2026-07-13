@@ -2,6 +2,16 @@ import { definePreview } from "@storybook/react-vite";
 import { HOST_THEMES, type HostThemePreset } from "./host-themes";
 import "./tokens.css";
 
+/**
+ * Globals for a dark-theme story variant. The preview decorator below derives
+ * `data-theme="dark"` from the backgrounds global, so a Dark story needs only
+ * `globals: darkGlobals` (spread it when combining with other globals) — never
+ * a per-story `data-theme` decorator.
+ */
+export const darkGlobals = {
+  backgrounds: { value: "dark" },
+} as const;
+
 /** Collect every CSS variable key used across all theme presets */
 const ALL_HOST_KEYS = new Set(
   Object.values(HOST_THEMES)

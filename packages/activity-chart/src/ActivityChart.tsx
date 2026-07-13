@@ -28,6 +28,7 @@ import {
   YAxis,
 } from "recharts";
 import styles from "./ActivityChart.module.css";
+import { buildChartA11yDescription, buildChartA11yTitle } from "./a11y";
 import { buildChartContextSummary } from "./contextSummary";
 import { type ChartLap, smoothData } from "./normalize";
 import {
@@ -405,6 +406,25 @@ export function ActivityChart({
   if (availableMetrics.has("grade") && !isMobile)
     legendItems.push({ key: "grade", color: COLORS.grade, label: "Grade" });
 
+  // Screen-reader narration (#28), computed outside the chart memo so the
+  // memo's dependency is the resulting string, not the smoothing flag.
+  const a11yDescription = useMemo(() => {
+    const drawn = (key: MetricKey) =>
+      availableMetrics.has(key) &&
+      !hidden.has(key) &&
+      (key !== "grade" || !isMobile);
+    return buildChartA11yDescription({
+      meta,
+      data: displayData,
+      visibleMetrics: ALL_METRICS.filter(drawn),
+      lapCount:
+        laps?.filter(
+          (lap) => !(meta.isSwimming && lap.startDistance === lap.endDistance),
+        ).length ?? 0,
+      smoothed: smooth,
+    });
+  }, [meta, displayData, availableMetrics, hidden, isMobile, laps, smooth]);
+
   // The Recharts tree is memoized WITHOUT the hover state: hovering the
   // legend only flips a data attribute on the wrapper div (dimming is CSS),
   // so the element below stays referentially stable and React bails out of
@@ -415,6 +435,9 @@ export function ActivityChart({
     return (
       <ResponsiveContainer width="100%" aspect={aspect}>
         <ComposedChart
+          accessibilityLayer
+          title={buildChartA11yTitle(meta)}
+          desc={a11yDescription}
           data={displayData}
           margin={{
             bottom: 5,
@@ -635,6 +658,7 @@ export function ActivityChart({
     isMobile,
     availableMetrics,
     hidden,
+    a11yDescription,
   ]);
 
   return (

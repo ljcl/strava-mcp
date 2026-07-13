@@ -17,6 +17,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { buildOverlayA11y } from "./a11y";
 import { resampleOverlayRuns } from "./normalize";
 import styles from "./OverlayView.module.css";
 import { COMPARISON_COLORS, type OverlayPoint, type RunSummary } from "./types";
@@ -141,6 +142,15 @@ export function OverlayView({
     };
   }, [runs, xMode]);
 
+  const a11y = useMemo(
+    () =>
+      buildOverlayA11y(
+        runs.map((r) => ({ name: r.run.name, date: r.run.date })),
+        xMode,
+      ),
+    [runs, xMode],
+  );
+
   const isLoading = [...selectedRunIds].some((id) => loadingStreams.has(id));
 
   if (selectedRunIds.size === 0) {
@@ -159,6 +169,9 @@ export function OverlayView({
       <div className={styles.container}>
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart
+            accessibilityLayer
+            title={a11y.title}
+            desc={a11y.desc}
             data={chartData}
             margin={{
               top: 8,

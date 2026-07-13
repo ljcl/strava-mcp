@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
 import { mockRuns } from "./__fixtures__/runs";
 import { TrendView } from "./TrendView";
@@ -20,6 +20,15 @@ export const WithSelectedRuns = meta.story({
     activities: mockRuns,
     onRunClick: noop,
     selectedRunIds: new Set([10003, 10013]),
+  },
+});
+
+export const Dark = meta.story({
+  globals: darkGlobals,
+  args: {
+    activities: mockRuns,
+    onRunClick: noop,
+    selectedRunIds: new Set<number>(),
   },
 });
 

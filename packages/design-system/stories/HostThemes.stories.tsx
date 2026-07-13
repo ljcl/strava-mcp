@@ -1,5 +1,5 @@
 import { HOST_THEMES } from "@strava-mcp/design-system/host-themes";
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 
 const colorVars = [
   "--color-background-primary",
@@ -125,8 +125,8 @@ export const Claude = meta.story({
 
 export const ClaudeDark = meta.story({
   globals: {
+    ...darkGlobals,
     hostTheme: "claude",
-    backgrounds: { value: "dark" },
   },
 });
 
@@ -136,7 +136,7 @@ export const ChatGPT = meta.story({
 
 export const ChatGPTDark = meta.story({
   globals: {
+    ...darkGlobals,
     hostTheme: "chatgpt",
-    backgrounds: { value: "dark" },
   },
 });

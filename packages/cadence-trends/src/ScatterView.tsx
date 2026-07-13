@@ -12,6 +12,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { buildScatterA11y } from "./a11y";
 import styles from "./chartView.module.css";
 import { dotSize, linearRegression } from "./normalize";
 import { SharedTooltip } from "./SharedTooltip";
@@ -77,6 +78,11 @@ export function ScatterView({
     return linearRegression(points);
   }, [runs]);
 
+  const a11y = useMemo(
+    () => buildScatterA11y(runs, regression?.slope ?? null),
+    [runs, regression],
+  );
+
   if (chartData.length === 0) {
     return (
       <div className={styles.empty}>
@@ -94,6 +100,9 @@ export function ScatterView({
     <div className={styles.container}>
       <ResponsiveContainer width="100%" height="100%">
         <ScatterChart
+          accessibilityLayer
+          title={a11y.title}
+          desc={a11y.desc}
           margin={{
             top: 8,
             right: tokens.marginRight,

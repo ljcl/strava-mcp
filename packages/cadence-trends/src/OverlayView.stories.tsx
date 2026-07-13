@@ -1,4 +1,4 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
 import { mockStreamCache } from "./__fixtures__/overlay-streams";
 import { OverlayView } from "./OverlayView";
@@ -37,7 +37,7 @@ export const WithDataDark = meta.story({
     fetchStreamForRun: noop,
   },
   globals: {
-    backgrounds: { value: "dark" },
+    ...darkGlobals,
     hostTheme: "claude",
   },
 });

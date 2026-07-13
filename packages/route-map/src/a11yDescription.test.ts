@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { buildRouteMapA11yDescription, extentSpansKm } from "./a11yDescription";
+import {
+  buildElevationStripDescription,
+  buildRouteMapA11yDescription,
+  extentSpansKm,
+} from "./a11yDescription";
 
 /** ~1.11 km per 0.01° of latitude; longitude scaled at the equator too. */
 const loopTrack: Array<[number, number]> = [
@@ -146,5 +150,17 @@ describe("buildRouteMapA11yDescription", () => {
     });
     expect(description).toContain("330 m east to west");
     expect(description).toContain("330 m north to south");
+  });
+});
+
+describe("buildElevationStripDescription", () => {
+  it("narrates the altitude range over the distance", () => {
+    expect(buildElevationStripDescription([12.4, 96.2, 40], 8.23)).toBe(
+      "Altitude ranges from 12 m to 96 m over 8.2 km.",
+    );
+  });
+
+  it("handles a missing altitude stream", () => {
+    expect(buildElevationStripDescription([], 5)).toBe("No altitude data.");
   });
 });

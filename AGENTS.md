@@ -127,8 +127,10 @@ frozen `@base-ui-components/react`.
   props and an index value is injected per child, so the public component props are unchanged.
 - Not every component needs a primitive. `Tooltip` (rendered inside Recharts' tooltip, which owns
   positioning), `Skeleton`, and `AppShell` are presentational and stay hand-rolled.
-- Chart descriptions / `accessibilityLayer` are tracked separately in #28; this convention owns the
-  interactive-control migration.
+- Chart accessibility: every Recharts chart sets `accessibilityLayer` (keyboard focus + arrow-key
+  tooltip stepping) plus `title`/`desc` props rendered as SVG `<title>`/`<desc>`, with the
+  narration built by a unit-tested `a11y.ts` in each MCP App package (mirroring route-map's
+  `a11yDescription.ts`); this convention owns the interactive-control migration.
 
 ## MCP App (Activity Chart)
 
@@ -231,7 +233,7 @@ Footer rows use `flex-wrap: wrap` and `align-items: stretch` on compact so the l
 
 Dark mode on Claude iOS flows entirely from the host. When Claude is dark, it sends dark vars. When Claude is light, the app stays light regardless of the OS.
 
-Storybook simulates dark via the `[data-theme="dark"]` selector on its decorator, which is still wired up.
+Storybook simulates dark via the `[data-theme="dark"]` selector on its decorator, which is still wired up. A dark story variant needs only `globals: darkGlobals` (exported from `@strava-mcp/design-system/preview`; spread it when combining with other globals) — never a per-story `data-theme` decorator, which the preview decorator already applies.
 
 ### Recharts tick label margins
 

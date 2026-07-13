@@ -118,7 +118,9 @@ function describeShape(
   return `${shape}, spanning roughly ${formatSpan(spans.ewKm)} east to west and ${formatSpan(spans.nsKm)} north to south.`;
 }
 
-function describeAltitude(altitude: number[] | undefined): string | null {
+function altitudeRange(
+  altitude: number[] | undefined,
+): { min: number; max: number } | null {
   if (!altitude || altitude.length === 0) return null;
   let min = Infinity;
   let max = -Infinity;
@@ -126,7 +128,27 @@ function describeAltitude(altitude: number[] | undefined): string | null {
     if (value < min) min = value;
     if (value > max) max = value;
   }
-  return `Altitude ranges from ${Math.round(min)} m to ${Math.round(max)} m.`;
+  return { min, max };
+}
+
+function describeAltitude(altitude: number[] | undefined): string | null {
+  const range = altitudeRange(altitude);
+  if (!range) return null;
+  return `Altitude ranges from ${Math.round(range.min)} m to ${Math.round(range.max)} m.`;
+}
+
+/**
+ * Narration for the linked elevation strip below the track (#28). The strip
+ * is its own role="img" SVG, so it carries its own <desc> alongside the
+ * existing name label.
+ */
+export function buildElevationStripDescription(
+  altitude: number[],
+  distanceKm: number,
+): string {
+  const range = altitudeRange(altitude);
+  if (!range) return "No altitude data.";
+  return `Altitude ranges from ${Math.round(range.min)} m to ${Math.round(range.max)} m over ${distanceKm.toFixed(1)} km.`;
 }
 
 function describeAnnotations(input: RouteMapA11yInput): string | null {
