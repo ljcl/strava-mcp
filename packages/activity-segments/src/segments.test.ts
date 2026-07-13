@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  effortKey,
   effortSpeed,
   formatClock,
   formatEffortPace,
   runOrder,
   selectHighlights,
   summaryCounts,
+  summaryLine,
 } from "./segments";
 import { type SegmentEffortRow } from "./types";
 
@@ -125,5 +127,32 @@ describe("effortSpeed", () => {
     const result = effortSpeed(row({ elapsedTime: 0 }));
     expect(result).toBe(0);
     expect(Number.isFinite(result)).toBe(true);
+  });
+});
+
+describe("summaryLine", () => {
+  it("omits zero tiers", () => {
+    expect(summaryLine([row({})])).toBe("1 segment");
+  });
+
+  it("pluralizes and includes both tiers", () => {
+    const efforts = [
+      row({ segmentId: "a", prRank: 1 }),
+      row({ segmentId: "b", prRank: 2 }),
+      row({ segmentId: "c", komRank: 4 }),
+    ];
+    expect(summaryLine(efforts)).toBe("3 segments, 2 PRs, 1 top-10");
+  });
+});
+
+describe("effortKey", () => {
+  it("disambiguates repeat efforts on the same segment by startIndex", () => {
+    const first = effortKey(row({ segmentId: "9", startIndex: 10 }));
+    const second = effortKey(row({ segmentId: "9", startIndex: 900 }));
+    expect(first).not.toBe(second);
+  });
+
+  it("falls back to a stable key when startIndex is null", () => {
+    expect(effortKey(row({ segmentId: "9", startIndex: null }))).toBe("9-x");
   });
 });
