@@ -1,7 +1,12 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { type HostLayout } from "@strava-mcp/data";
-import { Pill, PillGroup, useModelContextSync } from "@strava-mcp/ui";
+import {
+  Pill,
+  PillGroup,
+  SummaryBar,
+  useModelContextSync,
+} from "@strava-mcp/ui";
 import { useCallback, useMemo, useState } from "react";
 import styles from "./App.module.css";
 import { buildCadenceContextSummary } from "./contextSummary";
@@ -12,7 +17,6 @@ import {
 } from "./normalize";
 import { OverlayView } from "./OverlayView";
 import { ScatterView } from "./ScatterView";
-import { SummaryBar } from "./SummaryBar";
 import { TrendView } from "./TrendView";
 import {
   type CadenceTrendData,
@@ -126,11 +130,23 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
       <SummaryBar
-        currentAvg={stats.currentAvg}
-        delta={stats.delta}
-        runCount={stats.runCount}
-        weeks={data.weeks}
         compact={isMobile}
+        stats={[
+          {
+            label: "Avg Cadence",
+            value: stats.currentAvg > 0 ? `${stats.currentAvg} spm` : "—",
+          },
+          {
+            label: "Trend",
+            value:
+              stats.delta !== 0
+                ? `${stats.delta > 0 ? "+" : ""}${stats.delta} spm`
+                : "flat",
+            direction:
+              stats.delta > 0 ? "up" : stats.delta < 0 ? "down" : "flat",
+          },
+          { label: "Runs", value: `${stats.runCount} in ${data.weeks}w` },
+        ]}
       />
       <div className={styles.nav}>
         <PillGroup>

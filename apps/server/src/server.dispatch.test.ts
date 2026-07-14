@@ -114,6 +114,32 @@ describe("dispatchToolCall input validation", () => {
     expect(JSON.parse(text).weeks).toBe(6);
   });
 
+  it("applies the days default for get-training-load-data", async () => {
+    mockedList.mockResolvedValueOnce([]);
+
+    const result = await dispatchToolCall("get-training-load-data", {});
+
+    expect(result.isError).toBeUndefined();
+    const text = result.content[0]?.text ?? "";
+    expect(JSON.parse(text)).toEqual({
+      days: 84,
+      totals: { runs: 0, distanceKm: 0, timeHours: 0, elevationM: 0 },
+      weeks: [],
+    });
+    const params = mockedList.mock.calls[0]?.[1];
+    expect(Number.isFinite(params?.after)).toBe(true);
+  });
+
+  it("rejects days above the documented bound for view-training-load", async () => {
+    const result = await dispatchToolCall("view-training-load", { days: 900 });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain(
+      "Invalid arguments for view-training-load",
+    );
+    expect(mockedList).not.toHaveBeenCalled();
+  });
+
   it("returns a structured error for unknown tools", async () => {
     const result = await dispatchToolCall("not-a-tool", {});
 

@@ -13,6 +13,7 @@
     "@strava-mcp/cadence-trends": "workspace:*",
     "@strava-mcp/design-system": "workspace:*",
     "@strava-mcp/route-map": "workspace:*",
+    "@strava-mcp/training-load": "workspace:*",
     "@strava-mcp/ui": "workspace:*"
   },
   "devDependencies": {

@@ -21,6 +21,10 @@ export default defineMain({
       directory: "../../../packages/activity-segments/src/",
     },
     {
+      titlePrefix: "Training Load",
+      directory: "../../../packages/training-load/src/",
+    },
+    {
       directory: "../../../packages/design-system/stories/",
     },
     { titlePrefix: "UI", directory: "../../../packages/ui/src/" },

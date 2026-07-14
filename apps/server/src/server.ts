@@ -47,6 +47,7 @@ import { listSegmentEffortsTool } from "./tools/listSegmentEfforts";
 import { listStarredSegments } from "./tools/listStarredSegments";
 import { starSegment } from "./tools/starSegment";
 import { updateActivityTool } from "./tools/updateActivity";
+import { buildTrainingLoadData } from "./trainingLoad";
 import { SERVER_VERSION } from "./version";
 
 const EMPTY_SCHEMA = { type: "object", properties: {}, required: [] } as const;
@@ -65,6 +66,16 @@ const weeksInput = z
   .max(104)
   .default(6)
   .describe("Number of weeks of history to show (default: 6, max: 104)");
+
+const daysInput = z
+  .number()
+  .int()
+  .positive()
+  .max(365)
+  .default(84)
+  .describe(
+    "Number of days of history to analyze (default: 84, i.e. 12 weeks; max: 365)",
+  );
 
 const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   "view-activity-chart": z.object({
@@ -89,6 +100,8 @@ const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   "get-activity-segments-data": z.object({
     activity_id: stravaIdInput("The Strava activity ID."),
   }),
+  "view-training-load": z.object({ days: daysInput }),
+  "get-training-load-data": z.object({ days: daysInput }),
 };
 
 /**
@@ -107,6 +120,9 @@ const ROUTE_MAP_HTML_PATH = createRequire(import.meta.url).resolve(
 );
 const ACTIVITY_SEGMENTS_HTML_PATH = createRequire(import.meta.url).resolve(
   "@strava-mcp/activity-segments/app.html",
+);
+const TRAINING_LOAD_HTML_PATH = createRequire(import.meta.url).resolve(
+  "@strava-mcp/training-load/app.html",
 );
 
 interface ToolDef {
@@ -276,6 +292,35 @@ function buildToolDefs(): ToolDef[] {
     _meta: {
       ui: {
         resourceUri: "ui://activity-segments/app.html",
+        visibility: ["app"],
+      },
+    },
+  });
+
+  defs.push({
+    name: "view-training-load",
+    description:
+      "Open an interactive training-load chart: weekly running volume bars with a rolling trend line, and injury-risk warning weeks highlighted with their reason on hover. " +
+      "Prefer this over text when the user wants to see how their training volume is trending. Takes a number of days of history.",
+    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-training-load"]!),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: { resourceUri: "ui://training-load/app.html" },
+    },
+  });
+
+  defs.push({
+    name: "get-training-load-data",
+    description:
+      "Internal data feed for the training-load UI: returns per-week running volume (distance, runs, time, elevation), a rolling trend value, and injury-risk warning flags with reasons as JSON. " +
+      "The view-training-load app calls this; not intended for direct model use.",
+    inputSchema: z.toJSONSchema(
+      APP_TOOL_INPUT_SCHEMAS["get-training-load-data"]!,
+    ),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: {
+        resourceUri: "ui://training-load/app.html",
         visibility: ["app"],
       },
     },
@@ -479,6 +524,54 @@ async function handleViewCadenceTrends(
     `Average cadence: ${avgCadence} spm`,
     "",
     "[Interactive cadence trends chart rendered above]",
+  ];
+  return { content: [{ type: "text", text: lines.join("\n") }] };
+}
+
+/** Fetch the window of running activities the training-load feed aggregates. */
+async function loadTrainingLoadRuns(token: string, days: number) {
+  const after = Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
+  const allActivities = await getAllActivitiesFn(token, {
+    perPage: 200,
+    after,
+  });
+  return allActivities.filter((a) => a.type && RUNNING_TYPES.has(a.type));
+}
+
+async function handleGetTrainingLoadData(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const days = Number(args.days) || 84;
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+  }
+
+  const runs = await loadTrainingLoadRuns(token, days);
+  const result = buildTrainingLoadData(runs, days);
+  return { content: [{ type: "text", text: JSON.stringify(result) }] };
+}
+
+async function handleViewTrainingLoad(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const days = Number(args.days) || 84;
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+  }
+
+  const runs = await loadTrainingLoadRuns(token, days);
+  const data = buildTrainingLoadData(runs, days);
+  const warningWeeks = data.weeks.filter((w) => w.warning).length;
+
+  const lines = [
+    `Training Load (last ${days} days)`,
+    `Runs: ${data.totals.runs}`,
+    `Distance: ${data.totals.distanceKm} km`,
+    `Warning weeks: ${warningWeeks}`,
+    "",
+    "[Interactive training load chart rendered above]",
   ];
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
@@ -892,6 +985,8 @@ const APP_TOOL_HANDLERS: Record<
   "get-route-map-data": handleGetRouteMapData,
   "view-activity-segments": handleViewActivitySegments,
   "get-activity-segments-data": handleGetActivitySegmentsData,
+  "view-training-load": handleViewTrainingLoad,
+  "get-training-load-data": handleGetTrainingLoadData,
 };
 
 /**
@@ -990,6 +1085,12 @@ export function createServer(): Server {
         mimeType: "text/html;profile=mcp-app",
         _meta: { ui: { prefersBorder: false } },
       },
+      {
+        uri: "ui://training-load/app.html",
+        name: "Training Load",
+        mimeType: "text/html;profile=mcp-app",
+        _meta: { ui: { prefersBorder: false } },
+      },
     ],
   }));
 
@@ -1036,6 +1137,19 @@ export function createServer(): Server {
     }
     if (uri === "ui://activity-segments/app.html") {
       const html = await fs.readFile(ACTIVITY_SEGMENTS_HTML_PATH, "utf-8");
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "text/html;profile=mcp-app",
+            text: html,
+            _meta: { ui: { prefersBorder: false } },
+          },
+        ],
+      };
+    }
+    if (uri === "ui://training-load/app.html") {
+      const html = await fs.readFile(TRAINING_LOAD_HTML_PATH, "utf-8");
       return {
         contents: [
           {

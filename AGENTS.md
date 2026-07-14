@@ -17,10 +17,11 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `apps/storybook/` — Storybook host rendering the UI packages (co-located stories)
 - `packages/activity-chart/` — React + Recharts MCP App for interactive activity charts
 - `packages/cadence-trends/` — React + Recharts MCP App for cadence trend analysis
+- `packages/training-load/` — React + Recharts MCP App for weekly training volume with trend line and injury-risk warnings
 - `packages/route-map/` — React MCP App for activity/route GPS maps (MapLibre basemap by default, pure-SVG offline grid fallback; no Recharts)
 - `packages/activity-segments/` — React MCP App listing one activity's segment efforts (no Recharts, no MapLibre)
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
-- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend)
+- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
 - `packages/vite-config/` — Shared Vite config for MCP App single-file builds
 - `packages/tsconfig/` — Shared TypeScript configurations
@@ -96,6 +97,8 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | `get-route-map-data` | Decoded `[lat, lng]` coordinates for the route map UI (app-only) |
 | `view-activity-segments` | Prioritised, scrollable list of one activity's segment efforts: PRs/top-10 pinned, then run order, pace-heat with expandable effort detail (MCP App) |
 | `get-activity-segments-data` | Segment-effort rows (time, pace, grade, ranks, HR/power/cadence) for the activity-segments UI (app-only) |
+| `view-training-load` | Weekly running-volume bars with a rolling trend line and injury-risk warning weeks (MCP App) |
+| `get-training-load-data` | Per-week volume, trend value, and warning flags for the training-load UI (app-only) |
 
 ## Styling
 
@@ -183,6 +186,16 @@ The `view-activity-segments` tool renders the segments run in one activity as a 
 - Presentation/selection logic is pure and unit-tested in `src/segments.ts`: `selectHighlights` (PR/top-10 first, then by rank) pins notable efforts to a Highlights group; `runOrder` lists the rest by `start_index`; `buildHeatDomain`/`heatColor` colour each row's dot by effort speed (percentile-clamped, faster = hotter) using the shared `@strava-mcp/data` ramp; `summaryCounts` feeds the header line
 - Each row is a Base UI `Collapsible`: a two-line summary (heat dot, name, time, PR gold / top-10 purple badge; pace, distance, grade) that expands to HR, cadence (spm/rpm by sport), power (only with `device_watts`), max grade, and moving time. Mobile chrome via `useMobileMode`, per the MCP App mobile conventions
 - The pace-ramp helpers (`rampColor`, `percentileDomain`, `normalizeValue`, `colorForValue`, `RAMP_GRADIENT_CSS`) live in `@strava-mcp/data` so this app and route-map share one ramp (mcp-app packages cannot import each other)
+
+## MCP App (Training Load)
+
+The `view-training-load` tool renders weekly running volume as a bar chart with a rolling trend line and injury-risk warning weeks.
+
+- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); bundled as a single HTML file via `vite-plugin-singlefile`
+- Served as MCP resource at `ui://training-load/app.html`; calls `get-training-load-data` (app-only) on mount with the `days` window (default 84, max 365)
+- The server-side aggregation is pure and unit-tested in `apps/server/src/trainingLoad.ts` (`buildTrainingLoadData`): Monday-start weekly buckets, gap weeks zero-filled so the timeline stays continuous, a centered rolling-average trend per week, and per-week warning flags with reasons. The warning rules (`computeWeekWarnings`: >30% week-over-week spike, >150%-of-average high week) are shared with the `get-training-load` text tool so chart and prose can never drift
+- Recharts `ComposedChart`: weekly distance bars (warning weeks recolored in the heart-rate/danger hue) plus the trend `Line`; the shared scrub tooltip lists distance, runs, time, elevation, and any warning reasons for the hovered week
+- Footer `Legend` toggles the trend line and the warning highlighting; totals (runs, distance, time, elevation) render in the shared `SummaryBar` from `@strava-mcp/ui` (also used by cadence-trends)
 
 ## Targeting Mobile for MCP Apps
 
@@ -339,6 +352,9 @@ INPUT=app.html bunx vite build  # Rebuild single-file HTML
 cd packages/activity-segments
 INPUT=app.html bunx vite build  # Rebuild single-file HTML
 
+cd packages/training-load
+INPUT=app.html bunx vite build  # Rebuild single-file HTML
+
 # Docker
 docker compose build
 docker compose up -d
@@ -347,7 +363,7 @@ docker compose logs -f
 
 ## Turborepo
 
-The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only `activity-chart`, `cadence-trends`, and `route-map` produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
+The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only the MCP App packages (`activity-chart`, `cadence-trends`, `route-map`, `activity-segments`, `training-load`) produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
 
 Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough to run at root per the Turborepo docs. Knip is a whole-graph analyzer that cannot be decomposed per-package.
 

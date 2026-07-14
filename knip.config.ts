@@ -11,6 +11,7 @@ export default {
         "@strava-mcp/activity-segments",
         "@strava-mcp/cadence-trends",
         "@strava-mcp/route-map",
+        "@strava-mcp/training-load",
       ],
     },
     "packages/activity-chart": {
@@ -26,6 +27,10 @@ export default {
       project: ["src/**/*.{ts,tsx}"],
     },
     "packages/route-map": {
+      entry: ["src/main.tsx"],
+      project: ["src/**/*.{ts,tsx}"],
+    },
+    "packages/training-load": {
       entry: ["src/main.tsx"],
       project: ["src/**/*.{ts,tsx}"],
     },
@@ -49,6 +54,7 @@ export default {
           "../../packages/activity-segments/src/**/*.stories.@(ts|tsx)",
           "../../packages/cadence-trends/src/**/*.stories.@(ts|tsx)",
           "../../packages/route-map/src/**/*.stories.@(ts|tsx)",
+          "../../packages/training-load/src/**/*.stories.@(ts|tsx)",
           "../../packages/design-system/stories/**/*.stories.@(ts|tsx)",
           "../../packages/ui/src/**/*.stories.@(ts|tsx)",
         ],
@@ -62,6 +68,7 @@ export default {
         "@strava-mcp/activity-segments",
         "@strava-mcp/cadence-trends",
         "@strava-mcp/route-map",
+        "@strava-mcp/training-load",
         "@strava-mcp/ui",
       ],
     },

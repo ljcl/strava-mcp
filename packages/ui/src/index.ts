@@ -11,6 +11,11 @@ export { Legend, LegendItem } from "./Legend";
 export { MobileCardShell } from "./MobileCardShell";
 export { Pill, PillGroup } from "./Pill";
 export { Skeleton } from "./Skeleton";
+export {
+  SummaryBar,
+  type SummaryBarProps,
+  type SummaryStat,
+} from "./SummaryBar";
 export { Tooltip, TooltipEntry } from "./Tooltip";
 export {
   detectMobile,
