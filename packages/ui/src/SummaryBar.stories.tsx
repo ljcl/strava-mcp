@@ -1,10 +1,21 @@
-import preview from "@strava-mcp/design-system/preview";
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "./MobileCardShell";
 import { SummaryBar } from "./SummaryBar";
 
 const meta = preview.meta({ component: SummaryBar });
 
 export const WithTrend = meta.story({
+  args: {
+    stats: [
+      { label: "Avg Cadence", value: "174 spm" },
+      { label: "Trend", value: "+3 spm", direction: "up" },
+      { label: "Runs", value: "15 in 6w" },
+    ],
+  },
+});
+
+export const Dark = meta.story({
+  globals: darkGlobals,
   args: {
     stats: [
       { label: "Avg Cadence", value: "174 spm" },

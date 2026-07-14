@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { buildLoadA11y } from "./a11y";
 import styles from "./chartView.module.css";
 import { LoadTooltip } from "./LoadTooltip";
 import { type WeekSummary } from "./types";
@@ -52,6 +53,8 @@ export function LoadChart({
     [weeks],
   );
 
+  const a11y = useMemo(() => buildLoadA11y(weeks), [weeks]);
+
   if (chartData.length === 0) {
     return <div className={styles.empty}>No runs in this period.</div>;
   }
@@ -60,6 +63,9 @@ export function LoadChart({
     <div className={styles.container}>
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart
+          accessibilityLayer
+          title={a11y.title}
+          desc={a11y.desc}
           data={chartData}
           margin={{
             top: tokens.marginTop,
