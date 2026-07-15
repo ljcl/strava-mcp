@@ -15,6 +15,14 @@ export const Default = meta.story({
   },
 });
 
+export const Empty = meta.story({
+  args: {
+    activities: [],
+    onRunClick: noop,
+    selectedRunIds: new Set<number>(),
+  },
+});
+
 export const WithSelectedRuns = meta.story({
   args: {
     activities: mockRuns,

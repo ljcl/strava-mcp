@@ -1,6 +1,8 @@
 import { formatPace, formatTime, type HostLayout } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
+  CardHeader,
+  EmptyState,
   Legend,
   LegendItem,
   type ModelContextApp,
@@ -480,12 +482,15 @@ export function CompareActivities({
       className={styles.compareActivities}
       data-compact={isCompact || undefined}
     >
-      <div className={styles.header}>
-        <div className={styles.title}>
-          {a.name} <span className={styles.vs}>vs</span> {b.name}
-        </div>
-        <div className={styles.subtitle}>{subtitle}</div>
-      </div>
+      <CardHeader
+        title={
+          <>
+            {a.name} <span className={styles.vs}>vs</span> {b.name}
+          </>
+        }
+        subtitle={subtitle}
+        compact={isCompact}
+      />
 
       {tiles.length > 0 && (
         <div className={styles.deltaBar}>
@@ -514,9 +519,9 @@ export function CompareActivities({
       {chart ? (
         <div className={styles.chartArea}>{chart}</div>
       ) : (
-        <div className={styles.empty}>
+        <EmptyState>
           These activities have no overlapping streams to overlay.
-        </div>
+        </EmptyState>
       )}
 
       <div className={styles.footer}>

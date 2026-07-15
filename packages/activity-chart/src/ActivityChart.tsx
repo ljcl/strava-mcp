@@ -6,6 +6,7 @@ import {
 } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
+  CardHeader,
   Legend,
   LegendItem,
   type ModelContextApp,
@@ -663,10 +664,11 @@ export function ActivityChart({
 
   return (
     <div className={styles.activityChart} data-compact={isCompact || undefined}>
-      <div className={styles.header}>
-        <div className={styles.title}>{meta.name}</div>
-        <div className={styles.subtitle}>{meta.activityType}</div>
-      </div>
+      <CardHeader
+        title={meta.name}
+        subtitle={meta.activityType}
+        compact={isCompact}
+      />
 
       <div
         className={styles.chartArea}

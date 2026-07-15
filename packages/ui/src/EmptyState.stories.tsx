@@ -1,0 +1,13 @@
+import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
+import { EmptyState } from "./EmptyState";
+
+const meta = preview.meta({ component: EmptyState });
+
+export const Default = meta.story({
+  args: { children: "No segments in this activity" },
+});
+
+export const Dark = meta.story({
+  globals: darkGlobals,
+  args: { children: "No segments in this activity" },
+});

@@ -5,6 +5,7 @@ import {
   AppShell,
   ErrorState,
   type HostCtx,
+  LoadingState,
   Skeleton,
   useHostRoot,
   useServerToolData,
@@ -20,7 +21,11 @@ interface ToolArgs {
   activity_id: string;
 }
 
-const LoadingSkeleton = () => <Skeleton variant="chart" />;
+const LoadingSkeleton = () => (
+  <LoadingState label="Loading activity chart">
+    <Skeleton variant="chart" />
+  </LoadingState>
+);
 
 interface AppContentProps {
   app: ReturnType<typeof useApp>["app"];

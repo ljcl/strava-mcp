@@ -9,6 +9,10 @@ export const Default = meta.story({
   args: { activities: mockRuns },
 });
 
+export const Empty = meta.story({
+  args: { activities: [] },
+});
+
 export const Dark = meta.story({
   globals: darkGlobals,
   args: { activities: mockRuns },

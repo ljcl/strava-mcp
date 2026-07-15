@@ -3,36 +3,6 @@
   font-family: var(--font-sans);
 }
 
-/* ── Header ───────────────────────────────────── */
-.header {
-  padding: 0 var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.title {
-  font-size: var(--font-heading-sm-size);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.subtitle {
-  font-size: var(--font-text-sm-size);
-  color: var(--color-text-secondary);
-}
-
-.container[data-compact] .header {
-  padding: 0 var(--space-1);
-  margin-bottom: var(--space-2);
-}
-
-.container[data-compact] .title {
-  font-size: var(--font-text-sm-size);
-}
-
-.container[data-compact] .subtitle {
-  font-size: var(--font-text-xs-size);
-}
-
 /* ── Map ──────────────────────────────────────── */
 
 /* Screen-reader-only narration of the basemap view (the canvas itself has no
@@ -175,7 +145,10 @@
   touch-action: pan-y;
 }
 
-/* ── Metric controls ──────────────────────────── */
+/* ── Metric controls / footer ─────────────────── */
+
+/* One flex bar shared by the metric controls row and the stats/legend
+ * footer — they were previously two identical rule blocks. */
 .controls {
   display: flex;
   flex-wrap: wrap;
@@ -184,6 +157,10 @@
   justify-content: space-between;
   min-width: 0;
   padding: var(--space-3) var(--space-2) 0;
+}
+
+.footer {
+  composes: controls;
 }
 
 /* Five metric pills can exceed a narrow card's width; wrap inside the group
@@ -211,30 +188,6 @@
   font-size: var(--font-text-xs-size);
   color: var(--color-text-secondary);
   white-space: nowrap;
-}
-
-.empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 160px;
-  padding: var(--space-6);
-  color: var(--color-text-tertiary);
-  text-align: center;
-  background: var(--color-background-secondary);
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
-}
-
-/* ── Footer ───────────────────────────────────── */
-.footer {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  align-items: center;
-  justify-content: space-between;
-  min-width: 0;
-  padding: var(--space-3) var(--space-2) 0;
 }
 
 .stats {

@@ -3,26 +3,10 @@
   font-family: var(--font-sans);
 }
 
-.header {
-  padding: 0 var(--space-2);
-  margin-bottom: var(--space-2);
-}
-
-.title {
-  font-size: var(--font-heading-sm-size);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
 .vs {
   font-size: var(--font-text-sm-size);
   font-weight: var(--font-weight-normal);
   color: var(--color-text-tertiary);
-}
-
-.subtitle {
-  font-size: var(--font-text-sm-size);
-  color: var(--color-text-secondary);
 }
 
 /* ── Delta summary bar ────────────────────────── */
@@ -81,13 +65,6 @@
   color: var(--color-text-danger);
 }
 
-.empty {
-  padding: var(--space-6) var(--space-2);
-  font-size: var(--font-text-sm-size);
-  color: var(--color-text-secondary);
-  text-align: center;
-}
-
 /* ── Footer ───────────────────────────────────── */
 .footer {
   display: flex;
@@ -118,18 +95,6 @@
 
 .compareActivities[data-compact] .footerControls {
   justify-content: flex-start;
-}
-
-.compareActivities[data-compact] .header {
-  padding: 0 var(--space-1);
-}
-
-.compareActivities[data-compact] .title {
-  font-size: var(--font-text-sm-size);
-}
-
-.compareActivities[data-compact] .subtitle {
-  font-size: var(--font-text-xs-size);
 }
 
 .compareActivities[data-compact] .deltaBar {

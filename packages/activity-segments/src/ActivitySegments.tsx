@@ -1,6 +1,11 @@
 import { Collapsible } from "@base-ui/react/collapsible";
 import { isRunning } from "@strava-mcp/data";
-import { type ModelContextApp, useModelContextSync } from "@strava-mcp/ui";
+import {
+  CardHeader,
+  EmptyState,
+  type ModelContextApp,
+  useModelContextSync,
+} from "@strava-mcp/ui";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import styles from "./ActivitySegments.module.css";
 import { buildSegmentsContextSummary } from "./contextSummary";
@@ -72,13 +77,14 @@ export function ActivitySegments({ data, mode, app }: ActivitySegmentsProps) {
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
-      <div className={styles.header}>
-        <div className={styles.title}>{data.name}</div>
-        <div className={styles.subtitle}>{summaryLine(data.segments)}</div>
-      </div>
+      <CardHeader
+        title={data.name}
+        subtitle={summaryLine(data.segments)}
+        compact={isMobile}
+      />
 
       {data.segments.length === 0 ? (
-        <div className={styles.empty}>No segments in this activity</div>
+        <EmptyState>No segments in this activity</EmptyState>
       ) : (
         <>
           {highlights.length > 0 && (
