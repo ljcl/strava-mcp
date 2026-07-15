@@ -26,7 +26,10 @@ import {
 } from "./stravaClient";
 import { READ_ONLY } from "./tools/_annotations";
 import { stravaIdInput } from "./tools/_ids";
-import { compareActivitiesTool } from "./tools/compareActivities";
+import {
+  buildComparison,
+  compareActivitiesTool,
+} from "./tools/compareActivities";
 import { createActivityTool } from "./tools/createActivity";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportActivityGpx } from "./tools/exportActivityGpx";
@@ -102,6 +105,18 @@ const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   }),
   "view-training-load": z.object({ days: daysInput }),
   "get-training-load-data": z.object({ days: daysInput }),
+  "view-compare-activities": z.object({
+    activity_id_1: stravaIdInput(
+      "First activity ID (baseline/older activity).",
+    ),
+    activity_id_2: stravaIdInput(
+      "Second activity ID (comparison/newer activity).",
+    ),
+  }),
+  "get-compare-activities-data": z.object({
+    activity_id_1: stravaIdInput("First activity ID (baseline)."),
+    activity_id_2: stravaIdInput("Second activity ID (comparison)."),
+  }),
 };
 
 /**
@@ -123,6 +138,9 @@ const ACTIVITY_SEGMENTS_HTML_PATH = createRequire(import.meta.url).resolve(
 );
 const TRAINING_LOAD_HTML_PATH = createRequire(import.meta.url).resolve(
   "@strava-mcp/training-load/app.html",
+);
+const COMPARE_ACTIVITIES_HTML_PATH = createRequire(import.meta.url).resolve(
+  "@strava-mcp/compare-activities/app.html",
 );
 
 interface ToolDef {
@@ -321,6 +339,37 @@ function buildToolDefs(): ToolDef[] {
     _meta: {
       ui: {
         resourceUri: "ui://training-load/app.html",
+        visibility: ["app"],
+      },
+    },
+  });
+
+  defs.push({
+    name: "view-compare-activities",
+    description:
+      "Open an interactive side-by-side overlay of two activities: their pace, heart rate, power, cadence, or altitude streams aligned on a shared distance or time axis, with an aggregate delta summary. " +
+      "Prefer this over the text-only compare-activities when the user wants to see WHERE in the activities the difference happened. Takes both activity ids.",
+    inputSchema: z.toJSONSchema(
+      APP_TOOL_INPUT_SCHEMAS["view-compare-activities"]!,
+    ),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: { resourceUri: "ui://compare-activities/app.html" },
+    },
+  });
+
+  defs.push({
+    name: "get-compare-activities-data",
+    description:
+      "Internal data feed for the compare-activities UI: returns the aggregate comparison (per-activity summaries, activity2−activity1 differences, efficiency analysis) as JSON. " +
+      "The view-compare-activities app calls this alongside get-activity-streams-raw; not intended for direct model use.",
+    inputSchema: z.toJSONSchema(
+      APP_TOOL_INPUT_SCHEMAS["get-compare-activities-data"]!,
+    ),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: {
+        resourceUri: "ui://compare-activities/app.html",
         visibility: ["app"],
       },
     },
@@ -951,6 +1000,64 @@ async function handleViewActivitySegments(
 }
 
 /**
+ * Fetch both detailed activities and run the same aggregate comparison the
+ * compare-activities text tool uses. getActivityById is TTL-cached in
+ * fetchClient, so the view + data-tool pair costs one Strava fetch per
+ * activity, not two.
+ */
+async function loadCompareActivitiesData(
+  args: Record<string, unknown>,
+  token: string,
+): Promise<ReturnType<typeof buildComparison>> {
+  const [activity1, activity2] = await Promise.all([
+    getActivityById(token, String(args.activity_id_1)),
+    getActivityById(token, String(args.activity_id_2)),
+  ]);
+  return buildComparison(activity1, activity2);
+}
+
+async function handleGetCompareActivitiesData(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+  }
+  const data = await loadCompareActivitiesData(args, token);
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
+}
+
+async function handleViewCompareActivities(
+  args: Record<string, unknown>,
+): Promise<{ content: Array<{ type: string; text: string }> }> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+  }
+  const data = await loadCompareActivitiesData(args, token);
+  const lines = [
+    `Activity 1: ${data.activity_1.name} (${data.activity_1.date}) — ${data.activity_1.distance_km} km in ${data.activity_1.time_formatted}`,
+    `Activity 2: ${data.activity_2.name} (${data.activity_2.date}) — ${data.activity_2.distance_km} km in ${data.activity_2.time_formatted}`,
+  ];
+  if (data.differences.pace) {
+    const s = data.differences.pace.seconds_per_km;
+    lines.push(
+      `Pace delta: ${s > 0 ? "+" : ""}${s} sec/km (${data.differences.pace.interpretation})`,
+    );
+  }
+  if (data.differences.avg_hr != null) {
+    lines.push(
+      `Avg HR delta: ${data.differences.avg_hr > 0 ? "+" : ""}${data.differences.avg_hr} bpm`,
+    );
+  }
+  for (const warning of data.warnings ?? []) {
+    lines.push(`Warning: ${warning}`);
+  }
+  lines.push("", "[Interactive activity comparison rendered above]");
+  return { content: [{ type: "text", text: lines.join("\n") }] };
+}
+
+/**
  * Basemap spike (#60): allowlist the OpenFreeMap tile origin so the route-map
  * app can attempt an external tile fetch through the host's sandbox CSP.
  * Tiles, styles, glyphs, and sprites are all served from this one origin.
@@ -987,6 +1094,8 @@ const APP_TOOL_HANDLERS: Record<
   "get-activity-segments-data": handleGetActivitySegmentsData,
   "view-training-load": handleViewTrainingLoad,
   "get-training-load-data": handleGetTrainingLoadData,
+  "view-compare-activities": handleViewCompareActivities,
+  "get-compare-activities-data": handleGetCompareActivitiesData,
 };
 
 /**
@@ -1091,6 +1200,12 @@ export function createServer(): Server {
         mimeType: "text/html;profile=mcp-app",
         _meta: { ui: { prefersBorder: false } },
       },
+      {
+        uri: "ui://compare-activities/app.html",
+        name: "Compare Activities",
+        mimeType: "text/html;profile=mcp-app",
+        _meta: { ui: { prefersBorder: false } },
+      },
     ],
   }));
 
@@ -1150,6 +1265,19 @@ export function createServer(): Server {
     }
     if (uri === "ui://training-load/app.html") {
       const html = await fs.readFile(TRAINING_LOAD_HTML_PATH, "utf-8");
+      return {
+        contents: [
+          {
+            uri,
+            mimeType: "text/html;profile=mcp-app",
+            text: html,
+            _meta: { ui: { prefersBorder: false } },
+          },
+        ],
+      };
+    }
+    if (uri === "ui://compare-activities/app.html") {
+      const html = await fs.readFile(COMPARE_ACTIVITIES_HTML_PATH, "utf-8");
       return {
         contents: [
           {

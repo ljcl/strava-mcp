@@ -92,6 +92,100 @@ function extractActivitySummary(
   };
 }
 
+export type ComparisonResult = z.infer<typeof CompareActivitiesOutputSchema>;
+
+/**
+ * Pure aggregate comparison of two detailed activities: per-side summaries,
+ * activity2 − activity1 differences, and the pace/HR efficiency analysis.
+ * Shared by this tool's text/structured output and the app-only
+ * `get-compare-activities-data` feed behind `view-compare-activities`.
+ */
+export function buildComparison(
+  activity1: StravaDetailedActivity,
+  activity2: StravaDetailedActivity,
+): ComparisonResult {
+  const warnings: string[] = [];
+  if (!isRunningActivity(activity1.type)) {
+    warnings.push(
+      `Activity 1 (${activity1.name}) is not a running activity (${activity1.type})`,
+    );
+  }
+  if (!isRunningActivity(activity2.type)) {
+    warnings.push(
+      `Activity 2 (${activity2.name}) is not a running activity (${activity2.type})`,
+    );
+  }
+
+  const summary1 = extractActivitySummary(activity1);
+  const summary2 = extractActivitySummary(activity2);
+
+  // Calculate differences (activity2 - activity1)
+  const distanceDiff =
+    Math.round((summary2.distance_km - summary1.distance_km) * 100) / 100;
+
+  let paceDiff: { seconds_per_km: number; interpretation: string } | null =
+    null;
+  if (summary1.pace && summary2.pace) {
+    const diffMinutes =
+      summary2.pace.raw_min_per_km - summary1.pace.raw_min_per_km;
+    const diffSeconds = Math.round(diffMinutes * 60);
+    paceDiff = {
+      seconds_per_km: diffSeconds,
+      interpretation:
+        diffSeconds < -5 ? "faster" : diffSeconds > 5 ? "slower" : "same",
+    };
+  }
+
+  const hrDiff =
+    summary1.avg_hr && summary2.avg_hr
+      ? Math.round(summary2.avg_hr - summary1.avg_hr)
+      : null;
+
+  const cadenceDiff =
+    summary1.cadence_spm && summary2.cadence_spm
+      ? Math.round(summary2.cadence_spm - summary1.cadence_spm)
+      : null;
+
+  const elevationDiff = Math.round(
+    summary2.elevation_gain_m - summary1.elevation_gain_m,
+  );
+
+  // Calculate efficiency (pace / HR - lower is better)
+  let efficiency: ComparisonResult["efficiency"] = null;
+  if (summary1.pace && summary2.pace && summary1.avg_hr && summary2.avg_hr) {
+    const eff1 = (summary1.pace.raw_min_per_km / summary1.avg_hr) * 100;
+    const eff2 = (summary2.pace.raw_min_per_km / summary2.avg_hr) * 100;
+    const changePercent = Math.round(((eff2 - eff1) / eff1) * 1000) / 10;
+
+    efficiency = {
+      activity_1: Math.round(eff1 * 1000) / 1000,
+      activity_2: Math.round(eff2 * 1000) / 1000,
+      change_percent: changePercent,
+      interpretation:
+        changePercent < -3
+          ? "improved"
+          : changePercent > 3
+            ? "declined"
+            : "unchanged",
+      note: "Lower efficiency number = faster pace at same heart rate = better fitness",
+    };
+  }
+
+  return {
+    activity_1: summary1,
+    activity_2: summary2,
+    differences: {
+      distance_km: distanceDiff,
+      pace: paceDiff,
+      avg_hr: hrDiff,
+      cadence_spm: cadenceDiff,
+      elevation_gain_m: elevationDiff,
+    },
+    efficiency,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
+}
+
 export const compareActivitiesTool = {
   name,
   description,
@@ -125,103 +219,21 @@ export const compareActivitiesTool = {
         getActivityById(token, activityId2),
       ]);
 
-      // Warn if not running activities
-      const isRunning1 = isRunningActivity(activity1.type);
-      const isRunning2 = isRunningActivity(activity2.type);
-
-      const warnings: string[] = [];
-      if (!isRunning1) {
-        warnings.push(
-          `Activity 1 (${activity1.name}) is not a running activity (${activity1.type})`,
-        );
-      }
-      if (!isRunning2) {
-        warnings.push(
-          `Activity 2 (${activity2.name}) is not a running activity (${activity2.type})`,
-        );
-      }
-
-      // Extract summaries
-      const summary1 = extractActivitySummary(activity1);
-      const summary2 = extractActivitySummary(activity2);
-
-      // Calculate differences (activity2 - activity1)
-      const distanceDiff =
-        Math.round((summary2.distance_km - summary1.distance_km) * 100) / 100;
-
-      let paceDiff: { seconds_per_km: number; interpretation: string } | null =
-        null;
-      if (summary1.pace && summary2.pace) {
-        const diffMinutes =
-          summary2.pace.raw_min_per_km - summary1.pace.raw_min_per_km;
-        const diffSeconds = Math.round(diffMinutes * 60);
-        paceDiff = {
-          seconds_per_km: diffSeconds,
-          interpretation:
-            diffSeconds < -5 ? "faster" : diffSeconds > 5 ? "slower" : "same",
-        };
-      }
-
-      const hrDiff =
-        summary1.avg_hr && summary2.avg_hr
-          ? Math.round(summary2.avg_hr - summary1.avg_hr)
-          : null;
-
-      const cadenceDiff =
-        summary1.cadence_spm && summary2.cadence_spm
-          ? Math.round(summary2.cadence_spm - summary1.cadence_spm)
-          : null;
-
-      const elevationDiff = Math.round(
-        summary2.elevation_gain_m - summary1.elevation_gain_m,
-      );
-
-      // Calculate efficiency (pace / HR - lower is better)
-      let efficiency: {
-        activity_1: number;
-        activity_2: number;
-        change_percent: number;
-        interpretation: string;
-        note: string;
-      } | null = null;
-
-      if (
-        summary1.pace &&
-        summary2.pace &&
-        summary1.avg_hr &&
-        summary2.avg_hr
-      ) {
-        const eff1 = (summary1.pace.raw_min_per_km / summary1.avg_hr) * 100;
-        const eff2 = (summary2.pace.raw_min_per_km / summary2.avg_hr) * 100;
-        const changePercent = Math.round(((eff2 - eff1) / eff1) * 1000) / 10;
-
-        efficiency = {
-          activity_1: Math.round(eff1 * 1000) / 1000,
-          activity_2: Math.round(eff2 * 1000) / 1000,
-          change_percent: changePercent,
-          interpretation:
-            changePercent < -3
-              ? "improved"
-              : changePercent > 3
-                ? "declined"
-                : "unchanged",
-          note: "Lower efficiency number = faster pace at same heart rate = better fitness",
-        };
-      }
-
-      const result = {
+      const result = buildComparison(activity1, activity2);
+      const {
         activity_1: summary1,
         activity_2: summary2,
-        differences: {
-          distance_km: distanceDiff,
-          pace: paceDiff,
-          avg_hr: hrDiff,
-          cadence_spm: cadenceDiff,
-          elevation_gain_m: elevationDiff,
-        },
+        differences,
         efficiency,
-        warnings: warnings.length > 0 ? warnings : undefined,
-      };
+      } = result;
+      const {
+        distance_km: distanceDiff,
+        pace: paceDiff,
+        avg_hr: hrDiff,
+        cadence_spm: cadenceDiff,
+        elevation_gain_m: elevationDiff,
+      } = differences;
+      const warnings = result.warnings ?? [];
 
       // Format as readable text
       let output = `📊 **Activity Comparison**\n\n`;

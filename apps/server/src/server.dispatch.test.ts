@@ -140,6 +140,49 @@ describe("dispatchToolCall input validation", () => {
     expect(mockedList).not.toHaveBeenCalled();
   });
 
+  it("rejects view-compare-activities when an id is missing", async () => {
+    const result = await dispatchToolCall("view-compare-activities", {
+      activity_id_1: "123",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain(
+      "Invalid arguments for view-compare-activities",
+    );
+    expect(mockedById).not.toHaveBeenCalled();
+  });
+
+  it("returns the comparison JSON for get-compare-activities-data", async () => {
+    const activity = {
+      id: "1",
+      name: "Run A",
+      type: "Run",
+      sport_type: "Run",
+      start_date_local: "2026-06-01T07:00:00Z",
+      distance: 5000,
+      moving_time: 1500,
+    };
+    mockedById.mockResolvedValueOnce(
+      // biome-ignore lint/suspicious/noExplicitAny: minimal fixture
+      activity as any,
+    );
+    mockedById.mockResolvedValueOnce(
+      // biome-ignore lint/suspicious/noExplicitAny: minimal fixture
+      { ...activity, id: "2", name: "Run B" } as any,
+    );
+
+    const result = await dispatchToolCall("get-compare-activities-data", {
+      activity_id_1: "1",
+      activity_id_2: "2",
+    });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.activity_1.name).toBe("Run A");
+    expect(parsed.activity_2.name).toBe("Run B");
+    expect(parsed.differences.distance_km).toBe(0);
+  });
+
   it("returns a structured error for unknown tools", async () => {
     const result = await dispatchToolCall("not-a-tool", {});
 

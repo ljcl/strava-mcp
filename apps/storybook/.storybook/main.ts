@@ -25,6 +25,10 @@ export default defineMain({
       directory: "../../../packages/training-load/src/",
     },
     {
+      titlePrefix: "Compare Activities",
+      directory: "../../../packages/compare-activities/src/",
+    },
+    {
       directory: "../../../packages/design-system/stories/",
     },
     { titlePrefix: "UI", directory: "../../../packages/ui/src/" },
