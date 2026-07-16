@@ -1,5 +1,6 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
+import { expect, waitFor } from "storybook/test";
 import {
   annotatedActivity,
   loopActivity,
@@ -27,6 +28,33 @@ export const MetricColoredTrack = meta.story({
 export const DarkMetricColoredTrack = meta.story({
   globals: darkGlobals,
   args: { data: streamLoopActivity, basemapEnabled: false },
+});
+
+/**
+ * Interaction test (#164): switching the colour metric re-bins the track and
+ * reformats the gradient scale legend. The scale's min/max labels use the
+ * metric's own unit, so "bpm" appearing there is proof the heart-rate series
+ * became active (and Chromatic snapshots the HR-coloured track).
+ */
+export const SwitchColorMetric = meta.story({
+  args: { data: streamLoopActivity, basemapEnabled: false },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    // The default active metric for a run is pace; its scale reads "/km".
+    const pacePill = await canvas.findByRole("button", { name: "Pace" });
+    await expect(pacePill).toHaveAttribute("aria-pressed", "true");
+
+    const hrPill = canvas.getByRole("button", { name: "Heart rate" });
+    await userEvent.click(hrPill);
+
+    await expect(hrPill).toHaveAttribute("aria-pressed", "true");
+    await expect(pacePill).toHaveAttribute("aria-pressed", "false");
+    await waitFor(() => {
+      const scaleLabels = [...canvasElement.querySelectorAll("span")]
+        .map((el) => el.textContent ?? "")
+        .filter((text) => text.includes("bpm"));
+      expect(scaleLabels).toHaveLength(2);
+    });
+  },
 });
 
 export const SavedRoute = meta.story({

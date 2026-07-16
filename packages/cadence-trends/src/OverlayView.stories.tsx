@@ -1,5 +1,6 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
+import { expect, waitFor } from "storybook/test";
 import { mockStreamCache } from "./__fixtures__/overlay-streams";
 import { OverlayView } from "./OverlayView";
 
@@ -22,6 +23,42 @@ export const WithData = meta.story({
     streamCache: mockStreamCache,
     loadingStreams: new Set<number>(),
     fetchStreamForRun: noop,
+  },
+});
+
+/**
+ * Interaction test (#164): the x-axis pills reslice the overlay onto a
+ * time grid, and a run's legend toggle hides its line. Recharts drops a
+ * hidden Line's path from the SVG, so the curve count is the ground truth
+ * that the toggle really removed the series.
+ */
+export const SwitchAxisAndHideRun = meta.story({
+  args: {
+    selectedRunIds: new Set([10003, 10013]),
+    streamCache: mockStreamCache,
+    loadingStreams: new Set<number>(),
+    fetchStreamForRun: noop,
+  },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    const curveCount = () =>
+      canvasElement.querySelectorAll("path.recharts-line-curve").length;
+    // ResponsiveContainer needs a resize tick before the lines mount.
+    await waitFor(() => expect(curveCount()).toBe(2));
+
+    const minPill = canvas.getByRole("button", { name: "min" });
+    await userEvent.click(minPill);
+    await expect(minPill).toHaveAttribute("aria-pressed", "true");
+    await expect(canvas.getByRole("button", { name: "km" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+
+    const runToggle = canvas.getByRole("button", {
+      name: /Toggle Tempo Intervals/,
+    });
+    await userEvent.click(runToggle);
+    await expect(runToggle).toHaveAttribute("aria-pressed", "false");
+    await waitFor(() => expect(curveCount()).toBe(1));
   },
 });
 

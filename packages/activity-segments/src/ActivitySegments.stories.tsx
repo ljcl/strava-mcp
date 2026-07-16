@@ -1,5 +1,6 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
+import { expect } from "storybook/test";
 import {
   defaultActivity,
   noHighlights,
@@ -16,6 +17,34 @@ export const Default = meta.story({
 export const Dark = meta.story({
   globals: darkGlobals,
   args: { data: defaultActivity, mode: "desktop" },
+});
+
+/**
+ * Interaction test (#164): expanding a row is the densest layout in this app
+ * (the detail grid with HR, cadence, power, max grade, and moving time), and
+ * without a play function it never appears in any snapshot. Chromatic runs the
+ * play function before snapshotting, so this story also owns the
+ * expanded-state visual baseline. "Station Road Tempo" is the fixture effort
+ * with device power, so every detail column renders.
+ */
+export const ExpandedRow = meta.story({
+  args: { data: defaultActivity, mode: "desktop" },
+  play: async ({ canvas, userEvent }) => {
+    const trigger = canvas.getByRole("button", {
+      name: /Station Road Tempo/,
+    });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(trigger);
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    // The full detail grid for the expanded effort: HR, cadence (spm for a
+    // run), device power, max grade, and moving time.
+    await expect(await canvas.findByText("170/179")).toBeVisible();
+    await expect(canvas.getByText("90 spm")).toBeVisible();
+    await expect(canvas.getByText("312 W")).toBeVisible();
+    await expect(canvas.getByText("1.6%")).toBeVisible();
+    await expect(canvas.getByText("3:04")).toBeVisible();
+  },
 });
 
 export const NoHighlights = meta.story({
