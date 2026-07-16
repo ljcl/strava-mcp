@@ -1,4 +1,5 @@
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
+import { EmptyState } from "@strava-mcp/ui";
 import { useMemo } from "react";
 import {
   Bar,
@@ -56,7 +57,7 @@ export function LoadChart({
   const a11y = useMemo(() => buildLoadA11y(weeks), [weeks]);
 
   if (chartData.length === 0) {
-    return <div className={styles.empty}>No runs in this period.</div>;
+    return <EmptyState>No runs in this period.</EmptyState>;
   }
 
   return (

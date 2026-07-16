@@ -1,5 +1,6 @@
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
+  EmptyState,
   Legend,
   LegendItem,
   Pill,
@@ -155,16 +156,18 @@ export function OverlayView({
 
   if (selectedRunIds.size === 0) {
     return (
-      <div className={styles.empty}>
+      <EmptyState>
         Click runs in Trend or Scatter view to compare them here
-      </div>
+      </EmptyState>
     );
   }
 
   return (
     <div>
       {isLoading && (
-        <div className={styles.loading}>Loading stream data...</div>
+        <div className={styles.loading} role="status">
+          Loading stream data...
+        </div>
       )}
       <div className={styles.container}>
         <ResponsiveContainer width="100%" height="100%">

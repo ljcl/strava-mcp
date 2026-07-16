@@ -4,6 +4,7 @@ import {
   AppShell,
   ErrorState,
   type HostCtx,
+  LoadingState,
   Skeleton,
   useHostRoot,
   useServerToolData,
@@ -15,10 +16,10 @@ import { type ActivitySegmentsData, type ToolArgs } from "./types";
 import "./global.css";
 
 const LoadingSkeleton = () => (
-  <>
+  <LoadingState label="Loading activity segments">
     <Skeleton variant="bar" />
     <Skeleton variant="chart" />
-  </>
+  </LoadingState>
 );
 
 interface AppContentProps {

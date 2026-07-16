@@ -1,0 +1,13 @@
+.emptyState {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  padding: var(--space-6);
+  font-family: var(--font-sans);
+  color: var(--color-text-tertiary);
+  text-align: center;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-lg);
+}

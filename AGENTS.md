@@ -22,7 +22,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `packages/activity-segments/` — React MCP App listing one activity's segment efforts (no Recharts, no MapLibre)
 - `packages/compare-activities/` — React + Recharts MCP App overlaying two activities' streams with a delta summary
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
-- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar)
+- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar, AppShell, CardHeader, EmptyState, ErrorState, LoadingState, Skeleton)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
 - `packages/vite-config/` — Shared Vite config for MCP App single-file builds
 - `packages/tsconfig/` — Shared TypeScript configurations

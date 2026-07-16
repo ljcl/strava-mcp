@@ -3,50 +3,6 @@
   font-family: var(--font-sans);
 }
 
-/* ── Header ───────────────────────────────────── */
-.header {
-  padding: 0 var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.title {
-  font-size: var(--font-heading-sm-size);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-}
-
-.subtitle {
-  font-size: var(--font-text-sm-size);
-  color: var(--color-text-secondary);
-}
-
-.container[data-compact] .header {
-  padding: 0 var(--space-1);
-  margin-bottom: var(--space-2);
-}
-
-.container[data-compact] .title {
-  font-size: var(--font-text-sm-size);
-}
-
-.container[data-compact] .subtitle {
-  font-size: var(--font-text-xs-size);
-}
-
-/* ── Empty state ──────────────────────────────── */
-.empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 120px;
-  padding: var(--space-6);
-  color: var(--color-text-tertiary);
-  text-align: center;
-  background: var(--color-background-secondary);
-  border: 1px solid var(--color-border-tertiary);
-  border-radius: var(--border-radius-lg);
-}
-
 /* ── Group ────────────────────────────────────── */
 .group {
   margin-top: var(--space-4);

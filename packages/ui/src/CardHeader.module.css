@@ -1,0 +1,28 @@
+.header {
+  padding: 0 var(--space-2);
+  margin-bottom: var(--space-2);
+  font-family: var(--font-sans);
+}
+
+.title {
+  font-size: var(--font-heading-sm-size);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.subtitle {
+  font-size: var(--font-text-sm-size);
+  color: var(--color-text-secondary);
+}
+
+.header[data-compact] {
+  padding: 0 var(--space-1);
+}
+
+.header[data-compact] .title {
+  font-size: var(--font-text-sm-size);
+}
+
+.header[data-compact] .subtitle {
+  font-size: var(--font-text-xs-size);
+}

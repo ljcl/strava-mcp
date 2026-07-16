@@ -4,6 +4,7 @@ import {
   AppShell,
   ErrorState,
   type HostCtx,
+  LoadingState,
   Skeleton,
   useHostRoot,
   useServerToolData,
@@ -19,10 +20,10 @@ interface ToolArgs {
 }
 
 const LoadingSkeleton = () => (
-  <>
+  <LoadingState label="Loading training load">
     <Skeleton variant="bar" />
     <Skeleton variant="chart" />
-  </>
+  </LoadingState>
 );
 
 interface AppContentProps {

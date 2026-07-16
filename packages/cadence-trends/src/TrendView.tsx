@@ -1,4 +1,5 @@
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
+import { EmptyState } from "@strava-mcp/ui";
 import { useMemo } from "react";
 import {
   CartesianGrid,
@@ -75,11 +76,7 @@ export function TrendView({
   const a11y = useMemo(() => buildTrendA11y(sorted), [sorted]);
 
   if (chartData.length === 0) {
-    return (
-      <div className={styles.empty}>
-        No runs with cadence data in this period.
-      </div>
-    );
+    return <EmptyState>No runs with cadence data in this period.</EmptyState>;
   }
 
   return (

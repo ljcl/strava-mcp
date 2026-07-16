@@ -1,5 +1,6 @@
 import { formatPace } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
+import { EmptyState } from "@strava-mcp/ui";
 import { useMemo, useState } from "react";
 import {
   CartesianGrid,
@@ -84,11 +85,7 @@ export function ScatterView({
   );
 
   if (chartData.length === 0) {
-    return (
-      <div className={styles.empty}>
-        No runs with cadence data in this period.
-      </div>
-    );
+    return <EmptyState>No runs with cadence data in this period.</EmptyState>;
   }
 
   const paceExtent = [

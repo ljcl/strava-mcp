@@ -1,6 +1,8 @@
 import { formatTime } from "@strava-mcp/data";
 import { TIER_COLORS } from "@strava-mcp/design-system";
 import {
+  CardHeader,
+  EmptyState,
   Legend,
   LegendItem,
   type ModelContextApp,
@@ -539,10 +541,11 @@ export function RouteMap({
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
-      <div className={styles.header}>
-        <div className={styles.title}>{data.name}</div>
-        {subtitle && <div className={styles.subtitle}>{subtitle}</div>}
-      </div>
+      <CardHeader
+        title={data.name}
+        subtitle={subtitle || undefined}
+        compact={isMobile}
+      />
 
       {projected && showBasemap && (
         <div className={styles.mapArea}>
@@ -778,9 +781,9 @@ export function RouteMap({
       )}
 
       {!projected && (
-        <div className={styles.empty}>
+        <EmptyState>
           No GPS track is available for this {data.source}.
-        </div>
+        </EmptyState>
       )}
 
       {projected && profile && (
