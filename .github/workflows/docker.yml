@@ -6,6 +6,16 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  # Backfill: tag pushes run this workflow at the tag's commit, so a workflow
+  # bug baked into a release tag cannot be fixed by re-running that run. This
+  # dispatch builds an existing release tag with the workflow from main and
+  # publishes its X.Y.Z / X.Y image tags (it never moves `latest` or main-*).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing vX.Y.Z release tag to build and publish"
+        required: true
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -71,6 +81,10 @@ jobs:
             runner: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          # Empty on pull_request/push (checks out the triggering ref); the
+          # backfill dispatch builds the requested release tag's sources.
+          ref: ${{ inputs.tag }}
 
       - name: Prepare platform pair
         id: prep
@@ -122,14 +136,17 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  # Assembles the per-arch digests into one multi-arch manifest. Relies on every
-  # build matrix leg succeeding (default `needs` semantics). Do not add
-  # continue-on-error/if:always() to build, or a single-arch manifest could ship.
+  # Assembles the per-arch digests into one multi-arch manifest. The explicit
+  # `needs.build.result == 'success'` guard requires every build matrix leg to
+  # have succeeded, so a single-arch manifest can never ship. It must stay
+  # explicit: on push events `changes` is skipped, which makes the implicit
+  # success() check false for every downstream job, so a bare event-name `if`
+  # here would silently skip this job on the very pushes that publish releases.
   merge:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: [build]
-    if: github.event_name != 'pull_request'
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.build.result == 'success' }}
     permissions:
       contents: read
       packages: write
@@ -158,11 +175,15 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY_IMAGE }}
+          # The backfill dispatch runs on main's ref, so `latest`/main-* are
+          # pinned off there and the semver tags come from the tag input.
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=main-,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ github.event_name != 'workflow_dispatch' && '{{is_default_branch}}' || 'false' }}
+            type=sha,prefix=main-,enable=${{ github.event_name != 'workflow_dispatch' && '{{is_default_branch}}' || 'false' }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ inputs.tag }},enable=${{ github.event_name == 'workflow_dispatch' }}
 
       - name: Create manifest list and push
         working-directory: ${{ runner.temp }}/digests
