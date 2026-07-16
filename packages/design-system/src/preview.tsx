@@ -1,3 +1,4 @@
+import addonA11y from "@storybook/addon-a11y";
 import { definePreview } from "@storybook/react-vite";
 import { HOST_THEMES, type HostThemePreset } from "./host-themes";
 import "./tokens.css";
@@ -20,8 +21,13 @@ const ALL_HOST_KEYS = new Set(
 );
 
 export default definePreview({
-  addons: [],
+  addons: [addonA11y()],
   parameters: {
+    // Per-story axe checks (#165): the addon panel reports violations in dev,
+    // and the vitest story tests run the same checks in CI. "todo" surfaces
+    // violations as warnings without failing; packages ratchet to "error" in
+    // their story files as their violations reach zero (ui primitives first).
+    a11y: { test: "todo" },
     viewport: {
       options: {
         iphone16pro: {
@@ -85,7 +91,14 @@ export default definePreview({
       }
 
       return (
-        <div data-theme={dataTheme}>
+        // The wrapper paints the app's own surface color so the theme
+        // simulation is self-contained: the backgrounds addon doesn't reach
+        // the vitest browser-mode test root, and without a painted surface
+        // axe would measure dark-mode text against a white canvas.
+        <div
+          data-theme={dataTheme}
+          style={{ background: "var(--color-background-primary)" }}
+        >
           <StoryFn />
         </div>
       );

@@ -1,7 +1,11 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { Skeleton } from "./Skeleton";
 
-const meta = preview.meta({ component: Skeleton });
+const meta = preview.meta({
+  component: Skeleton,
+  // ui primitives are the first package gated on axe (#165).
+  parameters: { a11y: { test: "error" } },
+});
 
 export const Chart = meta.story({
   args: { variant: "chart" },

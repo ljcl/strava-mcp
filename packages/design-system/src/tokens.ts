@@ -18,7 +18,7 @@ export const COLORS = {
     primary: "#14141a",
     secondary: "#3d3d3a",
     success: "#275b19",
-    tertiary: "#73726c",
+    tertiary: "#6e6d67",
   },
 } as const;
 

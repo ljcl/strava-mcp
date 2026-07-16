@@ -40,16 +40,27 @@
   outline-offset: 2px;
 }
 
+/* Hidden/faded states dim the swatch but keep the label at a contrast-passing
+ * color: these are enabled toggles, and a washed-out label fails WCAG AA
+ * (axe color-contrast) while still needing to be readable to re-enable. */
 .legendButton[data-hidden] {
+  color: var(--color-text-tertiary);
   text-decoration: line-through;
+}
+
+.legendButton[data-hidden] .swatch {
   opacity: 0.3;
 }
 
 .legendButton[data-faded] {
+  color: var(--color-text-tertiary);
+}
+
+.legendButton[data-faded] .swatch {
   opacity: 0.5;
 }
 
-.legendButton[data-hidden][data-faded] {
+.legendButton[data-hidden][data-faded] .swatch {
   opacity: 0.25;
 }
 

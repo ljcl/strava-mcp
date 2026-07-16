@@ -26,7 +26,11 @@ function TooltipDemo() {
   );
 }
 
-const meta = preview.meta({ component: TooltipDemo });
+const meta = preview.meta({
+  component: TooltipDemo,
+  // ui primitives are the first package gated on axe (#165).
+  parameters: { a11y: { test: "error" } },
+});
 
 export const Default = meta.story({});
 
