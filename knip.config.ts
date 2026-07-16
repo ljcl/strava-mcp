@@ -2,6 +2,13 @@ import { type KnipConfig } from "knip";
 
 export default {
   workspaces: {
+    ".": {
+      // Story smoke tests: non-default name so vitest's parent-directory
+      // config search cannot hijack per-package bare `vitest run`.
+      vitest: {
+        config: ["vitest.stories.config.ts"],
+      },
+    },
     "apps/server": {
       project: ["src/**/*.ts"],
       // Resolved at runtime via createRequire(...).resolve("<pkg>/app.html"),

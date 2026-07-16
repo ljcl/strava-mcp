@@ -51,6 +51,25 @@ jobs:
           bun run turbo run lint test typecheck build knip
           bun run turbo boundaries
 
+      # Story smoke tests: every Storybook story renders in real headless
+      # Chromium via the Vitest addon (#163). Runs after the unit-test check;
+      # coverage and Chromatic are unaffected.
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(bun --print 'require("./package.json").devDependencies.playwright')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright Chromium
+        run: bunx playwright install chromium --with-deps
+
+      - name: Story tests
+        run: bun run turbo run test:stories
+
       # Coverage is computed on every run and surfaced in the job summary,
       # so test-depth regressions are visible at review time (#135).
       - name: Coverage

@@ -9,7 +9,8 @@
     "STRAVA_ACCESS_TOKEN",
     "STRAVA_REFRESH_TOKEN",
     "ROUTE_EXPORT_PATH",
-    "TOKEN_DATA_DIR"
+    "TOKEN_DATA_DIR",
+    "PLAYWRIGHT_BROWSERS_PATH"
   ],
   "globalDependencies": [".env", ".env.local"],
   "boundaries": {
@@ -68,6 +69,17 @@
         ".gitignore",
         "!**/dist/**",
         "!**/storybook-static/**"
+      ]
+    },
+    "//#test:stories": {
+      "inputs": [
+        "vitest.stories.config.ts",
+        "apps/storybook/.storybook/**",
+        "packages/*/src/**",
+        "packages/design-system/stories/**",
+        "packages/*/package.json",
+        "apps/storybook/package.json",
+        "bun.lock"
       ]
     },
     "//#knip": {

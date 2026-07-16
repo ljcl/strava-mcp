@@ -305,6 +305,7 @@ The fastest local gate is `bun run check`, which runs lint, test, typecheck, bui
 ```bash
 bun run check             # Lint + test + typecheck + build + boundaries (cached via Turborepo)
 bun run check:affected    # Same, but only packages changed since main
+bun run test:stories      # Every story renders in headless Chromium (needs Playwright browsers)
 docker compose build      # Server container builds from current sources
 ```
 
@@ -333,6 +334,7 @@ bun run check:affected    # Same, but only packages changed since main
 bun run build             # Build all packages (via Turborepo)
 bun run build:affected    # Build only changed packages
 bun run test              # Run all tests (via Turborepo)
+bun run test:stories      # Run every Storybook story as a Vitest browser-mode smoke test
 bun run test:coverage     # Tests with coverage (per-package coverage/ output)
 bun run coverage:summary  # Aggregate coverage into one markdown table (CI job summary)
 bun run typecheck         # Typecheck all packages (via Turborepo)
@@ -400,6 +402,24 @@ Storybook (`apps/storybook`) renders the UI packages. Two deploys:
 - Each PR that touches a UI package is published to Chromatic (`chromatic.yml`), which posts two PR checks: `Storybook Publish` (a link to that branch's hosted Storybook) and `UI Tests` (visual diffs against the `main` baseline). It is a review aid, not a merge gate (`exitZeroOnChanges`); `autoAcceptChanges: main` advances the baseline as changes land.
 
 TurboSnap (`onlyChanged`) only snapshots stories affected by the diff, to conserve the free-plan budget. It relies on `preview-stats.json` (emitted by `--stats-json` in `build:storybook`) and `storybookBaseDir: apps/storybook`. Stories are co-located in `packages/*`, so when tracing cannot resolve a change it snapshots conservatively rather than missing a regression. Requires `CHROMATIC_PROJECT_TOKEN` as a repo secret.
+
+### Story smoke tests
+
+Every story also runs as a Vitest browser-mode smoke test: `bun run test:stories` locally, the
+"Story tests" step in `ci.yml` on every PR and main push. The root `vitest.stories.config.ts`
+(deliberately not `vitest.config.ts` — vitest searches parent directories for a config, so a
+default-named root config would hijack every package's bare `vitest run`) defines a single
+`storybook` project via `@storybook/addon-vitest`'s `storybookTest` plugin and renders each story
+in headless Chromium (Playwright). All stories use CSF factories, so no
+`.storybook/vitest.setup.ts` is needed — each story carries its preview annotations itself. The
+project's `test.dir` must stay at the repo root: the addon pins the project root to
+`apps/storybook` (configDir's parent) but resolves the co-located story globs against `test.dir`,
+and with the two misaligned no story files are found. The run is cached as the `//#test:stories`
+turbo root task (inputs: story/package sources and the Storybook config). Per-package unit tests,
+the coverage table, and Chromatic are unchanged — this layer only asserts that every story renders
+in a real DOM without throwing. Needs Playwright browsers (`bunx playwright install chromium`); CI
+caches them keyed on the pinned `playwright` version, and `PLAYWRIGHT_BROWSERS_PATH` passes through
+turbo for environments with pre-installed browsers.
 
 ### Agent access
 
