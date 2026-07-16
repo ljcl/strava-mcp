@@ -3,7 +3,11 @@ import { CardHeader } from "./CardHeader";
 import { EmptyState } from "./EmptyState";
 import { MobileCardShell } from "./MobileCardShell";
 
-const meta = preview.meta({ component: MobileCardShell });
+const meta = preview.meta({
+  component: MobileCardShell,
+  // ui primitives are the first package gated on axe (#165).
+  parameters: { a11y: { test: "error" } },
+});
 
 const content = (
   <>

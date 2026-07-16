@@ -3,7 +3,11 @@ import { AppShell } from "./AppShell";
 import { CardHeader } from "./CardHeader";
 import { EmptyState } from "./EmptyState";
 
-const meta = preview.meta({ component: AppShell });
+const meta = preview.meta({
+  component: AppShell,
+  // ui primitives are the first package gated on axe (#165).
+  parameters: { a11y: { test: "error" } },
+});
 
 const content = (
   <>

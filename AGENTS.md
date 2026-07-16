@@ -424,6 +424,19 @@ in a real DOM without throwing. Needs Playwright browsers (`bunx playwright inst
 caches them keyed on the pinned `playwright` version, and `PLAYWRIGHT_BROWSERS_PATH` passes through
 turbo for environments with pre-installed browsers.
 
+### Per-story axe checks
+
+`@storybook/addon-a11y` (#165) runs axe on every story: as a panel in Storybook dev, and inside
+the story smoke tests in CI (the addon's preview annotations are composed into the design-system
+`definePreview` via its `addons` array — the CSF-factory equivalent of a vitest setup file). The
+global default is `parameters.a11y.test: "todo"` (violations report without failing);
+`packages/ui` story files pin `"error"` and are the first gated package. Ratchet a package to
+`"error"` in its story metas once its violations reach zero. Two conventions keep the checks
+honest: the design-system preview decorator paints `--color-background-primary` on the theme
+wrapper (axe otherwise measures dark-mode text against the white test canvas), and
+hidden/faded `Legend` labels keep contrast-passing text (only the swatch dims) because enabled
+toggles must stay readable.
+
 ### Agent access
 
 - A PR's hosted Storybook URL and diff status: `gh pr checks <PR>` (the `Storybook Publish` and `UI Tests` rows).

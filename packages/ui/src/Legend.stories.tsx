@@ -2,7 +2,11 @@ import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { Legend, LegendItem } from "./Legend";
 import { MobileCardShell } from "./MobileCardShell";
 
-const meta = preview.meta({ component: Legend });
+const meta = preview.meta({
+  component: Legend,
+  // ui primitives are the first package gated on axe (#165).
+  parameters: { a11y: { test: "error" } },
+});
 
 export const Default = meta.story({
   render: () => (

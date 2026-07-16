@@ -19,7 +19,7 @@ const allTokens = [
     tokens: [
       { var: "--color-text-primary", light: "#14141a", dark: "#faf9f5" },
       { var: "--color-text-secondary", light: "#3d3d3a", dark: "#c2c0b6" },
-      { var: "--color-text-tertiary", light: "#73726c", dark: "#9c9a92" },
+      { var: "--color-text-tertiary", light: "#6e6d67", dark: "#9c9a92" },
       { var: "--color-text-danger", light: "#7f2c28", dark: "#ee8884" },
       { var: "--color-text-success", light: "#275b19", dark: "#7ab948" },
       { var: "--color-text-info", light: "#3266ad", dark: "#80aadd" },

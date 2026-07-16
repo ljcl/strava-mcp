@@ -3,7 +3,11 @@ import { ErrorState } from "./ErrorState";
 
 const noop = () => {};
 
-const meta = preview.meta({ component: ErrorState });
+const meta = preview.meta({
+  component: ErrorState,
+  // ui primitives are the first package gated on axe (#165).
+  parameters: { a11y: { test: "error" } },
+});
 
 export const Default = meta.story({
   args: { message: "No activity data available" },
