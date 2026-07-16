@@ -116,17 +116,16 @@ const APP_TOOL_CALLS: Array<[string, Record<string, unknown>]> = [
 ];
 
 describe("app handlers without STRAVA_ACCESS_TOKEN", () => {
-  it.each(APP_TOOL_CALLS)(
-    "%s returns isError: true instead of plain content",
-    async (name, args) => {
-      delete process.env.STRAVA_ACCESS_TOKEN;
+  it.each(
+    APP_TOOL_CALLS,
+  )("%s returns isError: true instead of plain content", async (name, args) => {
+    delete process.env.STRAVA_ACCESS_TOKEN;
 
-      const result = await dispatchToolCall(name, args);
+    const result = await dispatchToolCall(name, args);
 
-      expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("Missing STRAVA_ACCESS_TOKEN");
-    },
-  );
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("Missing STRAVA_ACCESS_TOKEN");
+  });
 });
 
 describe("view-activity-chart", () => {
