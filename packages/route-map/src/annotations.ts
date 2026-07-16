@@ -7,7 +7,7 @@
  * sharing a track point. Pure data, unit-tested.
  */
 
-import { type RouteMapData } from "./types";
+import { type RouteMapData, type WaypointKind } from "./types";
 
 export interface SplitMarker {
   /** Index into the track coordinates. */
@@ -15,6 +15,27 @@ export interface SplitMarker {
   /** Marker title, e.g. "Lap 2" or "5 km". */
   label: string;
 }
+
+export interface WaypointMarker {
+  /** Index into the track coordinates. */
+  index: number;
+  kind: WaypointKind;
+  /** Marker title, e.g. "Gel 1 (caffeinated) · 11 km". */
+  title: string;
+}
+
+/**
+ * Per-kind waypoint marker colors. Concrete hex (not CSS vars) because the
+ * MapLibre basemap paints canvas and shares these with the SVG grid;
+ * theme-invariant for the same reason as TIER_COLORS — pins must read
+ * identically over multi-hue metric tracks in both themes.
+ */
+export const WAYPOINT_COLORS: Record<WaypointKind, string> = {
+  fuel: "#ec4899",
+  climb: "#ef4444",
+  water: "#0ea5e9",
+  custom: "#14b8a6",
+};
 
 export interface PhotoMarker {
   index: number;
@@ -77,6 +98,22 @@ export function buildSplitMarkers(data: RouteMapData): SplitMarker[] {
     return buildKmSplits(distance);
   }
   return [];
+}
+
+/**
+ * Caller-supplied waypoints as renderable markers. The server already
+ * resolved indices and sorted by km; this just formats the hover title
+ * (label plus the caller's distance, so "Gel 1 · 11 km" survives even when
+ * the marker is tapped without the scrub tooltip).
+ */
+export function buildWaypointMarkers(data: RouteMapData): WaypointMarker[] {
+  const waypoints = data.annotations?.waypoints;
+  if (!waypoints || waypoints.length === 0) return [];
+  return waypoints.map((waypoint) => ({
+    index: waypoint.index,
+    kind: waypoint.kind,
+    title: `${waypoint.label} · ${Number(waypoint.km.toFixed(1))} km`,
+  }));
 }
 
 /** Group photos sharing a track point into one marker with a count. */

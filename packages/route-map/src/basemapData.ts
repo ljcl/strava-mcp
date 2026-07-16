@@ -7,7 +7,12 @@
  */
 
 import { TIER_COLORS } from "@strava-mcp/design-system";
-import { type PhotoMarker, type SplitMarker } from "./annotations";
+import {
+  type PhotoMarker,
+  type SplitMarker,
+  WAYPOINT_COLORS,
+  type WaypointMarker,
+} from "./annotations";
 import { type ColorRun } from "./metrics";
 import { type RouteAnnotations } from "./types";
 
@@ -162,12 +167,13 @@ export function segmentsToGeoJson(
   };
 }
 
-/** Point features with a `title` property for the hover popup. */
+/** Point features with a `title` property for the hover popup. Waypoint
+ * features also carry a `color` for the per-kind circle paint. */
 export interface TitledPointFeatureCollection {
   type: "FeatureCollection";
   features: Array<{
     type: "Feature";
-    properties: { title: string };
+    properties: { title: string; color?: string };
     geometry: { type: "Point"; coordinates: [number, number] };
   }>;
 }
@@ -216,6 +222,34 @@ export function photosToGeoJson(
         {
           type: "Feature" as const,
           properties: { title },
+          geometry: {
+            type: "Point" as const,
+            coordinates: [pair[1], pair[0]] as [number, number],
+          },
+        },
+      ];
+    }),
+  };
+}
+
+/** Waypoint markers as point features, colored by kind via a `color`
+ * property (one layer with a `['get', 'color']` paint draws every kind). */
+export function waypointsToGeoJson(
+  coordinates: Array<[number, number]>,
+  waypoints: WaypointMarker[],
+): TitledPointFeatureCollection {
+  return {
+    type: "FeatureCollection",
+    features: waypoints.flatMap((waypoint) => {
+      const pair = coordinates[waypoint.index];
+      if (!pair) return [];
+      return [
+        {
+          type: "Feature" as const,
+          properties: {
+            title: waypoint.title,
+            color: WAYPOINT_COLORS[waypoint.kind],
+          },
           geometry: {
             type: "Point" as const,
             coordinates: [pair[1], pair[0]] as [number, number],

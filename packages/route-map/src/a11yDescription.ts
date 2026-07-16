@@ -26,6 +26,7 @@ export interface RouteMapA11yInput {
   segmentCount?: number;
   prCount?: number;
   photoCount?: number;
+  waypointCount?: number;
 }
 
 const DEG_TO_RAD = Math.PI / 180;
@@ -171,6 +172,13 @@ function describeAnnotations(input: RouteMapA11yInput): string | null {
   if (input.photoCount) {
     parts.push(
       input.photoCount === 1 ? "1 photo" : `${input.photoCount} photos`,
+    );
+  }
+  if (input.waypointCount) {
+    parts.push(
+      input.waypointCount === 1
+        ? "1 waypoint"
+        : `${input.waypointCount} waypoints`,
     );
   }
   if (parts.length === 0) return null;

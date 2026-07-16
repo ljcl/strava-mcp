@@ -3,6 +3,7 @@ import {
   buildKmSplits,
   buildPhotoMarkers,
   buildSplitMarkers,
+  buildWaypointMarkers,
 } from "./annotations";
 import { type RouteMapData } from "./types";
 
@@ -114,6 +115,28 @@ describe("buildPhotoMarkers", () => {
     expect(buildPhotoMarkers(data)).toEqual([
       { index: 2, count: 2, caption: "Summit · View" },
       { index: 6, count: 1, caption: null },
+    ]);
+  });
+});
+
+describe("buildWaypointMarkers", () => {
+  it("returns nothing without waypoint annotations", () => {
+    expect(buildWaypointMarkers(makeData())).toEqual([]);
+    expect(buildWaypointMarkers(makeData({ annotations: {} }))).toEqual([]);
+  });
+
+  it("formats the hover title from label and the caller's distance", () => {
+    const data = makeData({
+      annotations: {
+        waypoints: [
+          { index: 3, km: 11, label: "Gel 1 (caffeinated)", kind: "fuel" },
+          { index: 8, km: 40.2, label: "Botanic Gardens", kind: "climb" },
+        ],
+      },
+    });
+    expect(buildWaypointMarkers(data)).toEqual([
+      { index: 3, kind: "fuel", title: "Gel 1 (caffeinated) · 11 km" },
+      { index: 8, kind: "climb", title: "Botanic Gardens · 40.2 km" },
     ]);
   });
 });

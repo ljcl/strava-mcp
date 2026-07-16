@@ -392,6 +392,98 @@ describe("route map handlers", () => {
     expect(parsed.streams).toBeUndefined();
   });
 
+  it("get-route-map-data anchors waypoints on the distance stream and drops out-of-range ones", async () => {
+    const coords: Array<[number, number]> = [
+      [38.5, -120.2],
+      [40.7, -120.95],
+      [43.252, -126.453],
+    ];
+    mockedById.mockResolvedValueOnce(detailedActivity());
+    mockedApiGet.mockResolvedValueOnce({
+      data: [
+        { type: "latlng", data: coords },
+        { type: "distance", data: [0, 5000, 10000] },
+      ],
+    } as never);
+    mockedLaps.mockResolvedValueOnce([]);
+    mockedPhotos.mockResolvedValueOnce([]);
+
+    const result = await dispatchToolCall("get-route-map-data", {
+      activity_id: "123",
+      waypoints: [
+        { km: 4, label: "Gel 1", kind: "fuel" },
+        { km: 42, label: "Botanic Gardens climb", kind: "climb" },
+        { km: 8, label: "Water stop" }, // kind defaults to custom
+      ],
+    });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.annotations.waypoints).toEqual([
+      { km: 4, label: "Gel 1", kind: "fuel", index: 1 },
+      { km: 8, label: "Water stop", kind: "custom", index: 2 },
+    ]);
+    expect(parsed.waypointWarnings).toHaveLength(1);
+    expect(parsed.waypointWarnings[0]).toContain("Botanic Gardens climb");
+    expect(parsed.waypointWarnings[0]).toContain("10.0 km");
+  });
+
+  it("get-route-map-data anchors route waypoints via haversine cumulative distance", async () => {
+    mockedRoute.mockResolvedValueOnce({
+      id: "9",
+      name: "River Loop",
+      type: 2,
+      distance: 600000,
+      elevation_gain: 50,
+      created_at: "2026-01-01T00:00:00Z",
+      map: { summary_polyline: POLYLINE },
+    } as unknown as StravaRoute);
+
+    const result = await dispatchToolCall("get-route-map-data", {
+      route_id: "9",
+      waypoints: [{ km: 100, label: "Halfway fuel", kind: "fuel" }],
+    });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    // The polyline's first leg is ~250 km, so a 100 km waypoint anchors to
+    // the second point of the decoded track.
+    expect(parsed.annotations.waypoints).toEqual([
+      { km: 100, label: "Halfway fuel", kind: "fuel", index: 1 },
+    ]);
+    expect(parsed.waypointWarnings).toBeUndefined();
+  });
+
+  it("view-route-map reports pinned waypoints and warns about dropped ones", async () => {
+    mockedById.mockResolvedValueOnce(detailedActivity());
+
+    const result = await dispatchToolCall("view-route-map", {
+      activity_id: "123",
+      waypoints: [
+        { km: 5, label: "Gel 1", kind: "fuel" },
+        { km: 42.2, label: "Finish gel", kind: "fuel" },
+      ],
+    });
+
+    expect(result.isError).toBeUndefined();
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("Waypoints: 1 pinned");
+    expect(text).toContain("Warning: Dropped 1 waypoint");
+    expect(text).toContain('"Finish gel" (42.2 km)');
+  });
+
+  it("rejects malformed waypoints via the input schema", async () => {
+    const result = await dispatchToolCall("view-route-map", {
+      activity_id: "123",
+      waypoints: [{ km: -2, label: "" }],
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain(
+      "Invalid arguments for view-route-map",
+    );
+  });
+
   it("get-route-map-data errors when neither id is provided", async () => {
     const result = await dispatchToolCall("get-route-map-data", {});
 
