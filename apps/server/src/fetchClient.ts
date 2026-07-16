@@ -256,13 +256,6 @@ export interface RetryOptions {
   cache?: ResponseCacheOptions;
 }
 
-interface RequestInterceptor {
-  onFulfilled?: (
-    config: FetchConfig & { url: string },
-  ) => FetchConfig & { url: string };
-  onRejected?: (error: Error) => Promise<Error>;
-}
-
 /**
  * Parses a JSON string while preserving integers that exceed
  * `Number.MAX_SAFE_INTEGER` (2^53 - 1).
@@ -302,7 +295,6 @@ export function parseJsonWithLargeInts(text: string): unknown {
 
 export class FetchClient {
   private baseURL: string;
-  private requestInterceptors: RequestInterceptor[] = [];
   private rateLimit: RateLimitSnapshot | null = null;
 
   private readonly maxRetries: number;
@@ -371,39 +363,12 @@ export class FetchClient {
     return Math.round(Math.random() * exp);
   }
 
-  get interceptors() {
-    return {
-      request: {
-        use: (
-          onFulfilled?: RequestInterceptor["onFulfilled"],
-          onRejected?: RequestInterceptor["onRejected"],
-        ) => {
-          this.requestInterceptors.push({ onFulfilled, onRejected });
-        },
-      },
-    };
-  }
-
   private async request<T>(
     url: string,
     config: FetchConfig = {},
   ): Promise<{ data: T }> {
     const fullUrl = url.startsWith("http") ? url : `${this.baseURL}${url}`;
-
-    // Apply request interceptors
-    let requestConfig = { ...config, url: fullUrl };
-    for (const interceptor of this.requestInterceptors) {
-      if (interceptor.onFulfilled) {
-        try {
-          requestConfig = interceptor.onFulfilled(requestConfig);
-        } catch (error) {
-          if (interceptor.onRejected) {
-            await interceptor.onRejected(error as Error);
-          }
-          throw error;
-        }
-      }
-    }
+    const requestConfig = { ...config, url: fullUrl };
 
     // Build URL with query params
     if (requestConfig.params) {
@@ -615,15 +580,3 @@ export function stravaCacheTtl(path: string): number | null {
 export const stravaApi = new FetchClient("https://www.strava.com/api/v3", {
   cache: { ttlForPath: stravaCacheTtl },
 });
-
-// Add request interceptor
-stravaApi.interceptors.request.use(
-  (config) => {
-    // Request logging is commented out to avoid interfering with MCP Stdio transport
-    return config;
-  },
-  (error) => {
-    console.error("[DEBUG fetchClient] Request Error Interceptor:", error);
-    return Promise.reject(error);
-  },
-);

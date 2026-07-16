@@ -237,7 +237,7 @@ Bias toward mobile. False-positive mobile on desktop is cosmetic. False-negative
 
 MCP Apps own their outer chrome, not the host:
 
-1. Server emits `_meta: { ui: { prefersBorder: false } }` on BOTH the resource descriptor AND the content response. Two places to update per resource.
+1. Server emits `_meta: { ui: { prefersBorder: false } }` on BOTH the resource descriptor AND the content response. Both derive from the `APP_RESOURCES` table in `server.ts` via `appResourceMeta`, so a new app is one table entry (per-app extras like route-map's `csp` go on the entry's `ui` field).
 2. App wraps content in a card with background, border, border-radius, responsive padding:
    - Mobile `{ y: 16, x: 14 }`, desktop `{ y: 24, x: 20 }`, each plus `safeAreaInsets.*` via `calc()`
 3. Mobile adds `margin: 3` on the outer card. Claude iOS gives the iframe zero surrounding padding, so without the margin the card's border gets clipped at the iframe edge.
