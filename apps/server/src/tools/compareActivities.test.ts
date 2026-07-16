@@ -1,7 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { type StravaDetailedActivity } from "../stravaClient";
-import { buildComparison } from "./compareActivities";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getActivityById, type StravaDetailedActivity } from "../stravaClient";
+import { buildComparison, compareActivitiesTool } from "./compareActivities";
 import { CompareActivitiesOutputSchema } from "./outputs";
+
+vi.mock("../stravaClient", () => ({
+  getActivityById: vi.fn(),
+}));
+
+const mockedById = vi.mocked(getActivityById);
 
 /**
  * Build a minimal detailed activity from a partial. Only the fields the
@@ -88,5 +94,65 @@ describe("buildComparison", () => {
   it("matches the compare-activities structured output schema", () => {
     const result = buildComparison(fakeActivity({}), faster);
     expect(CompareActivitiesOutputSchema.safeParse(result).success).toBe(true);
+  });
+});
+
+describe("compare-activities execute", () => {
+  beforeEach(() => {
+    process.env.STRAVA_ACCESS_TOKEN = "test-token";
+    mockedById.mockReset();
+  });
+
+  afterEach(() => {
+    delete process.env.STRAVA_ACCESS_TOKEN;
+  });
+
+  it("fetches both activities and returns text plus structured output", async () => {
+    mockedById.mockResolvedValueOnce(fakeActivity({}));
+    mockedById.mockResolvedValueOnce(faster);
+
+    const result = await compareActivitiesTool.execute({
+      activityId1: "100",
+      activityId2: "200",
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(mockedById).toHaveBeenCalledWith("test-token", "100");
+    expect(mockedById).toHaveBeenCalledWith("test-token", "200");
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("Activity 1: Morning Run");
+    expect(text).toContain("Activity 2: Race Day");
+    expect(text).toContain("faster");
+    const structured = result.structuredContent as {
+      differences: { avg_hr: number };
+    };
+    expect(structured.differences.avg_hr).toBe(10);
+  });
+
+  it("maps a 404 to a not-found message", async () => {
+    mockedById.mockRejectedValue(new Error("Record Not Found"));
+
+    const result = await compareActivitiesTool.execute({
+      activityId1: "100",
+      activityId2: "200",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain(
+      "One or both activities not found",
+    );
+  });
+
+  it("returns a configuration error without a token", async () => {
+    delete process.env.STRAVA_ACCESS_TOKEN;
+
+    const result = await compareActivitiesTool.execute({
+      activityId1: "100",
+      activityId2: "200",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("Missing Strava access token");
+    expect(mockedById).not.toHaveBeenCalled();
   });
 });
