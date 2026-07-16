@@ -182,6 +182,57 @@ export const annotatedActivity: RouteMapData = {
   },
 };
 
+/** First sample at or past `km` kilometres, mirroring the server's anchor. */
+const waypointIndex = (km: number) => distance.findIndex((d) => d >= km * 1000);
+
+/**
+ * The stream activity plus caller-pinned waypoints (one of each kind), to
+ * exercise the waypoint layer on the track, elevation strip, and legend.
+ */
+export const waypointedActivity: RouteMapData = {
+  ...streamLoopActivity,
+  id: "1234567893",
+  name: "Golden Gate Park Race Plan",
+  annotations: {
+    waypoints: [
+      { index: waypointIndex(0.5), km: 0.5, label: "Gel 1", kind: "fuel" },
+      {
+        index: waypointIndex(1),
+        km: 1,
+        label: "Stow Lake climb +30m",
+        kind: "climb",
+      },
+      {
+        index: waypointIndex(1.5),
+        km: 1.5,
+        label: "Water fountain",
+        kind: "water",
+      },
+      {
+        index: waypointIndex(1.9),
+        km: 1.9,
+        label: "Regroup point",
+        kind: "custom",
+      },
+    ],
+  },
+};
+
+/**
+ * A saved route with waypoints: no streams, so waypoints are the only
+ * annotation layer and there is no elevation strip (the server anchors them
+ * on a haversine cumulative-distance stream).
+ */
+export const waypointedRoute: RouteMapData = {
+  ...pointToPointRoute,
+  annotations: {
+    waypoints: [
+      { index: 4, km: 4, label: "Aid station", kind: "water" },
+      { index: 9, km: 10, label: "Final ramp +40m", kind: "climb" },
+    ],
+  },
+};
+
 /** An indoor activity with no GPS track, to exercise the empty state. */
 export const noGeometryActivity: RouteMapData = {
   source: "activity",

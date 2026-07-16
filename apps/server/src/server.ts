@@ -13,7 +13,14 @@ import {
 import { z } from "zod";
 import { mapActivitySegments } from "./activitySegments";
 import { stravaApi } from "./fetchClient";
-import { indexAtDistance, nearestCoordIndex } from "./mapAnchors";
+import {
+  cumulativeDistances,
+  indexAtDistance,
+  nearestCoordIndex,
+  type ResolvedWaypoint,
+  resolveWaypoints,
+  type WaypointInput,
+} from "./mapAnchors";
 import { decodePolyline } from "./polyline";
 import { getPrompt, listPrompts } from "./prompts";
 import {
@@ -80,6 +87,37 @@ const daysInput = z
     "Number of days of history to analyze (default: 84, i.e. 12 weeks; max: 365)",
   );
 
+const waypointsInput = z
+  .array(
+    z.object({
+      km: z
+        .number()
+        .nonnegative()
+        .describe(
+          "Distance from the start of the track, in kilometres, where this waypoint sits.",
+        ),
+      label: z
+        .string()
+        .min(1)
+        .max(120)
+        .describe(
+          'Short marker label shown on hover/tap, e.g. "Gel 1 (caffeinated)" or "Oxford St climb +55m".',
+        ),
+      kind: z
+        .enum(["fuel", "climb", "water", "custom"])
+        .default("custom")
+        .describe(
+          "Marker style: fuel (nutrition), climb (grade warning), water (drink/aid station), or custom (anything else, the default).",
+        ),
+    }),
+  )
+  .max(50)
+  .optional()
+  .describe(
+    "Optional distance-anchored waypoints to pin along the track — e.g. fueling points or climb warnings from a race plan. " +
+      "Rendered as a toggleable marker layer on the map and elevation profile. Waypoints beyond the end of the track are dropped with a warning.",
+  );
+
 const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   "view-activity-chart": z.object({
     activity_id: stravaIdInput("The Strava activity ID to visualize."),
@@ -92,10 +130,12 @@ const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   "view-route-map": z.object({
     activity_id: stravaIdInput("The Strava activity ID to map.").optional(),
     route_id: stravaIdInput("The Strava route ID to map.").optional(),
+    waypoints: waypointsInput,
   }),
   "get-route-map-data": z.object({
     activity_id: stravaIdInput("The Strava activity ID.").optional(),
     route_id: stravaIdInput("The Strava route ID.").optional(),
+    waypoints: waypointsInput,
   }),
   "view-activity-segments": z.object({
     activity_id: stravaIdInput("The Strava activity ID."),
@@ -260,7 +300,8 @@ function buildToolDefs(): ToolDef[] {
     name: "view-route-map",
     description:
       "Open an interactive map of one activity's or saved route's GPS track, fit to bounds with start and finish markers and a distance/elevation summary. " +
-      "Prefer this over a text summary when the user wants to see where an activity or route went. Takes either an activity_id or a route_id (provide exactly one).",
+      "Prefer this over a text summary when the user wants to see where an activity or route went. Takes either an activity_id or a route_id (provide exactly one). " +
+      "Optionally pin distance-anchored waypoints (fueling points, climb warnings, …) along the track via the waypoints array — useful when discussing a race plan or course guide.",
     inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-route-map"]!),
     annotations: READ_ONLY,
     _meta: {
@@ -272,7 +313,7 @@ function buildToolDefs(): ToolDef[] {
     name: "get-route-map-data",
     description:
       "Internal data feed for the route-map UI: returns decoded [lat, lng] coordinates plus start/end points, distance, elevation gain, and (for activities with GPS streams) index-aligned metric streams (time, distance, altitude, heartrate, watts, velocity_smooth, grade_smooth) " +
-      "and annotation anchors (lap boundaries, segment-effort spans with PR/top-10 flags, geotagged photos) for one activity or route as JSON. " +
+      "and annotation anchors (lap boundaries, segment-effort spans with PR/top-10 flags, geotagged photos, caller-supplied distance-anchored waypoints) for one activity or route as JSON. " +
       "The view-route-map app calls this; not intended for direct model use.",
     inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["get-route-map-data"]!),
     annotations: READ_ONLY,
@@ -662,6 +703,8 @@ interface RouteMapAnnotations {
   }>;
   /** Geotagged photos snapped to the nearest track point. */
   photos?: Array<{ index: number; caption: string | null }>;
+  /** Caller-supplied waypoints anchored by cumulative distance. */
+  waypoints?: ResolvedWaypoint[];
 }
 
 interface RouteMapData {
@@ -676,6 +719,8 @@ interface RouteMapData {
   end: [number, number] | null;
   streams?: RouteMapStreams;
   annotations?: RouteMapAnnotations;
+  /** Human-readable notes about waypoints that could not be placed. */
+  waypointWarnings?: string[];
 }
 
 const ROUTE_MAP_METRIC_STREAM_KEYS = [
@@ -736,11 +781,61 @@ function routeTypeLabel(type: number): string {
 }
 
 /**
+ * Anchor caller-supplied waypoints onto the loaded geometry, in place. Uses
+ * the recorded distance stream when present; polyline-fallback activities and
+ * saved routes get a synthetic haversine cumulative stream, so waypoints work
+ * for both `activity_id` and `route_id` inputs. Out-of-range waypoints become
+ * a `waypointWarnings` note (surfaced by the view tool's text) instead of an
+ * error or an off-track marker.
+ */
+function attachWaypoints(
+  data: RouteMapData,
+  waypoints: WaypointInput[] | undefined,
+): RouteMapData {
+  if (!waypoints || waypoints.length === 0) return data;
+  if (data.coordinates.length === 0) return data;
+
+  const recorded = data.streams?.distance;
+  const distanceStream =
+    recorded && recorded.length === data.coordinates.length
+      ? recorded
+      : cumulativeDistances(data.coordinates);
+  const { resolved, dropped } = resolveWaypoints(
+    waypoints,
+    distanceStream,
+    data.distance,
+  );
+
+  if (resolved.length > 0) {
+    data.annotations = { ...data.annotations, waypoints: resolved };
+  }
+  if (dropped.length > 0) {
+    const labels = dropped.map((w) => `"${w.label}" (${w.km} km)`).join(", ");
+    data.waypointWarnings = [
+      `Dropped ${dropped.length} waypoint${dropped.length === 1 ? "" : "s"} beyond the ${(data.distance / 1000).toFixed(1)} km track: ${labels}.`,
+    ];
+  }
+  return data;
+}
+
+/**
  * Resolve an activity_id or route_id into a decoded, render-ready payload.
  * Geometry arrives only as a Google encoded polyline, so we decode here (next
  * to the zod schemas and unit tests) and hand the app plain [lat, lng] pairs.
  */
 async function loadRouteMapData(
+  args: Record<string, unknown>,
+  token: string,
+  options: { includeStreams?: boolean } = {},
+): Promise<RouteMapData> {
+  return attachWaypoints(
+    await loadRouteMapGeometry(args, token, options),
+    args.waypoints as WaypointInput[] | undefined,
+  );
+}
+
+/** The geometry + annotation half of `loadRouteMapData` (pre-waypoints). */
+async function loadRouteMapGeometry(
   args: Record<string, unknown>,
   token: string,
   options: { includeStreams?: boolean } = {},
@@ -962,6 +1057,15 @@ async function handleViewRouteMap(
   ];
   if (data.coordinates.length === 0) {
     lines.push("No GPS track is available, so the map will be empty.");
+  }
+  const waypointCount = data.annotations?.waypoints?.length ?? 0;
+  if (waypointCount > 0) {
+    lines.push(
+      `Waypoints: ${waypointCount} pinned along the track (toggleable via the map legend).`,
+    );
+  }
+  for (const warning of data.waypointWarnings ?? []) {
+    lines.push(`Warning: ${warning}`);
   }
   lines.push("", "[Interactive route map rendered above]");
   return { content: [{ type: "text", text: lines.join("\n") }] };

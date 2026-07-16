@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { WAYPOINT_COLORS } from "./annotations";
 import {
   BASEMAP_COLORS,
   nearestLatLngIndex,
@@ -7,6 +8,7 @@ import {
   splitsToGeoJson,
   trackBounds,
   trackToGeoJson,
+  waypointsToGeoJson,
 } from "./basemapData";
 
 const COORDS: Array<[number, number]> = [
@@ -124,6 +126,21 @@ describe("splitsToGeoJson / photosToGeoJson", () => {
     // The out-of-range marker is dropped.
     expect(photos.features).toHaveLength(1);
     expect(photos.features[0]!.properties.title).toBe("2 photos · Summit");
+  });
+});
+
+describe("waypointsToGeoJson", () => {
+  it("emits titled points coloured by kind, dropping out-of-range indices", () => {
+    const fc = waypointsToGeoJson(COORDS, [
+      { index: 1, kind: "fuel", title: "Gel 1 · 11 km" },
+      { index: 99, kind: "water", title: "Aid station · 20 km" },
+    ]);
+    expect(fc.features).toHaveLength(1);
+    expect(fc.features[0]!.properties).toEqual({
+      title: "Gel 1 · 11 km",
+      color: WAYPOINT_COLORS.fuel,
+    });
+    expect(fc.features[0]!.geometry.coordinates).toEqual([-122.5, 37.775]);
   });
 });
 

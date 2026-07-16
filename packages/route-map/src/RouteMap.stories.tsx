@@ -7,6 +7,8 @@ import {
   noGeometryActivity,
   pointToPointRoute,
   streamLoopActivity,
+  waypointedActivity,
+  waypointedRoute,
 } from "./__fixtures__/routes";
 import { RouteMap } from "./RouteMap";
 
@@ -87,6 +89,38 @@ export const AnnotatedTrack = meta.story({
   args: { data: annotatedActivity, basemapEnabled: false },
 });
 
+export const WaypointedTrack = meta.story({
+  args: { data: waypointedActivity, basemapEnabled: false },
+});
+
+export const WaypointedRoute = meta.story({
+  args: { data: waypointedRoute, basemapEnabled: false },
+});
+
+/**
+ * Interaction test: the footer legend's Waypoints item toggles the marker
+ * layer. Each waypoint titles both a track diamond and an elevation-strip
+ * diamond, so two matches collapse to zero once hidden.
+ */
+export const ToggleWaypoints = meta.story({
+  args: { data: waypointedActivity, basemapEnabled: false },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    // SVG <title> children of the marker paths (getByTitle only matches
+    // direct svg > title children, so query them directly).
+    const gelMarkers = () =>
+      [...canvasElement.querySelectorAll("title")].filter(
+        (el) => el.textContent === "Gel 1 · 0.5 km",
+      );
+    await waitFor(() => expect(gelMarkers()).toHaveLength(2));
+
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Toggle Waypoints" }),
+    );
+
+    await waitFor(() => expect(gelMarkers()).toHaveLength(0));
+  },
+});
+
 export const Basemap = meta.story({
   args: { data: annotatedActivity },
   parameters: { chromatic: { disableSnapshot: true } },
@@ -96,6 +130,19 @@ export const MobileBasemap = meta.story({
   args: { data: annotatedActivity, mode: "mobile" },
   globals: { viewport: { value: "claudeIosCard" } },
   parameters: { layout: "fullscreen", chromatic: { disableSnapshot: true } },
+  decorators: [
+    (StoryFn) => (
+      <MobileCardShell>
+        <StoryFn />
+      </MobileCardShell>
+    ),
+  ],
+});
+
+export const MobileWaypointedTrack = meta.story({
+  args: { data: waypointedActivity, mode: "mobile", basemapEnabled: false },
+  globals: { viewport: { value: "claudeIosCard" } },
+  parameters: { layout: "fullscreen" },
   decorators: [
     (StoryFn) => (
       <MobileCardShell>

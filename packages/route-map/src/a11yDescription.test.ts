@@ -106,6 +106,30 @@ describe("buildRouteMapA11yDescription", () => {
     );
   });
 
+  it("counts caller-pinned waypoints among the annotations", () => {
+    const description = buildRouteMapA11yDescription({
+      name: "Race Recon",
+      source: "route",
+      activityType: "Run",
+      distanceKm: 42.2,
+      elevationGain: 320,
+      coordinates: loopTrack,
+      waypointCount: 3,
+    });
+    expect(description).toContain("Marked along the route: 3 waypoints.");
+
+    const singular = buildRouteMapA11yDescription({
+      name: "Race Recon",
+      source: "route",
+      activityType: "Run",
+      distanceKm: 42.2,
+      elevationGain: 320,
+      coordinates: loopTrack,
+      waypointCount: 1,
+    });
+    expect(singular).toContain("Marked along the route: 1 waypoint.");
+  });
+
   it("omits shape, altitude, metric, and annotation sentences when absent", () => {
     const description = buildRouteMapA11yDescription({
       name: "Bare Route",

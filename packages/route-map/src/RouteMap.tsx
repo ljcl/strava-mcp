@@ -27,7 +27,9 @@ import {
 import {
   buildPhotoMarkers,
   buildSplitMarkers,
+  buildWaypointMarkers,
   type SplitMarker,
+  WAYPOINT_COLORS,
 } from "./annotations";
 import { BasemapView } from "./BasemapView";
 import { buildRouteMapContextSummary } from "./contextSummary";
@@ -90,13 +92,20 @@ const GRID_ID = "route-map-grid";
 /** Segment rows shown in the scrub tooltip before collapsing to "+N more". */
 const MAX_TOOLTIP_SEGMENTS = 3;
 
-type LayerKey = "splits" | "segments" | "photos";
+type LayerKey = "splits" | "segments" | "photos" | "waypoints";
 
 const LAYER_COLORS: Record<LayerKey, string> = {
   splits: "var(--color-text-info)",
   segments: "var(--chart-power)",
   photos: "var(--chart-cadence)",
+  waypoints: WAYPOINT_COLORS.custom,
 };
+
+/** Diamond path centred on (cx, cy) — waypoint pins read distinctly from the
+ * circular split/photo markers. */
+function diamondPath(cx: number, cy: number, r: number): string {
+  return `M${cx} ${cy - r} L${cx + r} ${cy} L${cx} ${cy + r} L${cx - r} ${cy} Z`;
+}
 
 function segmentHaloColor(segment: { isPr: boolean; isTop10: boolean }) {
   if (segment.isPr) return TIER_COLORS.pr;
@@ -183,6 +192,7 @@ export function RouteMap({
 
   const splitMarkers = useMemo(() => buildSplitMarkers(data), [data]);
   const photoMarkers = useMemo(() => buildPhotoMarkers(data), [data]);
+  const waypointMarkers = useMemo(() => buildWaypointMarkers(data), [data]);
 
   const allSegments = useMemo(
     () => data.annotations?.segments ?? [],
@@ -218,8 +228,16 @@ export function RouteMap({
     if (segmentSpans.length > 0)
       out.push({ key: "segments", label: "Segments" });
     if (photoMarkers.length > 0) out.push({ key: "photos", label: "Photos" });
+    if (waypointMarkers.length > 0)
+      out.push({ key: "waypoints", label: "Waypoints" });
     return out;
-  }, [splitMarkers, segmentSpans, photoMarkers, data.annotations?.laps]);
+  }, [
+    splitMarkers,
+    segmentSpans,
+    photoMarkers,
+    waypointMarkers,
+    data.annotations?.laps,
+  ]);
 
   const [hiddenLayers, setHiddenLayers] = useState<Set<LayerKey>>(new Set());
   const layerVisible = (key: LayerKey) => !hiddenLayers.has(key);
@@ -411,6 +429,7 @@ export function RouteMap({
           (total, photo) => total + photo.count,
           0,
         ),
+        waypointCount: waypointMarkers.length,
       }),
     [
       data,
@@ -419,6 +438,7 @@ export function RouteMap({
       splitMarkers,
       allSegments,
       photoMarkers,
+      waypointMarkers,
     ],
   );
   const uid = useId();
@@ -558,10 +578,12 @@ export function RouteMap({
             splitMarkers={splitMarkers}
             segments={outlineSegments}
             photoMarkers={photoMarkers}
+            waypointMarkers={waypointMarkers}
             visibility={{
               splits: layerVisible("splits"),
               segments: layerVisible("segments"),
               photos: layerVisible("photos"),
+              waypoints: layerVisible("waypoints"),
             }}
             mode={mode}
             scrubIndex={scrubIndex}
@@ -731,6 +753,25 @@ export function RouteMap({
                   );
                 })}
 
+              {/* Caller-pinned waypoints as per-kind coloured diamonds. */}
+              {layerVisible("waypoints") &&
+                waypointMarkers.map((waypoint) => {
+                  const p = markerAt(waypoint.index);
+                  if (!p) return null;
+                  return (
+                    <path
+                      key={`waypoint-${waypoint.index}-${waypoint.title}`}
+                      d={diamondPath(p.x, p.y, dims.marker * 0.9 * k)}
+                      fill={WAYPOINT_COLORS[waypoint.kind]}
+                      stroke="var(--color-background-primary)"
+                      strokeWidth={2 * k}
+                      strokeLinejoin="round"
+                    >
+                      <title>{waypoint.title}</title>
+                    </path>
+                  );
+                })}
+
               {projected.start && (
                 <circle
                   cx={projected.start.x}
@@ -816,6 +857,25 @@ export function RouteMap({
             strokeWidth={1.5}
             strokeLinejoin="round"
           />
+          {/* Waypoints pinned onto the profile, mirroring the track layer. */}
+          {layerVisible("waypoints") &&
+            waypointMarkers.map((waypoint) => {
+              const x = profile.xs[waypoint.index];
+              const y = profile.ys[waypoint.index];
+              if (x == null || y == null) return null;
+              return (
+                <path
+                  key={`strip-waypoint-${waypoint.index}-${waypoint.title}`}
+                  d={diamondPath(x, y, 4)}
+                  fill={WAYPOINT_COLORS[waypoint.kind]}
+                  stroke="var(--color-background-primary)"
+                  strokeWidth={1.5}
+                  strokeLinejoin="round"
+                >
+                  <title>{waypoint.title}</title>
+                </path>
+              );
+            })}
           {scrubIndex != null && profile.xs[scrubIndex] != null && (
             <>
               <line

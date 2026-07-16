@@ -48,8 +48,13 @@ export interface RouteMapData {
   /** Metric streams aligned with `coordinates`; absent for saved routes and
    * activities without GPS streams. */
   streams?: RouteStreams;
-  /** Annotation anchors resolved server-side; absent without stream data. */
+  /** Annotation anchors resolved server-side. Laps, segments, and photos need
+   * stream data; waypoints resolve for any geometry (routes included). */
   annotations?: RouteAnnotations;
+  /** Server notes about caller-supplied waypoints that could not be placed
+   * (e.g. beyond the track length). Informational; the view tool's text
+   * surfaces them to the model. */
+  waypointWarnings?: string[];
 }
 
 /**
@@ -72,10 +77,32 @@ export interface RouteAnnotations {
   }>;
   /** Geotagged photos snapped to the nearest track point. */
   photos?: Array<{ index: number; caption: string | null }>;
+  /** Caller-supplied waypoints anchored by cumulative distance, sorted by
+   * km. Unlike the other layers these resolve for saved routes too (the
+   * server synthesises a cumulative-distance stream from the geometry). */
+  waypoints?: Array<{
+    index: number;
+    /** Distance from the start, in kilometres, as supplied by the caller. */
+    km: number;
+    label: string;
+    kind: WaypointKind;
+  }>;
 }
 
-/** Tool input for `view-route-map`: exactly one of these is provided. */
+/** Marker styles a waypoint can request; the server defaults to `custom`. */
+export type WaypointKind = "fuel" | "climb" | "water" | "custom";
+
+/** A waypoint as supplied on the `view-route-map` tool input. */
+export interface WaypointArg {
+  km: number;
+  label: string;
+  kind?: WaypointKind;
+}
+
+/** Tool input for `view-route-map`: exactly one id is provided. Waypoints
+ * ride along unchanged so `get-route-map-data` can anchor them. */
 export interface ToolArgs {
   activity_id?: string;
   route_id?: string;
+  waypoints?: WaypointArg[];
 }

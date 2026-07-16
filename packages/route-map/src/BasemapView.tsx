@@ -12,7 +12,11 @@
 import maplibregl from "maplibre-gl/dist/maplibre-gl-csp";
 import workerCode from "maplibre-gl/dist/maplibre-gl-csp-worker.js?raw";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { type PhotoMarker, type SplitMarker } from "./annotations";
+import {
+  type PhotoMarker,
+  type SplitMarker,
+  type WaypointMarker,
+} from "./annotations";
 import {
   BASEMAP_COLORS,
   nearestLatLngIndex,
@@ -22,6 +26,7 @@ import {
   splitsToGeoJson,
   trackBounds,
   trackToGeoJson,
+  waypointsToGeoJson,
 } from "./basemapData";
 import { type ColorRun } from "./metrics";
 import styles from "./RouteMap.module.css";
@@ -55,11 +60,14 @@ const SEGMENTS_LAYER = "segment-halos";
 const SPLITS_LAYER = "splits";
 const PHOTOS_LAYER = "photos";
 const PHOTOS_DOT_LAYER = "photos-dot";
+const WAYPOINTS_LAYER = "waypoints";
+const WAYPOINTS_DOT_LAYER = "waypoints-dot";
 
 export interface BasemapLayerVisibility {
   splits: boolean;
   segments: boolean;
   photos: boolean;
+  waypoints: boolean;
 }
 
 interface BasemapViewProps {
@@ -71,6 +79,7 @@ interface BasemapViewProps {
   splitMarkers: SplitMarker[];
   segments: NonNullable<RouteAnnotations["segments"]>;
   photoMarkers: PhotoMarker[];
+  waypointMarkers: WaypointMarker[];
   /** Footer legend toggles, applied as layer visibility. */
   visibility: BasemapLayerVisibility;
   mode: "mobile" | "desktop";
@@ -110,6 +119,7 @@ export function BasemapView({
   splitMarkers,
   segments,
   photoMarkers,
+  waypointMarkers,
   visibility,
   mode,
   scrubIndex,
@@ -142,8 +152,18 @@ export function BasemapView({
   trackRef.current = track;
   const scrubIndexRef = useRef(scrubIndex);
   scrubIndexRef.current = scrubIndex;
-  const annotationsRef = useRef({ splitMarkers, segments, photoMarkers });
-  annotationsRef.current = { splitMarkers, segments, photoMarkers };
+  const annotationsRef = useRef({
+    splitMarkers,
+    segments,
+    photoMarkers,
+    waypointMarkers,
+  });
+  annotationsRef.current = {
+    splitMarkers,
+    segments,
+    photoMarkers,
+    waypointMarkers,
+  };
 
   useEffect(() => {
     const container = containerRef.current;
@@ -191,7 +211,8 @@ export function BasemapView({
       clearTimeout(failTimer);
 
       const coords = coordinatesRef.current;
-      const { splitMarkers, segments, photoMarkers } = annotationsRef.current;
+      const { splitMarkers, segments, photoMarkers, waypointMarkers } =
+        annotationsRef.current;
 
       // Guard every add individually (#73): maplibre's addSource throws
       // synchronously (e.g. on a duplicate id), and an unguarded throw here
@@ -294,6 +315,29 @@ export function BasemapView({
         paint: { "circle-radius": 1.75, "circle-color": "#ffffff" },
       });
 
+      // Waypoints: caller-pinned markers, colored per kind (fuel/climb/…).
+      addSourceSafe("waypoints", {
+        type: "geojson",
+        data: waypointsToGeoJson(coords, waypointMarkers),
+      });
+      addLayerSafe({
+        id: WAYPOINTS_LAYER,
+        type: "circle",
+        source: "waypoints",
+        paint: {
+          "circle-radius": 6,
+          "circle-color": ["get", "color"],
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 2,
+        },
+      });
+      addLayerSafe({
+        id: WAYPOINTS_DOT_LAYER,
+        type: "circle",
+        source: "waypoints",
+        paint: { "circle-radius": 2, "circle-color": "#ffffff" },
+      });
+
       const endpoints: PointFeatureCollection = {
         type: "FeatureCollection",
         features: [
@@ -354,7 +398,7 @@ export function BasemapView({
       // so the white per-segment popup no longer clashes with the metric value.
       // Bound only to layers that actually got added: delegated listeners on
       // a missing layer make maplibre error on every pointer move.
-      for (const layerId of [SPLITS_LAYER, PHOTOS_LAYER]) {
+      for (const layerId of [SPLITS_LAYER, PHOTOS_LAYER, WAYPOINTS_LAYER]) {
         if (!map.getLayer(layerId)) continue;
         map.on("mousemove", layerId, (e) => {
           const title = e.features?.[0]?.properties?.title;
@@ -377,6 +421,7 @@ export function BasemapView({
         SEGMENTS_LAYER,
         SPLITS_LAYER,
         PHOTOS_LAYER,
+        WAYPOINTS_LAYER,
       ].filter((id) => !map.getLayer(id));
       if (missing.length > 0) {
         console.error(
@@ -455,6 +500,7 @@ export function BasemapView({
     apply([SPLITS_LAYER], visibility.splits);
     apply([SEGMENTS_LAYER], visibility.segments);
     apply([PHOTOS_LAYER, PHOTOS_DOT_LAYER], visibility.photos);
+    apply([WAYPOINTS_LAYER, WAYPOINTS_DOT_LAYER], visibility.waypoints);
   }, [visibility, loaded]);
 
   const containerWidth = containerRef.current?.clientWidth ?? 0;
