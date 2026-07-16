@@ -532,3 +532,17 @@ Releases are automated by release-please (`.github/workflows/release-please.yml`
   `docker.yml`'s manifest exists before publishing.
 - Manual `git tag vX.Y.Z` still works as a fallback; both `docker.yml` and
   `publish-mcp.yml` trigger on `v*` tags regardless of how they are created.
+- Commits that only touch `docs/`, `.agents/`, or `.claude/` are excluded from release
+  parsing (`exclude-paths` in `release-please-config.json`), so a mislabeled `fix:` on a
+  planning doc cannot cut an empty release. A commit touching excluded and non-excluded
+  paths still counts.
+- Dependabot uses `fix(deps):` for production npm deps and Docker base images (they ship
+  inside the published image, so a bump must cut a patch release to reach users) and
+  `chore(deps)`/`chore(ci)` for dev tooling and GitHub Actions (no shipped artifact, no
+  release). The npm groups are split by dependency-type so one grouped PR never mixes
+  the two prefixes.
+- To force a specific version, land an empty commit on `main` with a `Release-As` footer
+  (`git commit --allow-empty -m "chore: force release" -m "Release-As: X.Y.Z"`); the
+  release PR retargets on the next run. `release-please.yml` also has a
+  `workflow_dispatch` trigger for re-running after a transient failure or a Release-As
+  commit without pushing anything.
