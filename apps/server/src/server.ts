@@ -423,11 +423,12 @@ const RAW_STREAM_TYPES = [
 
 async function handleViewActivityChart(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const activityId = String(args.activity_id);
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
     return {
+      isError: true,
       content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
     };
   }
@@ -446,11 +447,12 @@ async function handleViewActivityChart(
 
 async function handleGetActivityStreamsRaw(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const activityId = String(args.activity_id);
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
     return {
+      isError: true,
       content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
     };
   }
@@ -496,11 +498,12 @@ const RUNNING_TYPES = new Set(["Run", "VirtualRun", "TrailRun"]);
 
 async function handleGetCadenceTrendData(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const weeks = Number(args.weeks) || 6;
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
     return {
+      isError: true,
       content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
     };
   }
@@ -540,11 +543,12 @@ async function handleGetCadenceTrendData(
 
 async function handleViewCadenceTrends(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const weeks = Number(args.weeks) || 6;
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
     return {
+      isError: true,
       content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
     };
   }
@@ -589,11 +593,14 @@ async function loadTrainingLoadRuns(token: string, days: number) {
 
 async function handleGetTrainingLoadData(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const days = Number(args.days) || 84;
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
-    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
   }
 
   const runs = await loadTrainingLoadRuns(token, days);
@@ -603,11 +610,14 @@ async function handleGetTrainingLoadData(
 
 async function handleViewTrainingLoad(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const days = Number(args.days) || 84;
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
-    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
   }
 
   const runs = await loadTrainingLoadRuns(token, days);
@@ -922,10 +932,13 @@ async function loadRouteMapAnnotations(
 
 async function handleGetRouteMapData(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
-    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
   }
   const data = await loadRouteMapData(args, token, { includeStreams: true });
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
@@ -933,10 +946,13 @@ async function handleGetRouteMapData(
 
 async function handleViewRouteMap(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
-    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
   }
   const data = await loadRouteMapData(args, token);
   const lines = [
@@ -970,10 +986,13 @@ async function loadActivitySegmentsData(
 
 async function handleGetActivitySegmentsData(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
-    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
   }
   const data = await loadActivitySegmentsData(args, token);
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
@@ -981,10 +1000,13 @@ async function handleGetActivitySegmentsData(
 
 async function handleViewActivitySegments(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
-    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
   }
   const data = await loadActivitySegmentsData(args, token);
   const prCount = data.segments.filter((s) => s.prRank != null).length;
@@ -1018,10 +1040,13 @@ async function loadCompareActivitiesData(
 
 async function handleGetCompareActivitiesData(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
-    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
   }
   const data = await loadCompareActivitiesData(args, token);
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
@@ -1029,10 +1054,13 @@ async function handleGetCompareActivitiesData(
 
 async function handleViewCompareActivities(
   args: Record<string, unknown>,
-): Promise<{ content: Array<{ type: string; text: string }> }> {
+): Promise<ToolCallResult> {
   const token = process.env.STRAVA_ACCESS_TOKEN;
   if (!token) {
-    return { content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }] };
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
   }
   const data = await loadCompareActivitiesData(args, token);
   const lines = [
