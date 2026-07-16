@@ -1,5 +1,6 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
+import { expect, waitFor } from "storybook/test";
 import {
   baselineRun,
   compareData,
@@ -33,6 +34,40 @@ export const DarkSteadyVsRace = meta.story({
     a: baselineRun,
     b: raceRun,
     compare: compareData,
+  },
+});
+
+/**
+ * Interaction test (#164): the metric pills swap which stream pair is
+ * overlaid and the axis pills re-align the grid. The SVG <desc> narration is
+ * rebuilt from the active metric, so "bpm" appearing there proves the
+ * heart-rate overlay really rendered (and Chromatic snapshots that state).
+ */
+export const SwitchMetricAndAxis = meta.story({
+  args: {
+    a: baselineRun,
+    b: raceRun,
+    compare: compareData,
+  },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    const descText = () =>
+      canvasElement.querySelector("desc")?.textContent ?? "";
+    // ResponsiveContainer needs a resize tick before the chart mounts.
+    await waitFor(() => expect(descText()).toContain("min/km"));
+
+    const hrPill = canvas.getByRole("button", { name: "Heart Rate" });
+    await userEvent.click(hrPill);
+    await expect(hrPill).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => expect(descText()).toContain("bpm"));
+
+    // Both fixtures record distance, so the axis defaults to Distance.
+    const timePill = canvas.getByRole("button", { name: "Time" });
+    await expect(timePill).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(timePill);
+    await expect(timePill).toHaveAttribute("aria-pressed", "true");
+    await expect(
+      canvas.getByRole("button", { name: "Distance" }),
+    ).toHaveAttribute("aria-pressed", "false");
   },
 });
 
