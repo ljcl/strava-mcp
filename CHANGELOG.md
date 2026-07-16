@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.5.0](https://github.com/ljcl/strava-mcp/compare/v2.4.0...v2.5.0) (2026-07-16)
+
+
+### Features
+
+* add compare-activities MCP App (view-compare-activities) ([#178](https://github.com/ljcl/strava-mcp/issues/178)) ([9ae974e](https://github.com/ljcl/strava-mcp/commit/9ae974e5c8851816556049e13e37ceb4a4680c1f))
+* add create-activity tool for manual entries ([#173](https://github.com/ljcl/strava-mcp/issues/173)) ([d16de67](https://github.com/ljcl/strava-mcp/commit/d16de67f2893bb1d1212d77ce54efee50e10d15b))
+* add model-context sync to activity-segments ([#175](https://github.com/ljcl/strava-mcp/issues/175)) ([efe9c02](https://github.com/ljcl/strava-mcp/commit/efe9c025bd37a9637759f38e2ed20fc2f63e564f))
+* add screen-reader chart descriptions, dark-story helper, and tier token docs ([#177](https://github.com/ljcl/strava-mcp/issues/177)) ([663c71c](https://github.com/ljcl/strava-mcp/commit/663c71c6a181bbfbb4ae66f4f4bad24988012eaf))
+* add training-load trend MCP App (view-training-load) ([#176](https://github.com/ljcl/strava-mcp/issues/176)) ([468bfd4](https://github.com/ljcl/strava-mcp/commit/468bfd4a131d8289b561b61a2b454d46ec5936c8))
+* shared LoadingState, CardHeader, and EmptyState with ui chrome stories ([#179](https://github.com/ljcl/strava-mcp/issues/179)) ([78509e8](https://github.com/ljcl/strava-mcp/commit/78509e87f9b8d6e9675ae107aab7babeeac60cee))
+* shared LoadingState/CardHeader/EmptyState and ui chrome stories ([78509e8](https://github.com/ljcl/strava-mcp/commit/78509e87f9b8d6e9675ae107aab7babeeac60cee))
+
 ## [2.4.0](https://github.com/ljcl/strava-mcp/compare/v2.3.0...v2.4.0) (2026-07-13)
 
 
