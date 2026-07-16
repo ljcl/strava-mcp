@@ -7,7 +7,7 @@
   },
   "scripts": {
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary",
+    "test:coverage": "vitest run --coverage --coverage.reporter=text --coverage.reporter=json-summary --coverage.thresholds.statements=95 --coverage.thresholds.branches=90 --coverage.thresholds.functions=95 --coverage.thresholds.lines=95",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

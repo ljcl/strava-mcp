@@ -326,6 +326,8 @@ Supplementary checks when the change touches UI:
 - Storybook sweep: visit each affected story in desktop and the `claudeIosCard` mobile viewport. The claude-in-chrome or storybook MCP tools can do this without leaving the session.
 - MCP endpoint smoke test: `cd apps/server && bun run start`, then `curl http://localhost:3000/health` from another shell. Needs valid `STRAVA_REFRESH_TOKEN`; skip if tokens are stale and note it explicitly.
 
+Coverage thresholds (#162): `test:coverage` fails below 75% statements / 65% branches in `apps/server` (vitest.config.ts) and below a 95% floor (90% branches for data) in `packages/data` and `packages/design-system` (CLI flags in their `test:coverage` scripts). The view-heavy packages are intentionally unthresholded — their component coverage belongs to Chromatic. Raise the floors as coverage grows.
+
 ## Commands
 
 ```bash
