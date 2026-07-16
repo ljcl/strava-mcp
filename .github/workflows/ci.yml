@@ -67,8 +67,11 @@ jobs:
       - name: Install Playwright Chromium
         run: bunx playwright install chromium --with-deps
 
+      # With coverage: the same story smoke tests, plus a measure of which
+      # packages/* source the stories execute in the browser (#197). The
+      # summary row lands in the coverage table below.
       - name: Story tests
-        run: bun run turbo run test:stories
+        run: bun run turbo run test:stories:coverage
 
       # Coverage is computed on every run and surfaced in the job summary,
       # so test-depth regressions are visible at review time (#135).

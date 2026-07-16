@@ -338,6 +338,7 @@ bun run build             # Build all packages (via Turborepo)
 bun run build:affected    # Build only changed packages
 bun run test              # Run all tests (via Turborepo)
 bun run test:stories      # Run every Storybook story as a Vitest browser-mode smoke test
+bun run test:stories:coverage # Same, plus render-path coverage into coverage-stories/
 bun run test:coverage     # Tests with coverage (per-package coverage/ output)
 bun run coverage:summary  # Aggregate coverage into one markdown table (CI job summary)
 bun run typecheck         # Typecheck all packages (via Turborepo)
@@ -423,6 +424,15 @@ the coverage table, and Chromatic are unchanged — this layer only asserts that
 in a real DOM without throwing. Needs Playwright browsers (`bunx playwright install chromium`); CI
 caches them keyed on the pinned `playwright` version, and `PLAYWRIGHT_BROWSERS_PATH` passes through
 turbo for environments with pre-installed browsers.
+
+The CI story-test step runs `test:stories:coverage` — the same smoke tests plus v8 render-path
+coverage of every `packages/*` source the stories execute in the browser (#197). Reports land in
+the root `coverage-stories/` (cached as the `//#test:stories:coverage` turbo task) and feed a
+"_stories (render-path, all packages)_" row in the coverage job summary, giving the view-heavy
+packages a floor their unit tests can't. Config caveat: the storybookTest addon pins the project
+root to `apps/storybook`, so `coverage.allowExternal: true` is load-bearing — without it every
+`packages/*` file is "external" and the report is empty. Plain `bun run test:stories` stays
+coverage-free for fast local runs.
 
 ### Per-story axe checks
 

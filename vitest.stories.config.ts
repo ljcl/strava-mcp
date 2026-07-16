@@ -20,6 +20,33 @@ const dirname = path.dirname(fileURLToPath(import.meta.url));
  */
 export default defineConfig({
   test: {
+    // Coverage is opt-in (`test:stories:coverage`, the CI story-test step):
+    // it measures which packages/* source the stories actually execute in the
+    // browser — the render-path floor for the view-heavy packages whose unit
+    // coverage is intentionally low (#197). Reports land in coverage-stories/
+    // (distinct from the per-package coverage/ dirs) and feed a separate row
+    // in scripts/coverage-summary.ts. No thresholds here yet: merging with
+    // unit coverage and gating the view packages is #197's stretch goal.
+    coverage: {
+      provider: "v8",
+      reporter: ["text-summary", "json-summary"],
+      reportsDirectory: "coverage-stories",
+      // The storybookTest addon pins the project root to apps/storybook, so
+      // every packages/* source is "external" to coverage; without this the
+      // report is empty.
+      allowExternal: true,
+      exclude: [
+        "**/*.stories.{ts,tsx}",
+        "**/*.test.{ts,tsx}",
+        "**/__fixtures__/**",
+        "**/.storybook/**",
+        // A storybook-builder virtual module whose sourcemap resolves to the
+        // bare project root; it is not a real source file.
+        "**/apps/storybook",
+        "**/vite-env.d.ts",
+        "**/*.d.ts",
+      ],
+    },
     projects: [
       {
         plugins: [
