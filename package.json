@@ -13,6 +13,7 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "test:stories": "vitest run --config vitest.stories.config.ts --project storybook",
+    "test:stories:coverage": "vitest run --config vitest.stories.config.ts --project storybook --coverage",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "dev": "turbo run dev",

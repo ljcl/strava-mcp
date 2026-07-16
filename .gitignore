@@ -18,6 +18,7 @@ storybook-static/
 
 # Test coverage
 coverage/
+coverage-stories/
 
 # Git worktrees
 .worktrees/
