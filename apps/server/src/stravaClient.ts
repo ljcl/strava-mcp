@@ -128,7 +128,9 @@ const DetailedAthleteSchema = BaseAthleteSchema.extend({
   profile: z.string().url(),
   weight: z.number().nullable(),
   measurement_preference: z.enum(["feet", "meters"]).optional().nullable(),
-  // Add other fields as needed (e.g., follower_count, friend_count, ftp, clubs)
+  /** Functional threshold power in watts; the IF denominator when set. */
+  ftp: z.number().nullable().optional(),
+  // Add other fields as needed (e.g., follower_count, friend_count, clubs)
   shoes: z.array(AthleteGearSchema).optional(),
   bikes: z.array(AthleteGearSchema).optional(),
 });
