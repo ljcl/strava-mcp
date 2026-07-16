@@ -56,6 +56,7 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | `export-activity-gpx` | Export an activity's recorded track as GPX built from its streams |
 | `get-activity-photos` | Photos from an activity |
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
+| `get-aerobic-analysis` | Aerobic decoupling, efficiency factor, and intensity factor from HR + power/speed streams |
 | `get-training-load` | Training load summary with trend analysis |
 | `compare-activities` | Compare two running activities side-by-side |
 | `get-best-efforts` | Personal best efforts across all running activities |

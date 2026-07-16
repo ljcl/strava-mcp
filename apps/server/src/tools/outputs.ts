@@ -188,6 +188,36 @@ export const CompareActivitiesOutputSchema = z.object({
   warnings: z.array(z.string()).optional(),
 });
 
+const AerobicHalfSchema = z.object({
+  avg_output: z.number(),
+  avg_hr: z.number(),
+  output_per_beat: z.number(),
+  minutes: z.number(),
+});
+
+export const AerobicAnalysisOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  date: z.string(),
+  type: z.string(),
+  /** power = Pw:Hr from the watts stream; speed = Pa:Hr fallback. */
+  basis: z.enum(["power", "speed"]),
+  decoupling_pct: z.number(),
+  interpretation: z.string(),
+  first_half: AerobicHalfSchema,
+  second_half: AerobicHalfSchema,
+  /** Normalized power (W) on the power basis, avg speed (m/s) otherwise. */
+  normalized_output: z.number(),
+  /** W/beat on the power basis, metres-per-minute/beat on the speed basis. */
+  efficiency_factor: z.number(),
+  intensity_factor: z.number().nullable(),
+  threshold_power_w: z.number().nullable(),
+  moving_minutes: z.number(),
+  excluded_stopped_minutes: z.number(),
+  excluded_warmup_minutes: z.number(),
+  warnings: z.array(z.string()),
+});
+
 // ---------- dev-only schema drift guard ----------
 export function warnOnSchemaDrift<T>(
   toolName: string,

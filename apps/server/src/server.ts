@@ -45,6 +45,7 @@ import { exportRouteTcx } from "./tools/exportRouteTcx";
 import { getActivityLapsTool } from "./tools/getActivityLaps";
 import { getActivityPhotosTool } from "./tools/getActivityPhotos";
 import { getActivityZonesTool } from "./tools/getActivityZones";
+import { getAerobicAnalysisTool } from "./tools/getAerobicAnalysis";
 import { getAthleteStatsTool } from "./tools/getAthleteStats";
 import { getBestEffortsTool } from "./tools/getBestEfforts";
 import { getRouteTool } from "./tools/getRoute";
@@ -268,6 +269,7 @@ const STRAVA_TOOLS = [
   getActivityLapsTool,
   getActivityPhotosTool,
   getRunningSummaryTool,
+  getAerobicAnalysisTool,
   getTrainingLoadTool,
   compareActivitiesTool,
   getBestEffortsTool,
