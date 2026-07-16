@@ -15,6 +15,18 @@ export default defineConfig({
         "src/index.ts",
         "**/__fixtures__/**",
       ],
+      // Regression floor (#162): auto-ratcheted to 5 points under measured
+      // coverage, so genuine drops fail CI without flaking on small
+      // refactors, and the floor rises as coverage grows. Any full
+      // `test:coverage` run rewrites these numbers in place (they always
+      // equal floor(actual − 5)); commit the rewrite, don't hand-edit.
+      thresholds: {
+        autoUpdate: (newThreshold: number) => Math.floor(newThreshold - 5),
+        statements: 77,
+        branches: 66,
+        functions: 78,
+        lines: 77,
+      },
     },
   },
 });
