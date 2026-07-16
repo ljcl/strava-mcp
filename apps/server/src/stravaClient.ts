@@ -163,29 +163,6 @@ const ActivityStatsSchema = z.object({
 });
 export type StravaStats = z.infer<typeof ActivityStatsSchema>;
 
-// --- Club Schema ---
-// Based on https://developers.strava.com/docs/reference/#api-models-SummaryClub
-const SummaryClubSchema = z.object({
-  id: StravaIdSchema,
-  resource_state: z.number().int(),
-  name: z.string(),
-  profile_medium: z.string().url(),
-  cover_photo: z.string().url().nullable(),
-  cover_photo_small: z.string().url().nullable(),
-  sport_type: z.string(), // cycling, running, triathlon, other
-  activity_types: z.array(z.string()), // More specific types
-  city: z.string(),
-  state: z.string(),
-  country: z.string(),
-  private: z.boolean(),
-  member_count: z.number().int(),
-  featured: z.boolean(),
-  verified: z.boolean(),
-  url: z.string().nullable(),
-});
-export type StravaClub = z.infer<typeof SummaryClubSchema>;
-const StravaClubsResponseSchema = z.array(SummaryClubSchema);
-
 // --- Gear Schema ---
 const SummaryGearSchema = z
   .object({
@@ -554,57 +531,6 @@ async function handleApiError<T>(
 }
 
 /**
- * Fetches recent activities for the authenticated athlete from the Strava API.
- *
- * @param accessToken - The Strava API access token.
- * @param perPage - The number of activities to fetch per page (default: 30).
- * @returns A promise that resolves to an array of Strava activities.
- * @throws Throws an error if the API request fails or the response format is unexpected.
- */
-export async function getRecentActivities(
-  accessToken: string,
-  perPage = 30,
-): Promise<StravaSummaryActivity[]> {
-  if (!accessToken) {
-    throw new Error("Strava access token is required.");
-  }
-
-  try {
-    const response = await stravaApi.get<unknown>("/athlete/activities", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      params: { per_page: perPage },
-    });
-
-    const validationResult = StravaActivitiesResponseSchema.safeParse(
-      response.data,
-    );
-
-    if (!validationResult.success) {
-      console.error(
-        "Strava API response validation failed (getRecentActivities):",
-        validationResult.error,
-      );
-      throw new Error(
-        `Invalid data format received from Strava API: ${validationResult.error.message}`,
-      );
-    }
-
-    return validationResult.data;
-  } catch (error) {
-    // Pass a retry function to handleApiError
-    return await handleApiError<StravaSummaryActivity[]>(
-      error,
-      "getRecentActivities",
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
-        return getRecentActivities(newToken, perPage);
-      },
-    );
-  }
-}
-
-/**
  * Fetches all activities for the authenticated athlete with pagination and date filtering.
  * Automatically handles multiple pages to retrieve complete activity history.
  *
@@ -866,50 +792,6 @@ export async function getActivityById(
         // Use new token from environment after refresh
         const newToken = process.env.STRAVA_ACCESS_TOKEN!;
         return getActivityById(newToken, activityId, options);
-      },
-    );
-  }
-}
-
-/**
- * Lists the clubs the authenticated athlete belongs to.
- *
- * @param accessToken - The Strava API access token.
- * @returns A promise that resolves to an array of the athlete's clubs.
- * @throws Throws an error if the API request fails or the response format is unexpected.
- */
-export async function listAthleteClubs(
-  accessToken: string,
-): Promise<StravaClub[]> {
-  if (!accessToken) {
-    throw new Error("Strava access token is required.");
-  }
-
-  try {
-    const response = await stravaApi.get<unknown>("/athlete/clubs", {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-
-    const validationResult = StravaClubsResponseSchema.safeParse(response.data);
-
-    if (!validationResult.success) {
-      console.error(
-        "Strava API validation failed (listAthleteClubs):",
-        validationResult.error,
-      );
-      throw new Error(
-        `Invalid data format received from Strava API: ${validationResult.error.message}`,
-      );
-    }
-    return validationResult.data;
-  } catch (error) {
-    return await handleApiError<StravaClub[]>(
-      error,
-      "listAthleteClubs",
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
-        return listAthleteClubs(newToken);
       },
     );
   }

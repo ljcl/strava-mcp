@@ -160,28 +160,84 @@ const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
 };
 
 /**
- * MCP App HTML paths resolved once at startup via each package's `./app.html`
- * export. Works in dev (workspace symlink) and in the Docker runner (pruned
- * workspace tree with built dist/ copied in).
+ * Basemap spike (#60): allowlist the OpenFreeMap tile origin so the route-map
+ * app can attempt an external tile fetch through the host's sandbox CSP.
+ * Tiles, styles, glyphs, and sprites are all served from this one origin.
+ * MapLibre loads everything via fetch (connect-src); the origin is mirrored
+ * into resourceDomains in case a host routes images through img-src instead.
+ * Declared once on the APP_RESOURCES entry; `appResourceMeta` emits it on
+ * BOTH the resource descriptor and the ReadResource content — hosts may read
+ * either.
  */
-const ACTIVITY_CHART_HTML_PATH = createRequire(import.meta.url).resolve(
-  "@strava-mcp/activity-chart/app.html",
-);
-const CADENCE_TRENDS_HTML_PATH = createRequire(import.meta.url).resolve(
-  "@strava-mcp/cadence-trends/app.html",
-);
-const ROUTE_MAP_HTML_PATH = createRequire(import.meta.url).resolve(
-  "@strava-mcp/route-map/app.html",
-);
-const ACTIVITY_SEGMENTS_HTML_PATH = createRequire(import.meta.url).resolve(
-  "@strava-mcp/activity-segments/app.html",
-);
-const TRAINING_LOAD_HTML_PATH = createRequire(import.meta.url).resolve(
-  "@strava-mcp/training-load/app.html",
-);
-const COMPARE_ACTIVITIES_HTML_PATH = createRequire(import.meta.url).resolve(
-  "@strava-mcp/compare-activities/app.html",
-);
+const ROUTE_MAP_CSP = {
+  connectDomains: ["https://tiles.openfreemap.org"],
+  resourceDomains: ["https://tiles.openfreemap.org"],
+} as const;
+
+const MCP_APP_MIME_TYPE = "text/html;profile=mcp-app";
+
+interface AppResource {
+  uri: string;
+  /** Human-readable resource name shown by hosts. */
+  name: string;
+  /** Bundled single-file HTML, resolved at startup. */
+  htmlPath: string;
+  /** Extra `_meta.ui` fields beyond the shared prefersBorder (e.g. csp). */
+  ui?: Record<string, unknown>;
+}
+
+const appHtmlRequire = createRequire(import.meta.url);
+
+/**
+ * Every MCP App resource this server serves. ListResources and ReadResource
+ * are derived from this table, so adding an app means one entry here (plus
+ * the Dockerfile runner-stage COPY line). HTML paths resolve once at startup
+ * via each package's `./app.html` export — works in dev (workspace symlink)
+ * and in the Docker runner (pruned workspace tree with built dist/ copied in).
+ */
+const APP_RESOURCES: AppResource[] = [
+  {
+    uri: "ui://activity-chart/app.html",
+    name: "Activity Chart",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/activity-chart/app.html"),
+  },
+  {
+    uri: "ui://cadence-trends/app.html",
+    name: "Cadence Trends",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/cadence-trends/app.html"),
+  },
+  {
+    uri: "ui://route-map/app.html",
+    name: "Route Map",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/route-map/app.html"),
+    ui: { csp: ROUTE_MAP_CSP },
+  },
+  {
+    uri: "ui://activity-segments/app.html",
+    name: "Activity Segments",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/activity-segments/app.html"),
+  },
+  {
+    uri: "ui://training-load/app.html",
+    name: "Training Load",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/training-load/app.html"),
+  },
+  {
+    uri: "ui://compare-activities/app.html",
+    name: "Compare Activities",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/compare-activities/app.html"),
+  },
+];
+
+/**
+ * The `_meta` every app resource carries: the apps own their card chrome
+ * (`prefersBorder: false`, see the mobile conventions) plus any per-app
+ * extras from the table. One builder for the descriptor and the content
+ * response, so the two can never drift.
+ */
+function appResourceMeta(resource: AppResource): Record<string, unknown> {
+  return { ui: { prefersBorder: false, ...resource.ui } };
+}
 
 interface ToolDef {
   name: string;
@@ -1189,20 +1245,6 @@ async function handleViewCompareActivities(
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
 
-/**
- * Basemap spike (#60): allowlist the OpenFreeMap tile origin so the route-map
- * app can attempt an external tile fetch through the host's sandbox CSP.
- * Tiles, styles, glyphs, and sprites are all served from this one origin.
- * MapLibre loads everything via fetch (connect-src); the origin is mirrored
- * into resourceDomains in case a host routes images through img-src instead.
- * Declared on BOTH the resource descriptor and the ReadResource content —
- * hosts may read either.
- */
-const ROUTE_MAP_CSP = {
-  connectDomains: ["https://tiles.openfreemap.org"],
-  resourceDomains: ["https://tiles.openfreemap.org"],
-} as const;
-
 interface ToolCallResult {
   // Index signature keeps this assignable to the SDK's ServerResult union.
   [key: string]: unknown;
@@ -1301,127 +1343,31 @@ export function createServer(): Server {
   });
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
-    resources: [
-      {
-        uri: "ui://activity-chart/app.html",
-        name: "Activity Chart",
-        mimeType: "text/html;profile=mcp-app",
-        _meta: { ui: { prefersBorder: false } },
-      },
-      {
-        uri: "ui://cadence-trends/app.html",
-        name: "Cadence Trends",
-        mimeType: "text/html;profile=mcp-app",
-        _meta: { ui: { prefersBorder: false } },
-      },
-      {
-        uri: "ui://route-map/app.html",
-        name: "Route Map",
-        mimeType: "text/html;profile=mcp-app",
-        _meta: { ui: { prefersBorder: false, csp: ROUTE_MAP_CSP } },
-      },
-      {
-        uri: "ui://activity-segments/app.html",
-        name: "Activity Segments",
-        mimeType: "text/html;profile=mcp-app",
-        _meta: { ui: { prefersBorder: false } },
-      },
-      {
-        uri: "ui://training-load/app.html",
-        name: "Training Load",
-        mimeType: "text/html;profile=mcp-app",
-        _meta: { ui: { prefersBorder: false } },
-      },
-      {
-        uri: "ui://compare-activities/app.html",
-        name: "Compare Activities",
-        mimeType: "text/html;profile=mcp-app",
-        _meta: { ui: { prefersBorder: false } },
-      },
-    ],
+    resources: APP_RESOURCES.map((resource) => ({
+      uri: resource.uri,
+      name: resource.name,
+      mimeType: MCP_APP_MIME_TYPE,
+      _meta: appResourceMeta(resource),
+    })),
   }));
 
   server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const { uri } = request.params;
-    if (uri === "ui://activity-chart/app.html") {
-      const html = await fs.readFile(ACTIVITY_CHART_HTML_PATH, "utf-8");
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/html;profile=mcp-app",
-            text: html,
-            _meta: { ui: { prefersBorder: false } },
-          },
-        ],
-      };
+    const resource = APP_RESOURCES.find((r) => r.uri === uri);
+    if (!resource) {
+      throw new Error(`Unknown resource: ${uri}`);
     }
-    if (uri === "ui://cadence-trends/app.html") {
-      const html = await fs.readFile(CADENCE_TRENDS_HTML_PATH, "utf-8");
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/html;profile=mcp-app",
-            text: html,
-            _meta: { ui: { prefersBorder: false } },
-          },
-        ],
-      };
-    }
-    if (uri === "ui://route-map/app.html") {
-      const html = await fs.readFile(ROUTE_MAP_HTML_PATH, "utf-8");
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/html;profile=mcp-app",
-            text: html,
-            _meta: { ui: { prefersBorder: false, csp: ROUTE_MAP_CSP } },
-          },
-        ],
-      };
-    }
-    if (uri === "ui://activity-segments/app.html") {
-      const html = await fs.readFile(ACTIVITY_SEGMENTS_HTML_PATH, "utf-8");
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/html;profile=mcp-app",
-            text: html,
-            _meta: { ui: { prefersBorder: false } },
-          },
-        ],
-      };
-    }
-    if (uri === "ui://training-load/app.html") {
-      const html = await fs.readFile(TRAINING_LOAD_HTML_PATH, "utf-8");
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/html;profile=mcp-app",
-            text: html,
-            _meta: { ui: { prefersBorder: false } },
-          },
-        ],
-      };
-    }
-    if (uri === "ui://compare-activities/app.html") {
-      const html = await fs.readFile(COMPARE_ACTIVITIES_HTML_PATH, "utf-8");
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: "text/html;profile=mcp-app",
-            text: html,
-            _meta: { ui: { prefersBorder: false } },
-          },
-        ],
-      };
-    }
-    throw new Error(`Unknown resource: ${uri}`);
+    const html = await fs.readFile(resource.htmlPath, "utf-8");
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: MCP_APP_MIME_TYPE,
+          text: html,
+          _meta: appResourceMeta(resource),
+        },
+      ],
+    };
   });
 
   return server;
