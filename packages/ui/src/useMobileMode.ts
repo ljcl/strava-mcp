@@ -19,6 +19,8 @@ export type HostCtx = Pick<
   | "safeAreaInsets"
   | "deviceCapabilities"
   | "userAgent"
+  | "displayMode"
+  | "availableDisplayModes"
 >;
 
 /**

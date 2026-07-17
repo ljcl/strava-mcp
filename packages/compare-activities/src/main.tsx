@@ -66,7 +66,7 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
   };
 
   return (
-    <AppShell hostCtx={hostCtx} mode={mode}>
+    <AppShell hostCtx={hostCtx} mode={mode} app={app}>
       {loading ? (
         <LoadingSkeleton />
       ) : streamError || !streamsA.data || !streamsB.data ? (

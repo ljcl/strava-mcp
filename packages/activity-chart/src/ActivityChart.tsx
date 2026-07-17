@@ -19,6 +19,7 @@ import {
 import { useMemo, useState } from "react";
 import {
   Area,
+  Brush,
   CartesianGrid,
   ComposedChart,
   Line,
@@ -332,6 +333,15 @@ export function ActivityChart({
   // Mobile defaults to smoothed because the Smooth toggle is hidden there —
   // the raw traces are too noisy to read at small sizes anyway.
   const [smooth, setSmooth] = useState(isMobile);
+
+  // X-axis brush window (#35). Controlled so the zoom survives preset,
+  // legend, and smooth toggles (those rebuild the memoized tree, and an
+  // uncontrolled Brush would reset to the full range). Indexes stay valid
+  // across the Smooth toggle because smoothing preserves point count.
+  const [zoomRange, setZoomRange] = useState<{
+    startIndex?: number;
+    endIndex?: number;
+  }>({});
 
   useModelContextSync(
     app,
@@ -647,6 +657,26 @@ export function ActivityChart({
               connectNulls
             />
           )}
+
+          {/* X-axis zoom window (#35): drag the handles (touch works) to
+              zoom into a segment; overlays and the tooltip follow. */}
+          <Brush
+            className={styles.brush}
+            dataKey={meta.isSwimming ? "distance" : "time"}
+            tickFormatter={meta.isSwimming ? formatDistance : formatTime}
+            height={isMobile ? 26 : 20}
+            travellerWidth={isMobile ? 12 : 8}
+            startIndex={zoomRange.startIndex}
+            endIndex={zoomRange.endIndex}
+            onChange={(range) =>
+              setZoomRange({
+                startIndex: range.startIndex,
+                endIndex: range.endIndex,
+              })
+            }
+            stroke="var(--color-border-secondary)"
+            fill="transparent"
+          />
         </ComposedChart>
       </ResponsiveContainer>
     );
@@ -660,6 +690,7 @@ export function ActivityChart({
     availableMetrics,
     hidden,
     a11yDescription,
+    zoomRange,
   ]);
 
   return (

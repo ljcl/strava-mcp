@@ -1,0 +1,29 @@
+@import "@strava-mcp/design-system/tokens.css";
+
+.fullscreenToggle {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  border-radius: var(--border-radius-md);
+}
+
+.fullscreenToggle:hover {
+  color: var(--color-text-secondary);
+  background: var(--color-background-secondary);
+}
+
+.fullscreenToggle:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
