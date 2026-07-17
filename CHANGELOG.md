@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.6.0](https://github.com/ljcl/strava-mcp/compare/v2.5.0...v2.6.0) (2026-07-17)
+
+
+### Features
+
+* add fitness-trend, hill, and interval analysis tools ([#202](https://github.com/ljcl/strava-mcp/issues/202)) ([2d367cc](https://github.com/ljcl/strava-mcp/commit/2d367ccc51d5d728480897676bc556aa4dd5cb1c))
+* add get-aerobic-analysis tool with decoupling, EF, and IF ([#201](https://github.com/ljcl/strava-mcp/issues/201)) ([4c7b5c7](https://github.com/ljcl/strava-mcp/commit/4c7b5c72bbb239a912de50a33fafaab945cb33b7))
+* add shared fullscreen toggle and activity-chart brush zoom ([#206](https://github.com/ljcl/strava-mcp/issues/206)) ([75ac8b2](https://github.com/ljcl/strava-mcp/commit/75ac8b2963bffc960a01c20301191131517545c5)), closes [#35](https://github.com/ljcl/strava-mcp/issues/35)
+* add view-activity-zones MCP App for HR/power time-in-zone ([#203](https://github.com/ljcl/strava-mcp/issues/203)) ([5a6140f](https://github.com/ljcl/strava-mcp/commit/5a6140fe3ef0b372a16e83b594ca5601c8d06e0f))
+* support waypoint annotations in view-route-map ([#191](https://github.com/ljcl/strava-mcp/issues/191)) ([0320f30](https://github.com/ljcl/strava-mcp/commit/0320f30c86431ea9a1613d32efbf269edc7ec8c5)), closes [#185](https://github.com/ljcl/strava-mcp/issues/185)
+
+
+### Bug Fixes
+
+* surface app-handler token errors as isError and return -32700 for malformed /mcp JSON ([#187](https://github.com/ljcl/strava-mcp/issues/187)) ([fa4227b](https://github.com/ljcl/strava-mcp/commit/fa4227b00b2aa5b42898fc3c32ae5c2da7aef7ad))
+
 ## [2.5.0](https://github.com/ljcl/strava-mcp/compare/v2.4.0...v2.5.0) (2026-07-16)
 
 
