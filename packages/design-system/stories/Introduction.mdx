@@ -1,0 +1,66 @@
+import { Meta } from "@storybook/addon-docs/blocks";
+
+<Meta title="Introduction" />
+
+# Strava MCP UI Workshop
+
+This Storybook renders the shared UI packages behind the Strava MCP server's
+interactive **MCP Apps** — the charts, maps, and lists that hosts like Claude
+embed as live resources.
+
+Every story here runs in three complementary ways:
+
+- **As a workshop preview** — build and review a component in isolation.
+- **As a smoke test** — `bun run test:stories` renders each story in headless
+  Chromium and runs an axe accessibility pass.
+- **As a visual baseline** — Chromatic diffs each PR against `main`.
+
+## Autodocs
+
+Documentation is generated automatically from the stories themselves. The
+project enables the [`autodocs` tag](https://storybook.js.org/docs/writing-docs/autodocs)
+in the shared preview, so every component gets a **Docs** page alongside its
+stories, built from:
+
+- the component's JSDoc description and (via react-docgen) its prop table,
+- each story rendered inline with its own description, and
+- the source snippet for that story.
+
+Write documentation by writing good stories: a JSDoc comment above a `component`
+or a `story` becomes prose on the Docs page, and descriptive story names become
+the section headings.
+
+### Opting a story out
+
+Autodocs is a [project tag](https://storybook.js.org/docs/writing-stories/tags),
+so a component or an individual story can opt out without touching the global
+config:
+
+```tsx
+// Hide a pure interaction-test story from the Docs page, while keeping it a
+// runnable story and a Chromatic/vitest snapshot (see Compare Activities):
+export const SwitchMetricAndAxis = meta.story({
+  tags: ["!autodocs"],
+  play: async ({ canvas }) => {
+    /* ... */
+  },
+});
+```
+
+## Where things live
+
+- **`packages/ui`** — shared presentational primitives (Pill, Legend, CardHeader,
+  EmptyState, and friends), the first package gated on axe accessibility checks.
+- **`packages/design-system`** — design tokens (colors, spacing, typography,
+  chart tokens) and host-theme simulation. The token stories double as the
+  living reference for `var(--color-*)`, `var(--space-*)`, and the rest.
+- **`packages/*` MCP Apps** — the full app surfaces (Activity Chart, Cadence
+  Trends, Route Map, Activity Segments, Training Load, Compare Activities,
+  Activity Zones), each rendered with mocked server data.
+
+## Theming and mobile
+
+The host injects theme variables at runtime, so stories simulate that rather
+than hardcoding a palette. Use the **Host Theme** and **Backgrounds** toolbar
+controls to preview Claude / ChatGPT light and dark surfaces, and the
+**Claude iOS Card** viewport to check the mobile card chrome the apps ship with.

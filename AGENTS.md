@@ -429,6 +429,28 @@ Storybook (`apps/storybook`) renders the UI packages. Two deploys:
 
 TurboSnap (`onlyChanged`) only snapshots stories affected by the diff, to conserve the free-plan budget. It relies on `preview-stats.json` (emitted by `--stats-json` in `build:storybook`) and `storybookBaseDir: apps/storybook`. Stories are co-located in `packages/*`, so when tracing cannot resolve a change it snapshots conservatively rather than missing a regression. Requires `CHROMATIC_PROJECT_TOKEN` as a repo secret.
 
+### Autodocs
+
+`@storybook/addon-docs` generates a **Docs** page for every component from its
+stories, JSDoc, and react-docgen prop table. It is enabled with the `autodocs`
+[tag](https://storybook.js.org/docs/writing-stories/tags), applied project-wide.
+
+Placement is load-bearing: project tags on the shared
+`@strava-mcp/design-system/preview` (which every story consumes via
+`preview.meta()`) do **not** reach the docs indexer when that preview is
+re-exported. The tag must be a literal in the project's own preview file, so
+`apps/storybook/.storybook/preview.tsx` re-exports the design-system preview as
+default **and** declares `export const tags = ["autodocs"]` (Storybook merges
+named preview exports with the default). The addon is registered in both
+`main.ts` (manager UI) and the design-system `definePreview` addons (docs
+rendering), mirroring how `addon-a11y` is wired.
+
+Write docs by writing good stories: a JSDoc comment above a `component` or
+`story` becomes prose on the Docs page. Opt a noisy interaction-only story out
+of its Docs page with `tags: ["!autodocs"]` while keeping it a runnable story
+and snapshot (see `compare-activities`' `SwitchMetricAndAxis`). A top-level
+`Introduction.mdx` (design-system stories) is the landing page.
+
 ### Story smoke tests
 
 Every story also runs as a Vitest browser-mode smoke test: `bun run test:stories` locally, the

@@ -1,4 +1,5 @@
 import addonA11y from "@storybook/addon-a11y";
+import addonDocs from "@storybook/addon-docs";
 import { definePreview } from "@storybook/react-vite";
 import { HOST_THEMES, type HostThemePreset } from "./host-themes";
 import "./tokens.css";
@@ -21,7 +22,7 @@ const ALL_HOST_KEYS = new Set(
 );
 
 export default definePreview({
-  addons: [addonA11y()],
+  addons: [addonA11y(), addonDocs()],
   parameters: {
     // Per-story axe checks (#165): the addon panel reports violations in dev,
     // and the vitest story tests run the same checks in CI. "todo" surfaces

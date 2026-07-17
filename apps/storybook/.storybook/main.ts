@@ -5,6 +5,7 @@ export default defineMain({
     "@storybook/addon-mcp",
     "@storybook/addon-vitest",
     "@storybook/addon-a11y",
+    "@storybook/addon-docs",
   ],
   framework: "@storybook/react-vite",
   stories: [
@@ -31,6 +32,10 @@ export default defineMain({
     {
       titlePrefix: "Compare Activities",
       directory: "../../../packages/compare-activities/src/",
+    },
+    {
+      titlePrefix: "Activity Zones",
+      directory: "../../../packages/activity-zones/src/",
     },
     {
       directory: "../../../packages/design-system/stories/",
