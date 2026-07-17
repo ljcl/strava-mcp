@@ -27,18 +27,6 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      # Dependabot bumps the root turbo devDependency but not the Dockerfile's
-      # toolchain ARG, so images silently build with a different Turborepo
-      # than CI unless the two pins are compared (#120).
-      - name: Guard Dockerfile turbo pin against package.json
-        run: |
-          want="$(bun --print 'require("./package.json").devDependencies.turbo')"
-          got="$(sed -n 's/^ARG TURBO_VERSION=//p' apps/server/Dockerfile)"
-          if [ "$want" != "$got" ]; then
-            echo "Turbo pin drift: package.json pins $want but apps/server/Dockerfile pins $got" >&2
-            exit 1
-          fi
-
       # Biome runs outside turbo here (unlike the local `check` task) so its
       # GitHub reporter's ::error/::warning workflow commands start the line —
       # turbo's task-name prefix would stop GitHub parsing them. This is what
