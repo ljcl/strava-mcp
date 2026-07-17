@@ -253,6 +253,62 @@ export const FitnessTrendOutputSchema = z.object({
   activities_missing_load: z.number().int(),
 });
 
+// ---------- get-hill-analysis ----------
+const HillSegmentSchema = z.object({
+  start_km: z.number(),
+  end_km: z.number(),
+  length_m: z.number(),
+  elevation_change_m: z
+    .number()
+    .describe("Positive on climbs, negative on descents"),
+  avg_grade_pct: z.number(),
+  moving_time_s: z.number().int(),
+  pace_sec_per_km: z.number().nullable(),
+  pace_formatted: z.string().nullable(),
+  gap_pace_sec_per_km: z
+    .number()
+    .nullable()
+    .describe("Grade-adjusted (flat-equivalent) pace"),
+  gap_pace_formatted: z.string().nullable(),
+  avg_hr: z.number().nullable(),
+  avg_cadence: z
+    .number()
+    .nullable()
+    .describe("spm (doubled) for runs, rpm for rides"),
+  avg_watts: z.number().nullable(),
+  hr_per_gap_speed: z
+    .number()
+    .nullable()
+    .describe("Normalised climb cost: HR per m/s of grade-adjusted speed"),
+});
+export const HillAnalysisOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  date: z.string(),
+  type: z.string(),
+  drift: z
+    .object({
+      basis: z.enum(["hr_per_gap", "gap_pace"]),
+      early_value: z.number(),
+      late_value: z.number(),
+      drift_pct: z
+        .number()
+        .describe("Positive = climbing cost more late in the run"),
+      early_climbs: z.number().int(),
+      late_climbs: z.number().int(),
+    })
+    .nullable(),
+  climbs: z.array(HillSegmentSchema),
+  descents: z.array(HillSegmentSchema),
+  totals: z.object({
+    climb_count: z.number().int(),
+    descent_count: z.number().int(),
+    climb_distance_m: z.number(),
+    climb_gain_m: z.number(),
+  }),
+  warnings: z.array(z.string()),
+});
+
 // ---------- dev-only schema drift guard ----------
 export function warnOnSchemaDrift<T>(
   toolName: string,

@@ -49,6 +49,7 @@ import { getAerobicAnalysisTool } from "./tools/getAerobicAnalysis";
 import { getAthleteStatsTool } from "./tools/getAthleteStats";
 import { getBestEffortsTool } from "./tools/getBestEfforts";
 import { getFitnessTrendTool } from "./tools/getFitnessTrend";
+import { getHillAnalysisTool } from "./tools/getHillAnalysis";
 import { getRouteTool } from "./tools/getRoute";
 import { getRunningSummaryTool } from "./tools/getRunningSummary";
 import { getSegmentTool } from "./tools/getSegment";
@@ -271,6 +272,7 @@ const STRAVA_TOOLS = [
   getActivityPhotosTool,
   getRunningSummaryTool,
   getAerobicAnalysisTool,
+  getHillAnalysisTool,
   getTrainingLoadTool,
   getFitnessTrendTool,
   compareActivitiesTool,

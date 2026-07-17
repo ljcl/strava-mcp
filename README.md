@@ -370,6 +370,8 @@ The server exposes the following MCP tools:
 | `export-activity-gpx` | Export an activity's recorded track as GPX built from its streams |
 | `get-activity-photos` | Get photos from an activity |
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
+| `get-aerobic-analysis` | Aerobic decoupling, efficiency factor, and intensity factor from HR + power/speed streams |
+| `get-hill-analysis` | Climb/descent detection with GAP and early-vs-late climb effort drift |
 | `get-training-load` | Training load summary with trend analysis |
 | `get-fitness-trend` | Fitness/fatigue/form (CTL/ATL/TSB) from relative effort, with rest projection |
 | `compare-activities` | Compare two running activities side-by-side |
