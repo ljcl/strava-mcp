@@ -7,7 +7,13 @@ permissions:
 
 jobs:
   auto-merge:
-    if: github.actor == 'dependabot[bot]'
+    # The head-repo check matters even though this job never checks out code:
+    # the actor check alone is spoofable by enabling Dependabot on a fork, and
+    # this job must never arm auto-merge for a PR whose branch this repo's
+    # branch protection does not control.
+    if: >-
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

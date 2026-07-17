@@ -5,11 +5,12 @@
 FROM oven/bun:1.3.14 AS base
 WORKDIR /app
 
-# turbo isolated here so it never reaches the runner; the ARG must match the
-# root package.json devDependency (CI's turbo-pin guard fails on drift).
+# turbo isolated here so it never reaches the runner; the version is derived
+# from the root package.json devDependency so a Dependabot turbo bump can
+# never drift from the image (previously a hardcoded ARG guarded by CI, #120).
 FROM base AS toolchain
-ARG TURBO_VERSION=2.10.5
-RUN bun add -g turbo@"${TURBO_VERSION}"
+COPY package.json ./
+RUN bun add -g turbo@"$(bun --print 'require("./package.json").devDependencies.turbo')"
 
 # 1) Prune the monorepo to the subset @strava-mcp/server needs.
 #    Produces /app/out/json (package.json files), /app/out/full (sources),
