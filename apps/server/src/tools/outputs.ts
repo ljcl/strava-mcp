@@ -309,6 +309,70 @@ export const HillAnalysisOutputSchema = z.object({
   warnings: z.array(z.string()),
 });
 
+// ---------- get-interval-analysis ----------
+const IntervalRepSchema = z.object({
+  index: z.number().int(),
+  start_km: z.number(),
+  distance_m: z.number(),
+  moving_time_s: z.number().int(),
+  moving_time_formatted: z.string(),
+  pace_sec_per_km: z.number().nullable(),
+  pace_formatted: z.string().nullable(),
+  avg_hr: z.number().nullable(),
+  avg_cadence: z
+    .number()
+    .nullable()
+    .describe("spm (doubled) for runs, rpm for rides"),
+  avg_watts: z.number().nullable(),
+});
+export const IntervalAnalysisOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  date: z.string(),
+  type: z.string(),
+  is_intervals: z.boolean(),
+  source: z
+    .enum(["laps", "streams", "none"])
+    .describe(
+      "Where the reps came from: clean device laps or stream reconstruction",
+    ),
+  confidence: z.enum(["high", "medium", "low"]),
+  reasoning: z
+    .string()
+    .describe("Audit trail: rest counts by classification and rep source"),
+  reps: z.array(IntervalRepSchema),
+  rests: z.array(
+    z.object({
+      start_time_s: z.number().int(),
+      at_km: z.number(),
+      duration_s: z.number().int(),
+      kind: z.enum(["traffic_light", "recovery", "long_stop", "other_stop"]),
+      reason: z.string(),
+    }),
+  ),
+  fade: z
+    .object({
+      pace_drift_pct: z
+        .number()
+        .nullable()
+        .describe("Positive = last rep slower than first"),
+      hr_drift_bpm: z.number().nullable(),
+      cadence_drift_pct: z.number().nullable(),
+      summary: z.string(),
+    })
+    .nullable(),
+  hr_signal: z
+    .object({
+      max_hr: z.number(),
+      high_intensity_share_pct: z
+        .number()
+        .describe("% of moving time at ≥ 88% of the activity's max HR"),
+      assessment: z.string(),
+    })
+    .nullable(),
+  warnings: z.array(z.string()),
+});
+
 // ---------- dev-only schema drift guard ----------
 export function warnOnSchemaDrift<T>(
   toolName: string,
