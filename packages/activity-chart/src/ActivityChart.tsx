@@ -16,7 +16,7 @@ import {
   Tooltip as UiTooltip,
   useModelContextSync,
 } from "@strava-mcp/ui";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   Brush,
@@ -32,6 +32,7 @@ import {
 import styles from "./ActivityChart.module.css";
 import { buildChartA11yDescription, buildChartA11yTitle } from "./a11y";
 import { buildChartContextSummary } from "./contextSummary";
+import { selectLapLabels } from "./lapLabels";
 import { type ChartLap, smoothData } from "./normalize";
 import {
   type ActivityMeta,
@@ -360,6 +361,36 @@ export function ActivityChart({
     [data, smooth],
   );
 
+  // Rendered plot width, used to decide how many lap/segment band labels fit
+  // without overlapping. Bucketed so minor reflows don't churn the memoized
+  // chart tree (#133); starts at a mode-based estimate so labels are sensible
+  // before the observer fires (and in non-DOM renders).
+  const chartAreaRef = useRef<HTMLDivElement>(null);
+  const [plotWidth, setPlotWidth] = useState(isMobile ? 340 : 720);
+  useEffect(() => {
+    const el = chartAreaRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      // Ignore implausibly small transient measurements (pre-layout ticks) so
+      // a rounding artifact never zeroes the width and drops every label.
+      if (w < 24) return;
+      const bucketed = Math.round(w / 24) * 24;
+      setPlotWidth((prev) => (prev === bucketed ? prev : bucketed));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  // Bands drawn behind the chart (skip zero-width swim rests at the wall).
+  const bandLaps = useMemo(
+    () =>
+      (laps ?? []).filter(
+        (lap) => !(meta.isSwimming && lap.startDistance === lap.endDistance),
+      ),
+    [laps, meta.isSwimming],
+  );
+
   // Derive active preset by matching current hidden state
   const activePresetId = useMemo(() => {
     for (const preset of presets) {
@@ -443,6 +474,36 @@ export function ActivityChart({
   const chart = useMemo(() => {
     const show = (key: MetricKey) =>
       availableMetrics.has(key) && !hidden.has(key);
+
+    // Band-label overlap avoidance: decide which lap/segment labels fit
+    // against the currently visible axis window (full range, or the brush
+    // zoom slice) so a dense run of short bands doesn't stack labels.
+    const getStart = (l: ChartLap) =>
+      meta.isSwimming ? l.startDistance : l.startTime;
+    const getEnd = (l: ChartLap) =>
+      meta.isSwimming ? l.endDistance : l.endTime;
+    const xKey = meta.isSwimming ? "distance" : "time";
+    const startIdx = zoomRange.startIndex ?? 0;
+    const endIdx = zoomRange.endIndex ?? displayData.length - 1;
+    const fallbackMin = bandLaps.length ? getStart(bandLaps[0]!) : 0;
+    const fallbackMax = bandLaps.length
+      ? getEnd(bandLaps[bandLaps.length - 1]!)
+      : 0;
+    const visibleMin =
+      (displayData[startIdx]?.[xKey] as number | undefined) ?? fallbackMin;
+    const visibleMax =
+      (displayData[endIdx]?.[xKey] as number | undefined) ?? fallbackMax;
+    const labelFlags = selectLapLabels(
+      bandLaps.map((lap) => ({
+        name: lap.name,
+        start: getStart(lap),
+        end: getEnd(lap),
+      })),
+      visibleMin,
+      visibleMax,
+      plotWidth,
+    );
+
     return (
       <ResponsiveContainer width="100%" aspect={aspect}>
         <ComposedChart
@@ -518,53 +579,36 @@ export function ActivityChart({
             wrapperStyle={{ pointerEvents: "none", zIndex: 10 }}
           />
           {/* Lap bands */}
-          {laps
-            ?.filter((lap) => {
-              // Skip zero-width laps on distance axis (e.g. swim rest at the wall)
-              if (meta.isSwimming && lap.startDistance === lap.endDistance)
-                return false;
-              return true;
-            })
-            .map((lap, i, filteredLaps) => {
-              // Compute axis range to determine if lap is wide enough for a label
-              const getStart = (l: ChartLap) =>
-                meta.isSwimming ? l.startDistance : l.startTime;
-              const getEnd = (l: ChartLap) =>
-                meta.isSwimming ? l.endDistance : l.endTime;
-              const minAxis = getStart(filteredLaps[0]!);
-              const maxAxis = getEnd(filteredLaps[filteredLaps.length - 1]!);
-              const totalRange = maxAxis - minAxis;
-              const lapWidth = getEnd(lap) - getStart(lap);
-              const fraction = totalRange > 0 ? lapWidth / totalRange : 1;
-              const label = fraction >= 0.05 ? lap.name : "";
+          {bandLaps.map((lap, i) => {
+            const label = labelFlags[i] ? lap.name : "";
 
-              return (
-                <ReferenceArea
-                  key={`lap-${lap.name}-${getStart(lap)}`}
-                  yAxisId="left"
-                  x1={getStart(lap)}
-                  x2={getEnd(lap)}
-                  fill={
-                    lap.isRest
-                      ? "var(--color-border-tertiary)"
-                      : i % 2 === 0
-                        ? "var(--chart-pace)"
-                        : "transparent"
-                  }
-                  fillOpacity={lap.isRest ? 0.3 : 0.06}
-                  stroke="none"
-                  label={{
-                    value: label,
-                    position: "insideTopLeft",
-                    style: {
-                      fontSize: 10,
-                      fill: "var(--color-text-tertiary)",
-                      fontFamily: "var(--font-sans)",
-                    },
-                  }}
-                />
-              );
-            })}
+            return (
+              <ReferenceArea
+                key={`lap-${lap.name}-${getStart(lap)}`}
+                yAxisId="left"
+                x1={getStart(lap)}
+                x2={getEnd(lap)}
+                fill={
+                  lap.isRest
+                    ? "var(--color-border-tertiary)"
+                    : i % 2 === 0
+                      ? "var(--chart-pace)"
+                      : "transparent"
+                }
+                fillOpacity={lap.isRest ? 0.3 : 0.06}
+                stroke="none"
+                label={{
+                  value: label,
+                  position: "insideTopLeft",
+                  style: {
+                    fontSize: 10,
+                    fill: "var(--color-text-tertiary)",
+                    fontFamily: "var(--font-sans)",
+                  },
+                }}
+              />
+            );
+          })}
 
           {/* Altitude area fill */}
           {show("altitude") && (
@@ -685,7 +729,8 @@ export function ActivityChart({
     displayData,
     tokens,
     meta,
-    laps,
+    bandLaps,
+    plotWidth,
     isMobile,
     availableMetrics,
     hidden,
@@ -702,6 +747,7 @@ export function ActivityChart({
       />
 
       <div
+        ref={chartAreaRef}
         className={styles.chartArea}
         data-hovered={hoveredLegendKey ?? undefined}
       >

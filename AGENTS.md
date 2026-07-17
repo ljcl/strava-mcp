@@ -157,6 +157,7 @@ The `view-activity-chart` tool renders an interactive Recharts chart in MCP-comp
 - Calls `get-activity-streams-raw` (app-only visibility) to fetch data after render
 - Supports heart rate, power, pace, altitude, cadence, and grade overlays
 - X-axis `Brush` zoom (#35): drag the handles (touch included) to zoom into a time/distance window; the window is controlled state joined to the memoized chart-tree deps (per #151 an uncontrolled Brush would reset whenever the tree rebuilds), so it survives preset/legend/smooth toggles. Recharts' brush internals are themed via `:global` selectors in the CSS module
+- Lap/segment band labels sit at each band's top-left, so a dense run of short intervals used to stack labels into an unreadable smear. `selectLapLabels` (`src/lapLabels.ts`, unit-tested) walks the bands left-to-right against the currently visible axis window (full range, or the brush-zoom slice) and the measured plot width, drawing a label only when its text clears the previously drawn one — so the first of a crowded run wins and the rest drop out. Plot width comes from a `ResizeObserver` on the chart area, bucketed to ~24px (and floored at a mode-based estimate) so minor reflows don't churn the memoized chart tree (#133)
 
 ## MCP App (Cadence Trends)
 
