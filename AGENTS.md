@@ -408,7 +408,7 @@ docker compose logs -f
 
 The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only the MCP App packages (`activity-chart`, `cadence-trends`, `route-map`, `activity-segments`, `training-load`, `compare-activities`, `activity-zones`) produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
 
-Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough to run at root per the Turborepo docs. Knip is a whole-graph analyzer that cannot be decomposed per-package.
+Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough to run at root per the Turborepo docs. Knip is a whole-graph analyzer that cannot be decomposed per-package. In CI, `ci.yml` runs Biome as a dedicated step (`bun run lint --reporter=github`, not through turbo) so its workflow commands surface diagnostics — including warn-level rules — as inline PR annotations; turbo's task-name prefix would break that parsing. The turbo `lint` task remains the local path via `bun run check`.
 
 Storybook uses the co-located stories pattern: story files in `packages/` are excluded from the root `build` inputs (`!**/*.stories.{ts,tsx,mdx}`) so story edits do not bust unrelated build caches. The `build:storybook` task has its own cache tracked in `apps/storybook/turbo.json`.
 
