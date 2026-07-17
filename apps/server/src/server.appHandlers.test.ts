@@ -10,8 +10,10 @@ import {
   getActivityById,
   getActivityLaps,
   getActivityPhotos,
+  getActivityZones,
   getAllActivities,
   getRouteById,
+  type StravaActivityZone,
   type StravaDetailedActivity,
   type StravaLap,
   type StravaRoute,
@@ -25,6 +27,7 @@ vi.mock("./stravaClient", async (importOriginal) => {
     getActivityById: vi.fn(),
     getActivityLaps: vi.fn(),
     getActivityPhotos: vi.fn(),
+    getActivityZones: vi.fn(),
     getAllActivities: vi.fn(),
     getRouteById: vi.fn(),
   };
@@ -43,6 +46,7 @@ const { dispatchToolCall } = await import("./server");
 
 const mockedById = vi.mocked(getActivityById);
 const mockedLaps = vi.mocked(getActivityLaps);
+const mockedZones = vi.mocked(getActivityZones);
 const mockedPhotos = vi.mocked(getActivityPhotos);
 const mockedList = vi.mocked(getAllActivities);
 const mockedRoute = vi.mocked(getRouteById);
@@ -111,6 +115,8 @@ const APP_TOOL_CALLS: Array<[string, Record<string, unknown>]> = [
   ["get-activity-segments-data", { activity_id: "123" }],
   ["view-training-load", {}],
   ["get-training-load-data", {}],
+  ["view-activity-zones", { activity_id: "123" }],
+  ["get-activity-zones-data", { activity_id: "123" }],
   ["view-compare-activities", { activity_id_1: "1", activity_id_2: "2" }],
   ["get-compare-activities-data", { activity_id_1: "1", activity_id_2: "2" }],
 ];
@@ -572,5 +578,86 @@ describe("compare activities handlers", () => {
     });
 
     expect(result.isError).toBe(true);
+  });
+});
+
+describe("activity zones handlers", () => {
+  const hrZones = [
+    {
+      type: "heartrate",
+      sensor_based: true,
+      distribution_buckets: [
+        { min: 0, max: 130, time: 600 },
+        { min: 130, max: 155, time: 1800 },
+        { min: 155, max: -1, time: 600 },
+      ],
+    },
+  ] as unknown as StravaActivityZone[];
+
+  it("get-activity-zones-data returns the mapped zone payload", async () => {
+    mockedById.mockResolvedValueOnce(detailedActivity());
+    mockedZones.mockResolvedValueOnce(hrZones);
+
+    const result = await dispatchToolCall("get-activity-zones-data", {
+      activity_id: "123",
+    });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.activityId).toBe("123");
+    expect(parsed.name).toBe("Morning Run");
+    expect(parsed.zoneSets).toHaveLength(1);
+    expect(parsed.zoneSets[0].type).toBe("heartrate");
+    expect(parsed.zoneSets[0].totalSeconds).toBe(3000);
+    expect(parsed.zoneSets[0].buckets[1]).toEqual({
+      zone: 2,
+      min: 130,
+      max: 155,
+      seconds: 1800,
+      pct: 60,
+    });
+    // Strava's -1 open-ended top bucket becomes null.
+    expect(parsed.zoneSets[0].buckets[2].max).toBeNull();
+  });
+
+  it("view-activity-zones summarises the dominant zone for the model", async () => {
+    mockedById.mockResolvedValueOnce(detailedActivity());
+    mockedZones.mockResolvedValueOnce(hrZones);
+
+    const result = await dispatchToolCall("view-activity-zones", {
+      activity_id: "123",
+    });
+
+    expect(result.isError).toBeUndefined();
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("Activity Zones: Morning Run");
+    expect(text).toContain("Heart rate: mostly Z2 (60% of 50 min)");
+    expect(text).toContain(
+      "[Interactive zone distribution chart rendered above]",
+    );
+  });
+
+  it("view-activity-zones handles an activity with no zone data", async () => {
+    mockedById.mockResolvedValueOnce(detailedActivity());
+    mockedZones.mockResolvedValueOnce([]);
+
+    const result = await dispatchToolCall("view-activity-zones", {
+      activity_id: "123",
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]?.text).toContain("No zone data recorded");
+  });
+
+  it("propagates a zones fetch failure as isError", async () => {
+    mockedById.mockResolvedValueOnce(detailedActivity());
+    mockedZones.mockRejectedValueOnce(new Error("Record Not Found"));
+
+    const result = await dispatchToolCall("get-activity-zones-data", {
+      activity_id: "123",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("Record Not Found");
   });
 });

@@ -21,6 +21,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `packages/route-map/` — React MCP App for activity/route GPS maps (MapLibre basemap by default, pure-SVG offline grid fallback; no Recharts)
 - `packages/activity-segments/` — React MCP App listing one activity's segment efforts (no Recharts, no MapLibre)
 - `packages/compare-activities/` — React + Recharts MCP App overlaying two activities' streams with a delta summary
+- `packages/activity-zones/` — React + Recharts MCP App for per-activity HR/power time-in-zone distribution
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar, AppShell, CardHeader, EmptyState, ErrorState, LoadingState, Skeleton)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
@@ -106,6 +107,8 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | `get-training-load-data` | Per-week volume, trend value, and warning flags for the training-load UI (app-only) |
 | `view-compare-activities` | Interactive overlay of two activities' streams on a shared distance/time axis with a delta summary (MCP App) |
 | `get-compare-activities-data` | Aggregate comparison (summaries, activity2−activity1 differences, efficiency) for the compare-activities UI (app-only) |
+| `view-activity-zones` | Time-in-zone bar chart for one activity's HR and power zones with an easy/moderate/hard split (MCP App) |
+| `get-activity-zones-data` | Per-zone time distributions (bucket bounds, seconds, percentages) for the activity-zones UI (app-only) |
 
 ## Styling
 
@@ -216,6 +219,16 @@ The `view-compare-activities` tool overlays two activities' streams so the user 
 - One metric at a time (pace/HR/power/cadence/altitude pills, intersection of what both activities recorded), distance/time axis toggle (distance only when both recorded it), legend toggles per activity line (activity 1 blue, activity 2 orange)
 - Delta summary header renders from the compare payload (distance, time, pace, HR, cadence, elevation, efficiency tiles; better/worse coloring); it degrades away if that fetch fails while the overlay still renders
 - View state is reported to the host via `useModelContextSync` (`src/contextSummary.ts`, unit-tested); screen-reader narration via `accessibilityLayer` + SVG `<title>`/`<desc>` (`src/a11y.ts`, unit-tested), per the chart accessibility convention
+
+## MCP App (Activity Zones)
+
+The `view-activity-zones` tool renders one activity's time-in-zone distribution as a bar chart (#34).
+
+- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); Recharts, bundled as a single HTML file via `vite-plugin-singlefile`
+- Served as MCP resource at `ui://activity-zones/app.html`; calls `get-activity-zones-data` (app-only) on mount with the `activity_id`
+- The server maps the raw `/activities/{id}/zones` response (the same fetch behind the `get-activity-zones` text tool) to chart-ready sets in `apps/server/src/activityZones.ts` (`mapActivityZones`, unit-tested): per-bucket seconds and percentages, the `-1` open-ended top bucket normalised to `null`, sets without buckets or with zero time dropped
+- One `BarChart` per zone set (heart rate in `--chart-heartrate`, power in `--chart-power`, opacity ramp Z1→Zn), pct labels on top, shared `Tooltip` with time + share, following cadence-trends' `ZonesView` pattern; a `PillGroup` switches between HR and power when both exist, and estimated (non-sensor) power sets carry a footnote
+- Presentation logic is pure and unit-tested in `src/normalize.ts` (`buildZoneRows`, `intensitySplit` — zones 1–2 easy / 3 moderate / 4+ hard, `buildSummaryStats` for the shared `SummaryBar`); a11y narration in `src/a11y.ts`, host context sync via `useModelContextSync` (`src/contextSummary.ts`), all per the established conventions
 
 ## Targeting Mobile for MCP Apps
 
@@ -380,6 +393,9 @@ INPUT=app.html bunx vite build  # Rebuild single-file HTML
 cd packages/training-load
 INPUT=app.html bunx vite build  # Rebuild single-file HTML
 
+cd packages/activity-zones
+INPUT=app.html bunx vite build  # Rebuild single-file HTML
+
 # Docker
 docker compose build
 docker compose up -d
@@ -388,7 +404,7 @@ docker compose logs -f
 
 ## Turborepo
 
-The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only the MCP App packages (`activity-chart`, `cadence-trends`, `route-map`, `activity-segments`, `training-load`) produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
+The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only the MCP App packages (`activity-chart`, `cadence-trends`, `route-map`, `activity-segments`, `training-load`, `compare-activities`, `activity-zones`) produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
 
 Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough to run at root per the Turborepo docs. Knip is a whole-graph analyzer that cannot be decomposed per-package.
 

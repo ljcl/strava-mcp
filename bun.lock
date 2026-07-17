@@ -22,6 +22,7 @@
         "@modelcontextprotocol/sdk": "1.29.0",
         "@strava-mcp/activity-chart": "workspace:*",
         "@strava-mcp/activity-segments": "workspace:*",
+        "@strava-mcp/activity-zones": "workspace:*",
         "@strava-mcp/cadence-trends": "workspace:*",
         "@strava-mcp/compare-activities": "workspace:*",
         "@strava-mcp/route-map": "workspace:*",
@@ -42,6 +43,7 @@
       "dependencies": {
         "@strava-mcp/activity-chart": "workspace:*",
         "@strava-mcp/activity-segments": "workspace:*",
+        "@strava-mcp/activity-zones": "workspace:*",
         "@strava-mcp/cadence-trends": "workspace:*",
         "@strava-mcp/compare-activities": "workspace:*",
         "@strava-mcp/design-system": "workspace:*",
@@ -103,6 +105,28 @@
         "@strava-mcp/ui": "workspace:*",
         "react": "19.2.7",
         "react-dom": "19.2.7",
+      },
+      "devDependencies": {
+        "@strava-mcp/tsconfig": "workspace:*",
+        "@strava-mcp/vite-config": "workspace:*",
+        "@types/react": "19.2.17",
+        "@types/react-dom": "19.2.3",
+        "storybook": "10.5.0",
+        "typescript": "7.0.2",
+        "vite": "8.1.4",
+        "vitest": "4.1.10",
+      },
+    },
+    "packages/activity-zones": {
+      "name": "@strava-mcp/activity-zones",
+      "version": "1.0.0",
+      "dependencies": {
+        "@modelcontextprotocol/ext-apps": "1.7.4",
+        "@strava-mcp/design-system": "workspace:*",
+        "@strava-mcp/ui": "workspace:*",
+        "react": "19.2.7",
+        "react-dom": "19.2.7",
+        "recharts": "3.9.2",
       },
       "devDependencies": {
         "@strava-mcp/tsconfig": "workspace:*",
@@ -629,6 +653,8 @@
     "@strava-mcp/activity-chart": ["@strava-mcp/activity-chart@workspace:packages/activity-chart"],
 
     "@strava-mcp/activity-segments": ["@strava-mcp/activity-segments@workspace:packages/activity-segments"],
+
+    "@strava-mcp/activity-zones": ["@strava-mcp/activity-zones@workspace:packages/activity-zones"],
 
     "@strava-mcp/cadence-trends": ["@strava-mcp/cadence-trends@workspace:packages/cadence-trends"],
 

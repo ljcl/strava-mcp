@@ -15,6 +15,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
     "@strava-mcp/activity-chart": "workspace:*",
+    "@strava-mcp/activity-zones": "workspace:*",
     "@strava-mcp/activity-segments": "workspace:*",
     "@strava-mcp/cadence-trends": "workspace:*",
     "@strava-mcp/compare-activities": "workspace:*",

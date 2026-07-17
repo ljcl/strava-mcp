@@ -16,6 +16,7 @@ export default {
       ignoreDependencies: [
         "@strava-mcp/activity-chart",
         "@strava-mcp/activity-segments",
+        "@strava-mcp/activity-zones",
         "@strava-mcp/cadence-trends",
         "@strava-mcp/compare-activities",
         "@strava-mcp/route-map",
@@ -23,6 +24,10 @@ export default {
       ],
     },
     "packages/activity-chart": {
+      entry: ["src/main.tsx"],
+      project: ["src/**/*.{ts,tsx}"],
+    },
+    "packages/activity-zones": {
       entry: ["src/main.tsx"],
       project: ["src/**/*.{ts,tsx}"],
     },
@@ -64,6 +69,7 @@ export default {
           ".storybook/{manager,preview,index,vitest.setup}.{js,jsx,ts,tsx}",
           "../../packages/activity-chart/src/**/*.stories.@(ts|tsx)",
           "../../packages/activity-segments/src/**/*.stories.@(ts|tsx)",
+          "../../packages/activity-zones/src/**/*.stories.@(ts|tsx)",
           "../../packages/cadence-trends/src/**/*.stories.@(ts|tsx)",
           "../../packages/compare-activities/src/**/*.stories.@(ts|tsx)",
           "../../packages/route-map/src/**/*.stories.@(ts|tsx)",
@@ -79,6 +85,7 @@ export default {
       ignoreDependencies: [
         "@strava-mcp/activity-chart",
         "@strava-mcp/activity-segments",
+        "@strava-mcp/activity-zones",
         "@strava-mcp/cadence-trends",
         "@strava-mcp/compare-activities",
         "@strava-mcp/route-map",

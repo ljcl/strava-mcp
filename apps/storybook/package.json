@@ -10,6 +10,7 @@
   "dependencies": {
     "@strava-mcp/activity-chart": "workspace:*",
     "@strava-mcp/activity-segments": "workspace:*",
+    "@strava-mcp/activity-zones": "workspace:*",
     "@strava-mcp/cadence-trends": "workspace:*",
     "@strava-mcp/compare-activities": "workspace:*",
     "@strava-mcp/design-system": "workspace:*",
