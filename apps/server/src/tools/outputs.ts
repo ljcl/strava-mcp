@@ -218,6 +218,161 @@ export const AerobicAnalysisOutputSchema = z.object({
   warnings: z.array(z.string()),
 });
 
+// ---------- get-fitness-trend ----------
+const FitnessTrendDaySchema = z.object({
+  date: z.string().describe("ISO date YYYY-MM-DD the values were computed for"),
+  load: z.number().describe("Total relative effort recorded that day"),
+  ctl: z.number().describe("Chronic training load ('fitness'), 42-day EWA"),
+  atl: z.number().describe("Acute training load ('fatigue'), 7-day EWA"),
+  tsb: z.number().describe("Training stress balance ('form'): CTL − ATL"),
+});
+export const FitnessTrendOutputSchema = z.object({
+  period: z.object({
+    days: z.number().int(),
+    start_date: z.string(),
+    end_date: z.string(),
+  }),
+  current: FitnessTrendDaySchema.omit({ load: true }).nullable(),
+  trend: z
+    .object({
+      ctl_7d_delta: z.number(),
+      tsb_7d_delta: z.number(),
+    })
+    .nullable(),
+  flags: z.array(z.string()),
+  warnings: z.array(z.string()),
+  daily: z.array(FitnessTrendDaySchema),
+  projection: z
+    .array(FitnessTrendDaySchema)
+    .describe("Zero-load decay projection past end_date; empty if none"),
+  tsb_positive_date: z
+    .string()
+    .nullable()
+    .describe("First projected date TSB crosses ≥ 0, if projected"),
+  activities_included: z.number().int(),
+  activities_missing_load: z.number().int(),
+});
+
+// ---------- get-hill-analysis ----------
+const HillSegmentSchema = z.object({
+  start_km: z.number(),
+  end_km: z.number(),
+  length_m: z.number(),
+  elevation_change_m: z
+    .number()
+    .describe("Positive on climbs, negative on descents"),
+  avg_grade_pct: z.number(),
+  moving_time_s: z.number().int(),
+  pace_sec_per_km: z.number().nullable(),
+  pace_formatted: z.string().nullable(),
+  gap_pace_sec_per_km: z
+    .number()
+    .nullable()
+    .describe("Grade-adjusted (flat-equivalent) pace"),
+  gap_pace_formatted: z.string().nullable(),
+  avg_hr: z.number().nullable(),
+  avg_cadence: z
+    .number()
+    .nullable()
+    .describe("spm (doubled) for runs, rpm for rides"),
+  avg_watts: z.number().nullable(),
+  hr_per_gap_speed: z
+    .number()
+    .nullable()
+    .describe("Normalised climb cost: HR per m/s of grade-adjusted speed"),
+});
+export const HillAnalysisOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  date: z.string(),
+  type: z.string(),
+  drift: z
+    .object({
+      basis: z.enum(["hr_per_gap", "gap_pace"]),
+      early_value: z.number(),
+      late_value: z.number(),
+      drift_pct: z
+        .number()
+        .describe("Positive = climbing cost more late in the run"),
+      early_climbs: z.number().int(),
+      late_climbs: z.number().int(),
+    })
+    .nullable(),
+  climbs: z.array(HillSegmentSchema),
+  descents: z.array(HillSegmentSchema),
+  totals: z.object({
+    climb_count: z.number().int(),
+    descent_count: z.number().int(),
+    climb_distance_m: z.number(),
+    climb_gain_m: z.number(),
+  }),
+  warnings: z.array(z.string()),
+});
+
+// ---------- get-interval-analysis ----------
+const IntervalRepSchema = z.object({
+  index: z.number().int(),
+  start_km: z.number(),
+  distance_m: z.number(),
+  moving_time_s: z.number().int(),
+  moving_time_formatted: z.string(),
+  pace_sec_per_km: z.number().nullable(),
+  pace_formatted: z.string().nullable(),
+  avg_hr: z.number().nullable(),
+  avg_cadence: z
+    .number()
+    .nullable()
+    .describe("spm (doubled) for runs, rpm for rides"),
+  avg_watts: z.number().nullable(),
+});
+export const IntervalAnalysisOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  date: z.string(),
+  type: z.string(),
+  is_intervals: z.boolean(),
+  source: z
+    .enum(["laps", "streams", "none"])
+    .describe(
+      "Where the reps came from: clean device laps or stream reconstruction",
+    ),
+  confidence: z.enum(["high", "medium", "low"]),
+  reasoning: z
+    .string()
+    .describe("Audit trail: rest counts by classification and rep source"),
+  reps: z.array(IntervalRepSchema),
+  rests: z.array(
+    z.object({
+      start_time_s: z.number().int(),
+      at_km: z.number(),
+      duration_s: z.number().int(),
+      kind: z.enum(["traffic_light", "recovery", "long_stop", "other_stop"]),
+      reason: z.string(),
+    }),
+  ),
+  fade: z
+    .object({
+      pace_drift_pct: z
+        .number()
+        .nullable()
+        .describe("Positive = last rep slower than first"),
+      hr_drift_bpm: z.number().nullable(),
+      cadence_drift_pct: z.number().nullable(),
+      summary: z.string(),
+    })
+    .nullable(),
+  hr_signal: z
+    .object({
+      max_hr: z.number(),
+      high_intensity_share_pct: z
+        .number()
+        .describe("% of moving time at ≥ 88% of the activity's max HR"),
+      assessment: z.string(),
+    })
+    .nullable(),
+  warnings: z.array(z.string()),
+});
+
 // ---------- dev-only schema drift guard ----------
 export function warnOnSchemaDrift<T>(
   toolName: string,
