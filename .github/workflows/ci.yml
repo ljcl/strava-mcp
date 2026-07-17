@@ -39,16 +39,24 @@ jobs:
             exit 1
           fi
 
+      # Biome runs outside turbo here (unlike the local `check` task) so its
+      # GitHub reporter's ::error/::warning workflow commands start the line —
+      # turbo's task-name prefix would stop GitHub parsing them. This is what
+      # surfaces diagnostics as inline annotations on the PR diff, including
+      # warn-level rules that never fail the build.
+      - name: Lint
+        run: bun run lint --reporter=github
+
       - name: Check (PR — affected only)
         if: github.event_name == 'pull_request'
         run: |
-          bun run turbo run lint test typecheck build knip --affected
+          bun run turbo run test typecheck build knip --affected
           bun run turbo boundaries
 
       - name: Check (main — full)
         if: github.event_name == 'push'
         run: |
-          bun run turbo run lint test typecheck build knip
+          bun run turbo run test typecheck build knip
           bun run turbo boundaries
 
       # Story smoke tests: every Storybook story renders in real headless
