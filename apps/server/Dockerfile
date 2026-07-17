@@ -52,6 +52,7 @@ COPY --from=builder  --chown=65534:65534 /app/packages/route-map/dist ./packages
 COPY --from=builder  --chown=65534:65534 /app/packages/activity-segments/dist ./packages/activity-segments/dist
 COPY --from=builder  --chown=65534:65534 /app/packages/training-load/dist ./packages/training-load/dist
 COPY --from=builder  --chown=65534:65534 /app/packages/compare-activities/dist ./packages/compare-activities/dist
+COPY --from=builder  --chown=65534:65534 /app/packages/activity-zones/dist ./packages/activity-zones/dist
 
 USER 65534:65534
 ENV NODE_ENV=production

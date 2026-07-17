@@ -12,6 +12,11 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 import { mapActivitySegments } from "./activitySegments";
+import {
+  type ActivityZonesData,
+  dominantBucket,
+  mapActivityZones,
+} from "./activityZones";
 import { stravaApi } from "./fetchClient";
 import {
   cumulativeDistances,
@@ -27,6 +32,7 @@ import {
   getActivityById,
   getActivityLaps,
   getActivityPhotos,
+  getActivityZones,
   getAllActivities as getAllActivitiesFn,
   getRouteById,
   type StravaDetailedActivity,
@@ -149,6 +155,12 @@ const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   }),
   "view-training-load": z.object({ days: daysInput }),
   "get-training-load-data": z.object({ days: daysInput }),
+  "view-activity-zones": z.object({
+    activity_id: stravaIdInput("The Strava activity ID."),
+  }),
+  "get-activity-zones-data": z.object({
+    activity_id: stravaIdInput("The Strava activity ID."),
+  }),
   "view-compare-activities": z.object({
     activity_id_1: stravaIdInput(
       "First activity ID (baseline/older activity).",
@@ -230,6 +242,11 @@ const APP_RESOURCES: AppResource[] = [
     uri: "ui://compare-activities/app.html",
     name: "Compare Activities",
     htmlPath: appHtmlRequire.resolve("@strava-mcp/compare-activities/app.html"),
+  },
+  {
+    uri: "ui://activity-zones/app.html",
+    name: "Activity Zones",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/activity-zones/app.html"),
   },
 ];
 
@@ -444,6 +461,35 @@ function buildToolDefs(): ToolDef[] {
     _meta: {
       ui: {
         resourceUri: "ui://training-load/app.html",
+        visibility: ["app"],
+      },
+    },
+  });
+
+  defs.push({
+    name: "view-activity-zones",
+    description:
+      "Open an interactive time-in-zone chart for one activity: bars for the time spent in each heart rate and power zone, with percentages and an easy/moderate/hard split. " +
+      "Prefer this over the text-only get-activity-zones when the user wants to see how a workout's effort was distributed. Takes the activity id.",
+    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-activity-zones"]!),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: { resourceUri: "ui://activity-zones/app.html" },
+    },
+  });
+
+  defs.push({
+    name: "get-activity-zones-data",
+    description:
+      "Internal data feed for the activity-zones UI: returns per-zone time distributions (bucket bounds, seconds, percentages) for the activity's heart rate and power zones as JSON. " +
+      "The view-activity-zones app calls this; not intended for direct model use.",
+    inputSchema: z.toJSONSchema(
+      APP_TOOL_INPUT_SCHEMAS["get-activity-zones-data"]!,
+    ),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: {
+        resourceUri: "ui://activity-zones/app.html",
         visibility: ["app"],
       },
     },
@@ -737,6 +783,69 @@ async function handleViewTrainingLoad(
     "",
     "[Interactive training load chart rendered above]",
   ];
+  return { content: [{ type: "text", text: lines.join("\n") }] };
+}
+
+/** Shared fetch + mapping for the activity-zones view and data tools. */
+async function loadActivityZonesData(
+  token: string,
+  activityId: string,
+): Promise<ActivityZonesData> {
+  const [activity, zones] = await Promise.all([
+    getActivityById(token, activityId),
+    getActivityZones(token, activityId),
+  ]);
+  return {
+    activityId: String(activity.id),
+    name: activity.name,
+    date: activity.start_date_local,
+    type: activity.sport_type ?? activity.type ?? "Workout",
+    zoneSets: mapActivityZones(zones),
+  };
+}
+
+async function handleGetActivityZonesData(
+  args: Record<string, unknown>,
+): Promise<ToolCallResult> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
+  }
+
+  const data = await loadActivityZonesData(token, String(args.activity_id));
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
+}
+
+async function handleViewActivityZones(
+  args: Record<string, unknown>,
+): Promise<ToolCallResult> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
+  }
+
+  const data = await loadActivityZonesData(token, String(args.activity_id));
+  const lines = [`Activity Zones: ${data.name} (${data.date})`];
+  if (data.zoneSets.length === 0) {
+    lines.push(
+      "No zone data recorded — the activity had neither a heart rate nor a power sensor.",
+    );
+  } else {
+    for (const set of data.zoneSets) {
+      const top = dominantBucket(set);
+      const label = set.type === "heartrate" ? "Heart rate" : "Power";
+      lines.push(
+        `${label}: mostly Z${top.zone} (${top.pct}% of ${Math.round(set.totalSeconds / 60)} min)`,
+      );
+    }
+  }
+  lines.push("", "[Interactive zone distribution chart rendered above]");
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
 
@@ -1276,6 +1385,8 @@ const APP_TOOL_HANDLERS: Record<
   "get-activity-segments-data": handleGetActivitySegmentsData,
   "view-training-load": handleViewTrainingLoad,
   "get-training-load-data": handleGetTrainingLoadData,
+  "view-activity-zones": handleViewActivityZones,
+  "get-activity-zones-data": handleGetActivityZonesData,
   "view-compare-activities": handleViewCompareActivities,
   "get-compare-activities-data": handleGetCompareActivitiesData,
 };
