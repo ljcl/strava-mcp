@@ -2,6 +2,7 @@ export {
   type AppMode,
   AppShell,
   type AppShellProps,
+  type DisplayModeApp,
   type HostRoot,
   type UseHostRootOptions,
   useHostRoot,

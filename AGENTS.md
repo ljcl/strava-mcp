@@ -156,6 +156,7 @@ The `view-activity-chart` tool renders an interactive Recharts chart in MCP-comp
 - Served as MCP resource at `ui://activity-chart/app.html`
 - Calls `get-activity-streams-raw` (app-only visibility) to fetch data after render
 - Supports heart rate, power, pace, altitude, cadence, and grade overlays
+- X-axis `Brush` zoom (#35): drag the handles (touch included) to zoom into a time/distance window; the window is controlled state joined to the memoized chart-tree deps (per #151 an uncontrolled Brush would reset whenever the tree rebuilds), so it survives preset/legend/smooth toggles. Recharts' brush internals are themed via `:global` selectors in the CSS module
 
 ## MCP App (Cadence Trends)
 
@@ -258,6 +259,7 @@ MCP Apps own their outer chrome, not the host:
 2. App wraps content in a card with background, border, border-radius, responsive padding:
    - Mobile `{ y: 16, x: 14 }`, desktop `{ y: 24, x: 20 }`, each plus `safeAreaInsets.*` via `calc()`
 3. Mobile adds `margin: 3` on the outer card. Claude iOS gives the iframe zero surrounding padding, so without the margin the card's border gets clipped at the iframe edge.
+4. Fullscreen (#35): `AppShell` owns the shared enter/exit-fullscreen toggle (top-right corner). It renders only when the app passes its connected `app` (each `AppContent` does) AND the host context advertises `fullscreen` in `availableDisplayModes` — no dead button on hosts without the capability. Mode state prefers `hostCtx.displayMode`, with the last `requestDisplayMode` result as a local echo for hosts that grant without re-sending context.
 
 ### Card width constraint
 

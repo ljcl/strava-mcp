@@ -1,5 +1,6 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
-import { AppShell } from "./AppShell";
+import { expect } from "storybook/test";
+import { AppShell, type DisplayModeApp } from "./AppShell";
 import { CardHeader } from "./CardHeader";
 import { EmptyState } from "./EmptyState";
 
@@ -73,4 +74,48 @@ export const DesktopWithSafeAreaInsets = meta.story({
       {content}
     </AppShell>
   ),
+});
+
+/** Grants every request, so the toggle's local echo drives the state. */
+const grantingApp: DisplayModeApp = {
+  requestDisplayMode: ({ mode }) => Promise.resolve({ mode }),
+};
+
+/**
+ * The fullscreen toggle (#35) renders only when the host advertises
+ * fullscreen in availableDisplayModes AND an app is connected; clicking it
+ * requests the mode and flips to an exit control on success.
+ */
+export const FullscreenCapableHost = meta.story({
+  render: () => (
+    <AppShell
+      hostCtx={{ availableDisplayModes: ["inline", "fullscreen"] }}
+      mode="desktop"
+      app={grantingApp}
+    >
+      {content}
+    </AppShell>
+  ),
+  play: async ({ canvas, userEvent }) => {
+    const enter = canvas.getByRole("button", { name: "Enter fullscreen" });
+    await expect(enter).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(enter);
+
+    const exit = await canvas.findByRole("button", { name: "Exit fullscreen" });
+    await expect(exit).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(exit);
+    await canvas.findByRole("button", { name: "Enter fullscreen" });
+  },
+});
+
+/** No availableDisplayModes from the host → no dead toggle. */
+export const HostWithoutFullscreen = meta.story({
+  render: () => (
+    <AppShell hostCtx={{}} mode="desktop" app={grantingApp}>
+      {content}
+    </AppShell>
+  ),
+  play: async ({ canvas }) => {
+    await expect(canvas.queryByRole("button")).toBeNull();
+  },
 });

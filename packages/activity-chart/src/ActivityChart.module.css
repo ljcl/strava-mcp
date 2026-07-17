@@ -52,3 +52,21 @@
 .activityChart[data-compact] .footerControls {
   justify-content: flex-start;
 }
+
+/* Brush (#35): theme Recharts' internals via CSS since the component only
+   exposes stroke/fill props for the frame, not the slide or travellers. */
+.brush :global(.recharts-brush-slide) {
+  fill: var(--color-text-tertiary);
+  fill-opacity: 0.16;
+}
+
+.brush :global(.recharts-brush-traveller) rect {
+  fill: var(--color-background-primary);
+  stroke: var(--color-border-secondary);
+}
+
+.brush :global(.recharts-brush-texts) {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  fill: var(--color-text-tertiary);
+}

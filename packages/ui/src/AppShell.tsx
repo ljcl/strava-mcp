@@ -1,10 +1,12 @@
 import {
   type App,
   type McpUiAppCapabilities,
+  type McpUiDisplayMode,
   type McpUiHostContext,
 } from "@modelcontextprotocol/ext-apps";
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
+import styles from "./AppShell.module.css";
 import { type HostCtx, useMobileMode } from "./useMobileMode";
 
 /** Layout mode every MCP App view switches on. */
@@ -22,6 +24,8 @@ function pickHostCtx(ctx: McpUiHostContext): HostCtx {
     safeAreaInsets: ctx.safeAreaInsets,
     deviceCapabilities: ctx.deviceCapabilities,
     userAgent: ctx.userAgent,
+    displayMode: ctx.displayMode,
+    availableDisplayModes: ctx.availableDisplayModes,
   };
 }
 
@@ -103,6 +107,8 @@ function cardStyle(hostCtx: HostCtx, mode: AppMode): CSSProperties {
 
   return {
     boxSizing: "border-box",
+    // Anchor for the absolutely-positioned fullscreen toggle.
+    position: "relative",
     // Always fill the iframe minus the outer margin so nothing inside
     // can force the card wider than the host viewport (the cause of
     // the horizontal scroll we saw on Claude iOS).
@@ -119,17 +125,96 @@ function cardStyle(hostCtx: HostCtx, mode: AppMode): CSSProperties {
   };
 }
 
+/**
+ * The one `App` method the fullscreen toggle needs, kept structural so
+ * stories and tests can pass a two-line fake instead of a connected app.
+ */
+export interface DisplayModeApp {
+  requestDisplayMode(params: {
+    mode: McpUiDisplayMode;
+  }): Promise<{ mode: McpUiDisplayMode }>;
+}
+
+const EXPAND_PATH = "M9 1h4v4M13 1L8.5 5.5M5 13H1V9M1 13l4.5-4.5";
+const COMPRESS_PATH = "M13 5H9V1M9 5l4.5-4.5M1 9h4v4M5 9L.5 13.5";
+
+interface FullscreenToggleProps {
+  app: DisplayModeApp;
+  hostCtx: HostCtx;
+}
+
+/**
+ * Enter/exit-fullscreen control (#35). The current mode prefers the host
+ * context (updated via hostcontextchanged); the local echo of the last
+ * `requestDisplayMode` result covers hosts that grant the request without
+ * re-sending context.
+ */
+function FullscreenToggle({ app, hostCtx }: FullscreenToggleProps) {
+  const [localMode, setLocalMode] = useState<McpUiDisplayMode | null>(null);
+  const displayMode = hostCtx.displayMode ?? localMode ?? "inline";
+  const isFullscreen = displayMode === "fullscreen";
+
+  const toggle = async () => {
+    const next: McpUiDisplayMode = isFullscreen ? "inline" : "fullscreen";
+    try {
+      const result = await app.requestDisplayMode({ mode: next });
+      setLocalMode(result.mode);
+    } catch {
+      // Host declined or errored; keep showing the current state.
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className={styles.fullscreenToggle}
+      aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      aria-pressed={isFullscreen}
+      onClick={toggle}
+    >
+      <svg
+        aria-hidden="true"
+        width="14"
+        height="14"
+        viewBox="0 0 14 14"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      >
+        <path d={isFullscreen ? COMPRESS_PATH : EXPAND_PATH} />
+      </svg>
+    </button>
+  );
+}
+
 export interface AppShellProps {
   hostCtx: HostCtx;
   mode: AppMode;
   children: ReactNode;
+  /**
+   * Connected app (or a `DisplayModeApp` fake). When provided AND the host
+   * advertises fullscreen in `availableDisplayModes`, the card renders the
+   * shared fullscreen toggle in its top-right corner.
+   */
+  app?: DisplayModeApp | null;
 }
 
 /**
  * Outer card shell shared by every MCP App. Wraps content in the bordered
  * card with safe-area-aware padding, outer margin, and width clamp that
- * the host chrome rules in CLAUDE.md depend on staying identical.
+ * the host chrome rules in CLAUDE.md depend on staying identical. With an
+ * `app` and a fullscreen-capable host it also owns the display-mode toggle,
+ * so every app gets the control at once.
  */
-export function AppShell({ hostCtx, mode, children }: AppShellProps) {
-  return <div style={cardStyle(hostCtx, mode)}>{children}</div>;
+export function AppShell({ hostCtx, mode, children, app }: AppShellProps) {
+  const canFullscreen =
+    app != null &&
+    (hostCtx.availableDisplayModes?.includes("fullscreen") ?? false);
+  return (
+    <div style={cardStyle(hostCtx, mode)}>
+      {canFullscreen && <FullscreenToggle app={app} hostCtx={hostCtx} />}
+      {children}
+    </div>
+  );
 }

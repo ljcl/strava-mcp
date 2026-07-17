@@ -137,3 +137,33 @@ export const MobileSwim = meta.story({
     ),
   ],
 });
+
+/**
+ * The x-axis brush (#35) renders with both travellers, and the zoom window
+ * survives a preset switch because the range is controlled state joined to
+ * the chart-tree memo deps (an uncontrolled Brush would reset to full range
+ * whenever the tree rebuilds).
+ */
+export const BrushZoom = meta.story({
+  args: {
+    data: toChartData(tempoRun),
+    meta: extractMeta(tempoRun),
+    laps: toLapData(tempoRun),
+  },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    // ResponsiveContainer needs a resize tick before the chart mounts.
+    await waitFor(() =>
+      expect(canvasElement.querySelector(".recharts-brush")).not.toBeNull(),
+    );
+    expect(
+      canvasElement.querySelectorAll(".recharts-brush-traveller"),
+    ).toHaveLength(2);
+
+    // Switching presets rebuilds the memoized tree; the brush must survive.
+    const formPill = canvas.getByRole("button", { name: "Form" });
+    await userEvent.click(formPill);
+    await waitFor(() =>
+      expect(canvasElement.querySelector(".recharts-brush")).not.toBeNull(),
+    );
+  },
+});
