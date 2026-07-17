@@ -58,6 +58,7 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
 | `get-aerobic-analysis` | Aerobic decoupling, efficiency factor, and intensity factor from HR + power/speed streams |
 | `get-training-load` | Training load summary with trend analysis |
+| `get-fitness-trend` | Fitness/fatigue/form (CTL/ATL/TSB) from relative effort, with rest projection |
 | `compare-activities` | Compare two running activities side-by-side |
 | `get-best-efforts` | Personal best efforts across all running activities |
 

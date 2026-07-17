@@ -218,6 +218,41 @@ export const AerobicAnalysisOutputSchema = z.object({
   warnings: z.array(z.string()),
 });
 
+// ---------- get-fitness-trend ----------
+const FitnessTrendDaySchema = z.object({
+  date: z.string().describe("ISO date YYYY-MM-DD the values were computed for"),
+  load: z.number().describe("Total relative effort recorded that day"),
+  ctl: z.number().describe("Chronic training load ('fitness'), 42-day EWA"),
+  atl: z.number().describe("Acute training load ('fatigue'), 7-day EWA"),
+  tsb: z.number().describe("Training stress balance ('form'): CTL − ATL"),
+});
+export const FitnessTrendOutputSchema = z.object({
+  period: z.object({
+    days: z.number().int(),
+    start_date: z.string(),
+    end_date: z.string(),
+  }),
+  current: FitnessTrendDaySchema.omit({ load: true }).nullable(),
+  trend: z
+    .object({
+      ctl_7d_delta: z.number(),
+      tsb_7d_delta: z.number(),
+    })
+    .nullable(),
+  flags: z.array(z.string()),
+  warnings: z.array(z.string()),
+  daily: z.array(FitnessTrendDaySchema),
+  projection: z
+    .array(FitnessTrendDaySchema)
+    .describe("Zero-load decay projection past end_date; empty if none"),
+  tsb_positive_date: z
+    .string()
+    .nullable()
+    .describe("First projected date TSB crosses ≥ 0, if projected"),
+  activities_included: z.number().int(),
+  activities_missing_load: z.number().int(),
+});
+
 // ---------- dev-only schema drift guard ----------
 export function warnOnSchemaDrift<T>(
   toolName: string,
