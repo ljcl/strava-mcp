@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.2](https://github.com/ljcl/strava-mcp/compare/v2.7.1...v2.7.2) (2026-07-18)
+
+
+### Bug Fixes
+
+* accept a bare numeric id for route-map and other id tools ([#224](https://github.com/ljcl/strava-mcp/issues/224)) ([6ae4f52](https://github.com/ljcl/strava-mcp/commit/6ae4f52a2e05357178ffc5a328e613abeb78186b))
+* build MCP app bundles before running server tests ([#226](https://github.com/ljcl/strava-mcp/issues/226)) ([0bb5d33](https://github.com/ljcl/strava-mcp/commit/0bb5d33c66229e0b67fbb2a3b4fff39fccd74055))
+
 ## [2.7.1](https://github.com/ljcl/strava-mcp/compare/v2.7.0...v2.7.1) (2026-07-18)
 
 
