@@ -56,8 +56,8 @@ interface RouteMapProps {
   data: RouteMapData;
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
-  /** Set false to force the offline grid view (stories/Chromatic — the
-   * basemap renders live tiles, which can't be snapshotted deterministically). */
+  /** Set false to force the offline grid view (stories — the basemap renders
+   * live tiles, which need the network and can't render deterministically). */
   basemapEnabled?: boolean;
 }
 

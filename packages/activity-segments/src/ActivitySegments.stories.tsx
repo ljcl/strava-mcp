@@ -22,10 +22,10 @@ export const Dark = meta.story({
 /**
  * Interaction test (#164): expanding a row is the densest layout in this app
  * (the detail grid with HR, cadence, power, max grade, and moving time), and
- * without a play function it never appears in any snapshot. Chromatic runs the
- * play function before snapshotting, so this story also owns the
- * expanded-state visual baseline. "Station Road Tempo" is the fixture effort
- * with device power, so every detail column renders.
+ * without a play function it never renders. The browser-mode story test runs
+ * the play function, so this story exercises the expanded state in a real DOM.
+ * "Station Road Tempo" is the fixture effort with device power, so every
+ * detail column renders.
  */
 export const ExpandedRow = meta.story({
   args: { data: defaultActivity, mode: "desktop" },

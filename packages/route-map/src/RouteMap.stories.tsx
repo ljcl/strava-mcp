@@ -15,9 +15,10 @@ import { RouteMap } from "./RouteMap";
 const meta = preview.meta({ component: RouteMap });
 
 /* The basemap is the app's default view, but it renders live OpenFreeMap
- * tiles which Chromatic cannot snapshot deterministically. The grid stories
- * pin `basemapEnabled: false` (exactly the app's tiles-unavailable fallback);
- * the two Basemap stories exercise the real default with snapshots disabled. */
+ * tiles that need the network and can't render deterministically. The grid
+ * stories pin `basemapEnabled: false` (exactly the app's tiles-unavailable
+ * fallback) so the browser-mode story tests stay hermetic; the two Basemap
+ * stories still exercise the real default view. */
 
 export const ActivityLoop = meta.story({
   args: { data: loopActivity, basemapEnabled: false },
@@ -36,7 +37,7 @@ export const DarkMetricColoredTrack = meta.story({
  * Interaction test (#164): switching the colour metric re-bins the track and
  * reformats the gradient scale legend. The scale's min/max labels use the
  * metric's own unit, so "bpm" appearing there is proof the heart-rate series
- * became active (and Chromatic snapshots the HR-coloured track).
+ * became active (and the browser-mode test exercises the HR-coloured track).
  */
 export const SwitchColorMetric = meta.story({
   args: { data: streamLoopActivity, basemapEnabled: false },
@@ -123,13 +124,12 @@ export const ToggleWaypoints = meta.story({
 
 export const Basemap = meta.story({
   args: { data: annotatedActivity },
-  parameters: { chromatic: { disableSnapshot: true } },
 });
 
 export const MobileBasemap = meta.story({
   args: { data: annotatedActivity, mode: "mobile" },
   globals: { viewport: { value: "claudeIosCard" } },
-  parameters: { layout: "fullscreen", chromatic: { disableSnapshot: true } },
+  parameters: { layout: "fullscreen" },
   decorators: [
     (StoryFn) => (
       <MobileCardShell>

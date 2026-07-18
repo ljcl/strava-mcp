@@ -41,10 +41,11 @@ export const DarkSteadyVsRace = meta.story({
  * Interaction test (#164): the metric pills swap which stream pair is
  * overlaid and the axis pills re-align the grid. The SVG <desc> narration is
  * rebuilt from the active metric, so "bpm" appearing there proves the
- * heart-rate overlay really rendered (and Chromatic snapshots that state).
+ * heart-rate overlay really rendered (and the browser-mode test exercises
+ * that state).
  */
 export const SwitchMetricAndAxis = meta.story({
-  // Interaction-only test: keep it runnable and snapshotted, but off the
+  // Interaction-only test: keep it a runnable browser-mode test, but off the
   // autodocs page where SteadyVsRace already shows the overlay.
   tags: ["!autodocs"],
   args: {
