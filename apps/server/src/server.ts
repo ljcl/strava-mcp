@@ -73,6 +73,17 @@ import { SERVER_VERSION } from "./version";
 const EMPTY_SCHEMA = { type: "object", properties: {}, required: [] } as const;
 
 /**
+ * Build the advertised JSON Schema for a tool's *input*. Uses zod's `io:
+ * "input"` projection so schemas that coerce their input (e.g. `stravaIdInput`,
+ * which accepts a digit string or a safe-integer number and normalises to a
+ * string) advertise the accepted input shape rather than throwing on the
+ * output-side transform. Output schemas keep the default (output) projection.
+ */
+function toInputSchema(schema: z.ZodType): Record<string, unknown> {
+  return z.toJSONSchema(schema, { io: "input" });
+}
+
+/**
  * Zod schemas for the MCP App tools (#107). Single source of truth: the
  * advertised JSON Schemas in buildToolDefs derive from these, and dispatch
  * validates every call against them, so a host omitting or mistyping an
@@ -311,7 +322,7 @@ function buildToolDefs(): ToolDef[] {
     const def: ToolDef = {
       name: t.name,
       description: t.description,
-      inputSchema: t.inputSchema ? z.toJSONSchema(t.inputSchema) : EMPTY_SCHEMA,
+      inputSchema: t.inputSchema ? toInputSchema(t.inputSchema) : EMPTY_SCHEMA,
     };
     if (t.annotations) def.annotations = t.annotations;
     if (t.outputSchema) def.outputSchema = z.toJSONSchema(t.outputSchema);
@@ -324,7 +335,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open an interactive chart of one activity with selectable heart rate, power, pace, altitude, cadence, and grade overlays. " +
       "Prefer this over a text summary when the user wants to see or explore how metrics change over the course of an activity. Takes the activity id.",
-    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-activity-chart"]!),
+    inputSchema: toInputSchema(APP_TOOL_INPUT_SCHEMAS["view-activity-chart"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://activity-chart/app.html" },
@@ -336,7 +347,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the activity chart UI: returns raw per-sample arrays (time, heartrate, watts, velocity_smooth, altitude, cadence, grade_smooth, distance) as JSON for one activity. " +
       "The view-activity-chart app calls this; not intended for direct model use.",
-    inputSchema: z.toJSONSchema(
+    inputSchema: toInputSchema(
       APP_TOOL_INPUT_SCHEMAS["get-activity-streams-raw"]!,
     ),
     annotations: READ_ONLY,
@@ -353,7 +364,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open an interactive cadence dashboard across recent runs: trend timeline, cadence-versus-pace scatter, pace-zone breakdown, and per-run overlay comparison. " +
       "Prefer this over text when the user wants to explore cadence patterns over time. Takes a number of weeks of history.",
-    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-cadence-trends"]!),
+    inputSchema: toInputSchema(APP_TOOL_INPUT_SCHEMAS["view-cadence-trends"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://cadence-trends/app.html" },
@@ -365,7 +376,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the cadence-trends UI: returns per-run summary cadence and pace for recent running activities as JSON. " +
       "The view-cadence-trends app calls this; not intended for direct model use.",
-    inputSchema: z.toJSONSchema(
+    inputSchema: toInputSchema(
       APP_TOOL_INPUT_SCHEMAS["get-cadence-trend-data"]!,
     ),
     annotations: READ_ONLY,
@@ -383,7 +394,7 @@ function buildToolDefs(): ToolDef[] {
       "Open an interactive map of one activity's or saved route's GPS track, fit to bounds with start and finish markers and a distance/elevation summary. " +
       "Prefer this over a text summary when the user wants to see where an activity or route went. Takes either an activity_id or a route_id (provide exactly one). " +
       "Optionally pin distance-anchored waypoints (fueling points, climb warnings, …) along the track via the waypoints array — useful when discussing a race plan or course guide.",
-    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-route-map"]!),
+    inputSchema: toInputSchema(APP_TOOL_INPUT_SCHEMAS["view-route-map"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://route-map/app.html" },
@@ -396,7 +407,7 @@ function buildToolDefs(): ToolDef[] {
       "Internal data feed for the route-map UI: returns decoded [lat, lng] coordinates plus start/end points, distance, elevation gain, and (for activities with GPS streams) index-aligned metric streams (time, distance, altitude, heartrate, watts, velocity_smooth, grade_smooth) " +
       "and annotation anchors (lap boundaries, segment-effort spans with PR/top-10 flags, geotagged photos, caller-supplied distance-anchored waypoints) for one activity or route as JSON. " +
       "The view-route-map app calls this; not intended for direct model use.",
-    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["get-route-map-data"]!),
+    inputSchema: toInputSchema(APP_TOOL_INPUT_SCHEMAS["get-route-map-data"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: {
@@ -411,7 +422,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open a prioritised, scrollable list of the segments run in one activity: your PRs and top-10s pinned on top, then every segment in run order, each with pace, grade, and expandable heart-rate, cadence, and power detail. " +
       "Prefer this over text when the user wants to review the segments in a workout. Takes the activity id.",
-    inputSchema: z.toJSONSchema(
+    inputSchema: toInputSchema(
       APP_TOOL_INPUT_SCHEMAS["view-activity-segments"]!,
     ),
     annotations: READ_ONLY,
@@ -425,7 +436,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the activity-segments UI: returns the activity's segment efforts (name, time, distance, grade, climb category, PR/top-10 ranks, HR, power, cadence) as JSON. " +
       "The view-activity-segments app calls this; not intended for direct model use.",
-    inputSchema: z.toJSONSchema(
+    inputSchema: toInputSchema(
       APP_TOOL_INPUT_SCHEMAS["get-activity-segments-data"]!,
     ),
     annotations: READ_ONLY,
@@ -442,7 +453,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open an interactive training-load chart: weekly running volume bars with a rolling trend line, and injury-risk warning weeks highlighted with their reason on hover. " +
       "Prefer this over text when the user wants to see how their training volume is trending. Takes a number of days of history.",
-    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-training-load"]!),
+    inputSchema: toInputSchema(APP_TOOL_INPUT_SCHEMAS["view-training-load"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://training-load/app.html" },
@@ -454,7 +465,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the training-load UI: returns per-week running volume (distance, runs, time, elevation), a rolling trend value, and injury-risk warning flags with reasons as JSON. " +
       "The view-training-load app calls this; not intended for direct model use.",
-    inputSchema: z.toJSONSchema(
+    inputSchema: toInputSchema(
       APP_TOOL_INPUT_SCHEMAS["get-training-load-data"]!,
     ),
     annotations: READ_ONLY,
@@ -471,7 +482,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open an interactive time-in-zone chart for one activity: bars for the time spent in each heart rate and power zone, with percentages and an easy/moderate/hard split. " +
       "Prefer this over the text-only get-activity-zones when the user wants to see how a workout's effort was distributed. Takes the activity id.",
-    inputSchema: z.toJSONSchema(APP_TOOL_INPUT_SCHEMAS["view-activity-zones"]!),
+    inputSchema: toInputSchema(APP_TOOL_INPUT_SCHEMAS["view-activity-zones"]!),
     annotations: READ_ONLY,
     _meta: {
       ui: { resourceUri: "ui://activity-zones/app.html" },
@@ -483,7 +494,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the activity-zones UI: returns per-zone time distributions (bucket bounds, seconds, percentages) for the activity's heart rate and power zones as JSON. " +
       "The view-activity-zones app calls this; not intended for direct model use.",
-    inputSchema: z.toJSONSchema(
+    inputSchema: toInputSchema(
       APP_TOOL_INPUT_SCHEMAS["get-activity-zones-data"]!,
     ),
     annotations: READ_ONLY,
@@ -500,7 +511,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Open an interactive side-by-side overlay of two activities: their pace, heart rate, power, cadence, or altitude streams aligned on a shared distance or time axis, with an aggregate delta summary. " +
       "Prefer this over the text-only compare-activities when the user wants to see WHERE in the activities the difference happened. Takes both activity ids.",
-    inputSchema: z.toJSONSchema(
+    inputSchema: toInputSchema(
       APP_TOOL_INPUT_SCHEMAS["view-compare-activities"]!,
     ),
     annotations: READ_ONLY,
@@ -514,7 +525,7 @@ function buildToolDefs(): ToolDef[] {
     description:
       "Internal data feed for the compare-activities UI: returns the aggregate comparison (per-activity summaries, activity2−activity1 differences, efficiency analysis) as JSON. " +
       "The view-compare-activities app calls this alongside get-activity-streams-raw; not intended for direct model use.",
-    inputSchema: z.toJSONSchema(
+    inputSchema: toInputSchema(
       APP_TOOL_INPUT_SCHEMAS["get-compare-activities-data"]!,
     ),
     annotations: READ_ONLY,

@@ -14,10 +14,21 @@ describe("stravaIdInput", () => {
     expect(schema.parse(big)).toBe(big);
   });
 
-  it("rejects a bare number so hosts cannot take a precision-losing branch", () => {
-    // A JSON number is the path where JSON.parse rounds oversized ids before
-    // validation; the schema must not advertise or accept it.
-    expect(() => schema.parse(12345)).toThrow();
+  it("accepts a bare safe-integer number and coerces it to a digit string", () => {
+    // Route and activity ids sit well below 2^53, so a host or model sending
+    // `route_id: 12345` must not be trapped in the string-only failure path.
+    expect(schema.parse(12345)).toBe("12345");
+  });
+
+  it("rejects a number that is not a safe integer so oversized ids cannot be silently corrupted", () => {
+    // Such a value has already been rounded by the host's JSON.parse before
+    // validation runs; failing loudly steers the caller to the string form.
+    expect(() => schema.parse(Number.MAX_SAFE_INTEGER + 1)).toThrow();
+  });
+
+  it("rejects non-integer and negative numbers", () => {
+    expect(() => schema.parse(12.5)).toThrow();
+    expect(() => schema.parse(-5)).toThrow();
   });
 
   it("rejects non-digit strings", () => {
@@ -26,14 +37,19 @@ describe("stravaIdInput", () => {
     expect(() => schema.parse("-5")).toThrow();
   });
 
-  it("advertises a string-only JSON schema with no integer branch", () => {
-    const json = z.toJSONSchema(schema) as {
+  it("advertises both a string and a number branch in the JSON schema", () => {
+    // The server advertises input schemas with `io: "input"` so the accepted
+    // (pre-coercion) shape is what hosts see.
+    const json = z.toJSONSchema(schema, { io: "input" }) as {
       type?: string;
-      anyOf?: unknown[];
-      pattern?: string;
+      anyOf?: Array<{ type?: string; pattern?: string }>;
     };
-    expect(json.type).toBe("string");
-    expect(json.anyOf).toBeUndefined();
-    expect(json.pattern).toBe("^\\d+$");
+    expect(json.anyOf).toBeDefined();
+    const stringBranch = json.anyOf?.find((b) => b.type === "string");
+    const numberBranch = json.anyOf?.find(
+      (b) => b.type === "number" || b.type === "integer",
+    );
+    expect(stringBranch?.pattern).toBe("^\\d+$");
+    expect(numberBranch).toBeDefined();
   });
 });
