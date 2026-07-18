@@ -196,3 +196,40 @@ jobs:
 
       - name: Inspect image
         run: docker buildx imagetools inspect ${{ env.REGISTRY_IMAGE }}:${{ steps.meta.outputs.version }}
+
+      # Record what shipped in the run summary: the tags applied and, per
+      # architecture, the manifest digest and compressed (download) size — the
+      # sum of the config blob and layer sizes from each arch manifest.
+      # Attestation manifests (platform os/arch "unknown") are filtered out.
+      - name: Image summary
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          ref="$REGISTRY_IMAGE:$VERSION"
+          {
+            echo "## Docker image"
+            echo ""
+            echo "Published \`$ref\`"
+            echo ""
+            echo "**Tags**"
+            while IFS= read -r tag; do
+              [ -n "$tag" ] && echo "- \`$tag\`"
+            done <<< "$TAGS"
+            echo ""
+            echo "| Platform | Digest | Compressed size |"
+            echo "| -------- | ------ | --------------- |"
+            docker buildx imagetools inspect "$ref" --raw \
+              | jq -r '.manifests[]
+                  | select(.platform.os != "unknown")
+                  | [.platform.os + "/" + .platform.architecture, .digest]
+                  | @tsv' \
+              | while IFS=$'\t' read -r platform digest; do
+                  bytes="$(docker buildx imagetools inspect "$REGISTRY_IMAGE@$digest" --raw \
+                    | jq '[.config.size] + [.layers[].size] | add')"
+                  human="$(numfmt --to=iec --suffix=B "$bytes")"
+                  short="${digest#sha256:}"
+                  echo "| $platform | \`${short:0:12}…\` | $human |"
+                done
+          } >> "$GITHUB_STEP_SUMMARY"

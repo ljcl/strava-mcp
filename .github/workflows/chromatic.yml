@@ -46,6 +46,7 @@ jobs:
         run: bun run build-storybook
 
       - name: Publish to Chromatic
+        id: chromatic
         uses: chromaui/action@94713c544284a14195de3b50ef24301579f1877e # v18.0.1
         with:
           projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
@@ -64,3 +65,26 @@ jobs:
           # Advance the baseline automatically once changes land on main, so PRs
           # only show diffs introduced by that PR.
           autoAcceptChanges: main
+
+      # Surface the hosted-Storybook and visual-diff links in the run summary so
+      # a reviewer reaches them without opening the check's external details.
+      # Runs even when the action reports visual changes (exitZeroOnChanges).
+      - name: Chromatic summary
+        if: ${{ !cancelled() }}
+        env:
+          STORYBOOK_URL: ${{ steps.chromatic.outputs.storybookUrl }}
+          BUILD_URL: ${{ steps.chromatic.outputs.buildUrl }}
+          COMPONENTS: ${{ steps.chromatic.outputs.componentCount }}
+          CHANGES: ${{ steps.chromatic.outputs.changeCount }}
+          ERRORS: ${{ steps.chromatic.outputs.errorCount }}
+        run: |
+          {
+            echo "## Storybook (Chromatic)"
+            echo ""
+            [ -n "$STORYBOOK_URL" ] && echo "- 📖 [Hosted Storybook for this branch]($STORYBOOK_URL)"
+            [ -n "$BUILD_URL" ] && echo "- 🔍 [Visual diffs]($BUILD_URL)"
+            echo ""
+            echo "| Components | Visual changes | Errors |"
+            echo "| ---------- | -------------- | ------ |"
+            echo "| ${COMPONENTS:-–} | ${CHANGES:-0} | ${ERRORS:-0} |"
+          } >> "$GITHUB_STEP_SUMMARY"
