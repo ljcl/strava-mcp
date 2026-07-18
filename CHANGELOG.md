@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.7.1](https://github.com/ljcl/strava-mcp/compare/v2.7.0...v2.7.1) (2026-07-18)
+
+
+### Bug Fixes
+
+* carry seconds rollover in pace formatting ([#216](https://github.com/ljcl/strava-mcp/issues/216)) ([06cd4bb](https://github.com/ljcl/strava-mcp/commit/06cd4bbb1a19e7db65a1c9dcbaea09e3cc895d94)), closes [#214](https://github.com/ljcl/strava-mcp/issues/214)
+* clear Biome check warnings ([#221](https://github.com/ljcl/strava-mcp/issues/221)) ([3ce4754](https://github.com/ljcl/strava-mcp/commit/3ce4754012a95221cc8850e8782a8ce29695baa3))
+* double running cadence to spm in activity-segments app ([#218](https://github.com/ljcl/strava-mcp/issues/218)) ([622241a](https://github.com/ljcl/strava-mcp/commit/622241aa263240bcb286354f3ae4b9f1c3656450)), closes [#212](https://github.com/ljcl/strava-mcp/issues/212)
+* exclude power dropout samples from hill/interval segment power averages ([#219](https://github.com/ljcl/strava-mcp/issues/219)) ([1bde60a](https://github.com/ljcl/strava-mcp/commit/1bde60a253925d4d13178cc2fb69366dda7c8a5c)), closes [#213](https://github.com/ljcl/strava-mcp/issues/213)
+* make stravaIdInput string-only so oversized ids round-trip losslessly ([45a261f](https://github.com/ljcl/strava-mcp/commit/45a261fae22cb3ec91c838b17b67dfa2cd690fe7))
+* make view/app tool IDs string-only to accept Strava IDs above 2^53 ([#220](https://github.com/ljcl/strava-mcp/issues/220)) ([45a261f](https://github.com/ljcl/strava-mcp/commit/45a261fae22cb3ec91c838b17b67dfa2cd690fe7))
+
 ## [2.7.0](https://github.com/ljcl/strava-mcp/compare/v2.6.0...v2.7.0) (2026-07-18)
 
 
