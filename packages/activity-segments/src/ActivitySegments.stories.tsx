@@ -40,7 +40,7 @@ export const ExpandedRow = meta.story({
     // The full detail grid for the expanded effort: HR, cadence (spm for a
     // run), device power, max grade, and moving time.
     await expect(await canvas.findByText("170/179")).toBeVisible();
-    await expect(canvas.getByText("90 spm")).toBeVisible();
+    await expect(canvas.getByText("180 spm")).toBeVisible();
     await expect(canvas.getByText("312 W")).toBeVisible();
     await expect(canvas.getByText("1.6%")).toBeVisible();
     await expect(canvas.getByText("3:04")).toBeVisible();

@@ -174,6 +174,8 @@ function Row({ rowId, effort, domain, activityType, onOpenChange }: RowProps) {
     });
   }
   if (effort.averageCadence != null) {
+    // averageCadence is already steps-per-minute for running (doubled
+    // server-side in mapActivitySegments); cycling stays raw revolutions.
     details.push({
       label: "Cadence",
       value: `${Math.round(effort.averageCadence)} ${running ? "spm" : "rpm"}`,

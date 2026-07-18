@@ -137,10 +137,41 @@ describe("mapActivitySegments", () => {
     expect(row.maxHeartrate).toBe(178);
     expect(row.averageWatts).toBe(290);
     expect(row.deviceWatts).toBe(true);
-    expect(row.averageCadence).toBe(88);
+    // Running cadence is doubled to steps-per-minute for display.
+    expect(row.averageCadence).toBe(176);
     expect(row.averageGrade).toBe(4.2);
     expect(row.maximumGrade).toBe(9.1);
     expect(row.climbCategory).toBe(3);
+  });
+
+  it("doubles running cadence to spm but leaves cycling cadence raw", () => {
+    const run = mapActivitySegments(
+      fakeActivity({
+        type: "Run",
+        sport_type: "Run",
+        segment_efforts: [effort({ average_cadence: 88 })],
+      }),
+    );
+    expect(run.segments[0]!.averageCadence).toBe(176);
+
+    const ride = mapActivitySegments(
+      fakeActivity({
+        type: "Ride",
+        sport_type: "Ride",
+        segment_efforts: [effort({ average_cadence: 88 })],
+      }),
+    );
+    expect(ride.segments[0]!.averageCadence).toBe(88);
+  });
+
+  it("leaves null cadence null even for running activities", () => {
+    const run = mapActivitySegments(
+      fakeActivity({
+        type: "Run",
+        segment_efforts: [effort({ average_cadence: null })],
+      }),
+    );
+    expect(run.segments[0]!.averageCadence).toBeNull();
   });
 
   it("stringifies the segment id and falls back to empty when missing", () => {

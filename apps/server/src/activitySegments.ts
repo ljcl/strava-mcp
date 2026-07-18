@@ -1,4 +1,5 @@
 import { type StravaDetailedActivity } from "./stravaClient";
+import { isRunningActivity } from "./utils/running";
 
 /**
  * One segment effort flattened for the activity-segments app. Mirrors
@@ -39,10 +40,16 @@ export interface ActivitySegmentsData {
  * Sorted ascending by `start_index` so segments appear in run order; efforts
  * without a start index sink to the end. Null metrics pass through untouched so
  * the app can render "no data" rather than a misleading zero.
+ *
+ * Running `averageCadence` is doubled to steps-per-minute here (Strava records
+ * running cadence as one-leg strides/min), so the app renders the same `spm`
+ * figure as the rest of the codebase. Cycling and other sports stay raw (rpm).
  */
 export function mapActivitySegments(
   activity: StravaDetailedActivity,
 ): ActivitySegmentsData {
+  const activityType = activity.type ?? activity.sport_type ?? null;
+  const doublesCadence = activityType ? isRunningActivity(activityType) : false;
   const efforts = activity.segment_efforts ?? [];
   const segments: ActivitySegmentRow[] = efforts
     .map((e) => ({
@@ -60,7 +67,12 @@ export function mapActivitySegments(
       maxHeartrate: e.max_heartrate ?? null,
       averageWatts: e.average_watts ?? null,
       deviceWatts: e.device_watts ?? null,
-      averageCadence: e.average_cadence ?? null,
+      averageCadence:
+        e.average_cadence == null
+          ? null
+          : doublesCadence
+            ? e.average_cadence * 2
+            : e.average_cadence,
       startIndex: e.start_index ?? null,
     }))
     .sort(
@@ -72,7 +84,7 @@ export function mapActivitySegments(
   return {
     id: String(activity.id),
     name: activity.name,
-    activityType: activity.type ?? activity.sport_type ?? null,
+    activityType,
     startDateLocal: activity.start_date_local ?? "",
     segments,
   };
