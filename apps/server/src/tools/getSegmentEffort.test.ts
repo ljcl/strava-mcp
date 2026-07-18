@@ -40,11 +40,14 @@ describe("get-segment-effort input schema", () => {
     }
   });
 
-  it("rejects a bare number id (string-only schema, no integer branch)", () => {
-    // The schema no longer advertises an integer branch, so a host cannot send
-    // the id as a JSON number — the path where JSON.parse rounds oversized ids.
+  it("accepts a bare safe-integer number id and coerces it to a digit string", () => {
+    // A host sending the id as a plain JSON number is no longer trapped, as long
+    // as the value is a safe integer (below 2^53, where no rounding occurs).
     const result = schema.safeParse({ effortId: 123456789 });
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.effortId).toBe("123456789");
+    }
   });
 
   it("rejects a number id above 2^53 instead of fetching a rounded id", () => {
