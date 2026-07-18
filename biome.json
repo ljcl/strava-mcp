@@ -70,6 +70,11 @@
       "indentWidth": 2
     }
   },
+  "css": {
+    "formatter": {
+      "enabled": true
+    }
+  },
   "assist": {
     "enabled": true,
     "actions": {
