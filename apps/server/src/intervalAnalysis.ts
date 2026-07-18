@@ -61,6 +61,12 @@ export const MAX_SAMPLE_GAP_SECONDS = 10;
 export const CLEAN_LAP_SPEED_COV = 0.08;
 /** Share of moving time near max HR that reads as a hard workout. */
 export const HR_HIGH_INTENSITY_SHARE = 0.15;
+/**
+ * Minimum fraction of a rep's moving time that must carry a real (non-zero)
+ * power sample before an average is reported; below this the power stream is
+ * too gappy to summarise and the field is omitted (#213).
+ */
+export const POWER_COVERAGE_MIN = 0.7;
 
 export type RestKind =
   | "traffic_light"
@@ -170,8 +176,10 @@ function aggregate(
       agg.cadSum += cad * weight;
       agg.cadW += weight;
     }
+    // Run power of exactly 0 while moving is a stream dropout, not a real
+    // observation; including it drags the average toward zero (#213).
     const w = watts?.[i];
-    if (w != null) {
+    if (w != null && w > 0) {
       agg.wattsSum += w * weight;
       agg.wattsW += weight;
     }
@@ -212,7 +220,14 @@ function toRep(
     paceSecPerKm: speed > 0 ? Math.round(1000 / speed) : null,
     avgHr: agg.hrW > 0 ? round(agg.hrSum / agg.hrW, 0) : null,
     avgCadence: agg.cadW > 0 ? round(agg.cadSum / agg.cadW, 1) : null,
-    avgWatts: agg.wattsW > 0 ? round(agg.wattsSum / agg.wattsW, 0) : null,
+    // Omit power when coverage is too thin to be meaningful — a rep sitting in
+    // a power-stream gap should report no power, not a skewed one (#213).
+    avgWatts:
+      agg.wattsW > 0 &&
+      agg.movingTimeS > 0 &&
+      agg.wattsW / agg.movingTimeS >= POWER_COVERAGE_MIN
+        ? round(agg.wattsSum / agg.wattsW, 0)
+        : null,
   };
 }
 
