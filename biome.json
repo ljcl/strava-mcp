@@ -3,7 +3,8 @@
   "vcs": {
     "enabled": true,
     "clientKind": "git",
-    "useIgnoreFile": true
+    "useIgnoreFile": true,
+    "defaultBranch": "main"
   },
   "files": {
     "ignoreUnknown": false,
@@ -24,6 +25,11 @@
   },
   "linter": {
     "enabled": true,
+    "domains": {
+      "react": "recommended",
+      "test": "recommended",
+      "turborepo": "recommended"
+    },
     "rules": {
       "preset": "recommended",
       "suspicious": {
@@ -62,6 +68,11 @@
       "enabled": true,
       "trailingCommas": "none",
       "indentWidth": 2
+    }
+  },
+  "css": {
+    "formatter": {
+      "enabled": true
     }
   },
   "assist": {
