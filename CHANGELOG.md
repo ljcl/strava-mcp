@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.7.0](https://github.com/ljcl/strava-mcp/compare/v2.6.0...v2.7.0) (2026-07-18)
+
+
+### Features
+
+* add Storybook autodocs and docs pages ([#210](https://github.com/ljcl/strava-mcp/issues/210)) ([5bdd2a5](https://github.com/ljcl/strava-mcp/commit/5bdd2a57751a5a2dab8833dfb46068f93514ae19))
+
+
+### Bug Fixes
+
+* **mcp-app:** stop activity-chart lap labels overlapping ([#209](https://github.com/ljcl/strava-mcp/issues/209)) ([1b03943](https://github.com/ljcl/strava-mcp/commit/1b03943f10aaa00462d5a234b66007136089d381))
+
 ## [2.6.0](https://github.com/ljcl/strava-mcp/compare/v2.5.0...v2.6.0) (2026-07-17)
 
 
