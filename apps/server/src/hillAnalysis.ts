@@ -50,6 +50,12 @@ export const CLIMB_MIN_AVG_GRADE_PCT = 2;
 export const GRADE_WINDOW_M = 30;
 /** Sample gaps longer than this contribute only this much weight. */
 export const MAX_SAMPLE_GAP_SECONDS = 10;
+/**
+ * Minimum fraction of a segment's moving time that must carry a real
+ * (non-zero) power sample before an average is reported. Below this, the
+ * power stream is too gappy to summarise and the field is omitted (#213).
+ */
+export const POWER_COVERAGE_MIN = 0.7;
 
 export interface HillSegment {
   /** Kilometre mark where the segment starts. */
@@ -252,8 +258,10 @@ function summarizeSegment(
       cadSum += cad * weight;
       cadW += weight;
     }
+    // Run power of exactly 0 while moving is a stream dropout, not a real
+    // observation; including it drags the average toward zero (#213).
     const w = watts?.[i];
-    if (w != null) {
+    if (w != null && w > 0) {
       wattsSum += w * weight;
       wattsW += weight;
     }
@@ -287,7 +295,14 @@ function summarizeSegment(
     gapPaceSecPerKm: gapSpeed > 0 ? Math.round(1000 / gapSpeed) : null,
     avgHr: avgHr != null ? round(avgHr, 0) : null,
     avgCadence: cadW > 0 ? round(cadSum / cadW, 1) : null,
-    avgWatts: wattsW > 0 ? round(wattsSum / wattsW, 0) : null,
+    // Omit power when coverage is too thin to be meaningful — a segment sitting
+    // in a power-stream gap should report no power, not a skewed one (#213).
+    avgWatts:
+      wattsW > 0 &&
+      movingTimeS > 0 &&
+      wattsW / movingTimeS >= POWER_COVERAGE_MIN
+        ? round(wattsSum / wattsW, 0)
+        : null,
     hrPerGapSpeed:
       avgHr != null && gapSpeed > 0 ? round(avgHr / gapSpeed, 2) : null,
   };

@@ -58,6 +58,7 @@ function buildStreams(legs: Leg[]): HillStreams {
     heartrate: hr,
     velocity_smooth: velocity,
     cadence,
+    watts,
     moving,
   };
 }
@@ -258,5 +259,52 @@ describe("computeHillAnalysis", () => {
     expect(() =>
       computeHillAnalysis({ time: [0, 1], distance: [] as number[] }),
     ).toThrow(HillAnalysisError);
+  });
+
+  describe("segment power (#213)", () => {
+    it("reports power for a climb with full coverage", () => {
+      const analysis = computeHillAnalysis(
+        buildStreams([flat(1000), climb(500, { watts: 250 }), flat(1000)]),
+      );
+      expect(analysis.climbs).toHaveLength(1);
+      expect(analysis.climbs[0]!.avgWatts).toBeCloseTo(250, 0);
+    });
+
+    it("excludes zero-watt dropout samples from the average", () => {
+      const streams = buildStreams([
+        flat(1000),
+        climb(500, { watts: 250 }),
+        flat(1000),
+      ]);
+      // Drop out a quarter of the climb's power to 0 (still >70% coverage).
+      const watts = streams.watts!;
+      const zeroStart = Math.floor(watts.length * 0.44);
+      const zeroEnd = Math.floor(watts.length * 0.5);
+      for (let i = zeroStart; i < zeroEnd; i++) watts[i] = 0;
+      const analysis = computeHillAnalysis(streams);
+      // The surviving samples are all 250 W, so the average must stay ~250,
+      // not be dragged toward zero by the dropout.
+      expect(analysis.climbs[0]!.avgWatts).toBeCloseTo(250, 0);
+    });
+
+    it("omits power when coverage is too thin", () => {
+      const streams = buildStreams([
+        flat(1000),
+        climb(500, { watts: 250 }),
+        flat(1000),
+      ]);
+      // Zero out the whole climb's power (a full stream-gap segment).
+      const watts = streams.watts!;
+      for (let i = 0; i < watts.length; i++) watts[i] = 0;
+      const analysis = computeHillAnalysis(streams);
+      expect(analysis.climbs[0]!.avgWatts).toBeNull();
+    });
+
+    it("leaves power absent when there is no watts stream", () => {
+      const streams = buildStreams([flat(1000), climb(500), flat(1000)]);
+      streams.watts = undefined;
+      const analysis = computeHillAnalysis(streams);
+      expect(analysis.climbs[0]!.avgWatts).toBeNull();
+    });
   });
 });

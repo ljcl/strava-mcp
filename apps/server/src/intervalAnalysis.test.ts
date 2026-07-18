@@ -21,6 +21,7 @@ interface Leg {
   speedMs: number;
   hr?: number;
   cadence?: number;
+  watts?: number;
   moving?: boolean;
 }
 
@@ -30,6 +31,7 @@ function buildStreams(legs: Leg[]): IntervalStreams {
   const hr: number[] = [legs[0]?.hr ?? 0];
   const velocity: number[] = [legs[0]?.speedMs ?? 0];
   const cadence: number[] = [legs[0]?.cadence ?? 0];
+  const watts: number[] = [legs[0]?.watts ?? 0];
   const moving: boolean[] = [legs[0]?.moving ?? legs[0]!.speedMs > 0.3];
   for (const leg of legs) {
     for (let s = 0; s < leg.seconds; s++) {
@@ -38,6 +40,7 @@ function buildStreams(legs: Leg[]): IntervalStreams {
       hr.push(leg.hr ?? 0);
       velocity.push(leg.speedMs);
       cadence.push(leg.cadence ?? 0);
+      watts.push(leg.watts ?? 0);
       moving.push(leg.moving ?? leg.speedMs > 0.3);
     }
   }
@@ -47,6 +50,7 @@ function buildStreams(legs: Leg[]): IntervalStreams {
     heartrate: hr,
     velocity_smooth: velocity,
     cadence,
+    watts,
     moving,
   };
 }
@@ -175,6 +179,48 @@ describe("computeIntervalAnalysis — stream path", () => {
     expect(analysis.fade!.summary).toContain("rep 4 was");
     expect(analysis.fade!.summary).toContain("slower");
     expect(analysis.fade!.summary).toContain("higher HR");
+  });
+
+  it("reports per-rep power and excludes zero-watt dropouts (#213)", () => {
+    const streams = buildStreams([
+      easy(600),
+      stop(30),
+      work(190, { watts: 260 }),
+      stop(90),
+      work(190, { watts: 260 }),
+      stop(90),
+      work(190, { watts: 260 }),
+      stop(90),
+      easy(400),
+    ]);
+    // Drop out every 5th sample to 0 (~20% dropout, coverage stays >70%).
+    for (let i = 0; i < streams.watts!.length; i += 5) streams.watts![i] = 0;
+    const analysis = computeIntervalAnalysis(streams);
+    expect(analysis.reps.length).toBeGreaterThanOrEqual(3);
+    // Surviving samples are all 260 W; the dropouts must not drag the average.
+    for (const rep of analysis.reps) {
+      expect(rep.avgWatts).toBeCloseTo(260, 0);
+    }
+  });
+
+  it("omits per-rep power when a rep sits in a power gap (#213)", () => {
+    const analysis = computeIntervalAnalysis(
+      buildStreams([
+        easy(600),
+        stop(30),
+        work(190, { watts: 260 }),
+        stop(90),
+        work(190, { watts: 0 }), // full power dropout on this rep
+        stop(90),
+        work(190, { watts: 260 }),
+        stop(90),
+        easy(400),
+      ]),
+    );
+    expect(analysis.reps).toHaveLength(3);
+    expect(analysis.reps[0]!.avgWatts).toBeCloseTo(260, 0);
+    expect(analysis.reps[1]!.avgWatts).toBeNull();
+    expect(analysis.reps[2]!.avgWatts).toBeCloseTo(260, 0);
   });
 
   it("merges easy running across a traffic light instead of splitting", () => {
