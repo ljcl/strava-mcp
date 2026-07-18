@@ -144,6 +144,62 @@ export const MobileSwim = meta.story({
  * the chart-tree memo deps (an uncontrolled Brush would reset to full range
  * whenever the tree rebuilds).
  */
+/**
+ * Overlap avoidance: a workout with many short back-to-back reps used to stack
+ * its lap labels into an unreadable smear (labels sit at each band's top-left,
+ * so contiguous narrow bands crowd their neighbours). `selectLapLabels` now
+ * drops labels that can't clear the previous one, so only a legible subset
+ * renders. Shown in the narrow mobile card, where a 16-band interval workout
+ * cannot fit every label; the play test asserts the dense run is thinned.
+ */
+const denseLaps = Array.from({ length: 16 }, (_, i) => {
+  const start = i * 195;
+  return {
+    name: i % 2 === 0 ? `Rep ${i / 2 + 1}` : "Recovery",
+    startTime: start,
+    endTime: start + 195,
+    startDistance: 0,
+    endDistance: 0,
+    isRest: i % 2 === 1,
+  };
+});
+
+export const DenseIntervalLabels = meta.story({
+  args: {
+    data: toChartData(tempoRun),
+    meta: extractMeta(tempoRun),
+    laps: denseLaps,
+    layout: mobileLayout,
+    mode: "mobile",
+  },
+  globals: {
+    viewport: { value: "claudeIosCard" },
+  },
+  parameters: { layout: "fullscreen" },
+  decorators: [
+    (StoryFn) => (
+      <MobileCardShell>
+        <StoryFn />
+      </MobileCardShell>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelector(".recharts-reference-area"),
+      ).not.toBeNull(),
+    );
+    // Band labels render as recharts-label <text> nodes carrying the lap name.
+    const drawn = [
+      ...canvasElement.querySelectorAll("text.recharts-label"),
+    ].filter((el) => /Rep|Recovery/.test(el.textContent ?? ""));
+    // Not every one of the 16 bands can label itself at 360px wide, so the
+    // dense run is thinned rather than stacked into an unreadable smear.
+    expect(drawn.length).toBeGreaterThan(0);
+    expect(drawn.length).toBeLessThan(denseLaps.length);
+  },
+});
+
 export const BrushZoom = meta.story({
   args: {
     data: toChartData(tempoRun),
