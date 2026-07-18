@@ -82,11 +82,11 @@ describe("getAthleteStatsTool.execute", () => {
   it("uses an explicit athleteId without resolving the authenticated athlete", async () => {
     mockedStats.mockResolvedValue(stats);
 
-    const result = await getAthleteStatsTool.execute({ athleteId: 12345 });
+    const result = await getAthleteStatsTool.execute({ athleteId: "12345" });
 
     expect(result.isError).toBeUndefined();
     expect(mockedAthlete).not.toHaveBeenCalled();
-    expect(mockedStats).toHaveBeenCalledWith("test-token", 12345);
+    expect(mockedStats).toHaveBeenCalledWith("test-token", "12345");
     expect(result.structuredContent).toBeDefined();
   });
 
@@ -102,7 +102,7 @@ describe("getAthleteStatsTool.execute", () => {
   it("maps a not-found error for an explicit athleteId to a friendly message", async () => {
     mockedStats.mockRejectedValue(new Error("Record Not Found"));
 
-    const result = await getAthleteStatsTool.execute({ athleteId: 42 });
+    const result = await getAthleteStatsTool.execute({ athleteId: "42" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Athlete with ID 42 not found");
