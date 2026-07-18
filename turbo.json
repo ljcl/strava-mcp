@@ -8,6 +8,7 @@
     "PORT",
     "STRAVA_ACCESS_TOKEN",
     "STRAVA_REFRESH_TOKEN",
+    "MCP_AUTH_TOKEN",
     "ROUTE_EXPORT_PATH",
     "TOKEN_DATA_DIR",
     "PLAYWRIGHT_BROWSERS_PATH"
@@ -49,7 +50,8 @@
     "build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**"],
-      "inputs": ["$TURBO_DEFAULT$", "!**/*.stories.{ts,tsx,mdx}"]
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.stories.{ts,tsx,mdx}"],
+      "env": ["INPUT"]
     },
     "build:storybook": {},
     "test": {
