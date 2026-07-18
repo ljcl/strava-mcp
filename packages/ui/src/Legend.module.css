@@ -40,6 +40,13 @@
   outline-offset: 2px;
 }
 
+.swatch {
+  flex-shrink: 0;
+  width: 16px;
+  height: 3px;
+  border-radius: var(--border-radius-xs);
+}
+
 /* Hidden/faded states dim the swatch but keep the label at a contrast-passing
  * color: these are enabled toggles, and a washed-out label fails WCAG AA
  * (axe color-contrast) while still needing to be readable to re-enable. */
@@ -62,11 +69,4 @@
 
 .legendButton[data-hidden][data-faded] .swatch {
   opacity: 0.25;
-}
-
-.swatch {
-  flex-shrink: 0;
-  width: 16px;
-  height: 3px;
-  border-radius: var(--border-radius-xs);
 }

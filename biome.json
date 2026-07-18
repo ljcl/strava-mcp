@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -25,12 +25,12 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
-        "recommended": true
+        "preset": "recommended"
       },
       "correctness": {
-        "recommended": true,
+        "preset": "recommended",
         "useExhaustiveDependencies": "warn",
         "noUnusedImports": {
           "level": "error",
@@ -38,7 +38,7 @@
         }
       },
       "style": {
-        "recommended": true,
+        "preset": "recommended",
         "noNonNullAssertion": "off",
         "useImportType": {
           "level": "error",
@@ -48,7 +48,7 @@
         }
       },
       "nursery": {
-        "recommended": true
+        "preset": "recommended"
       }
     }
   },
@@ -68,7 +68,7 @@
     "enabled": true,
     "actions": {
       "source": {
-        "recommended": true,
+        "preset": "recommended",
         "organizeImports": {
           "level": "on",
           "options": {
