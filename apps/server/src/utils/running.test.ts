@@ -99,6 +99,19 @@ describe("metersPerSecToPace", () => {
     // 1609.34m / 3.333 m/s ≈ 483 seconds ≈ 8:03 per mile
     expect(result?.minPerMile).toBe("8:03");
   });
+
+  it("carries seconds rollover in km pace instead of emitting :60", () => {
+    // 1000 / 2.7816 ≈ 359.5 s/km; naive rounding would render "5:60".
+    const result = metersPerSecToPace(2.7816);
+    expect(result?.minPerKm).toBe("6:00");
+    expect(result?.display).toBe("6:00 /km");
+  });
+
+  it("carries seconds rollover in mile pace instead of emitting :60", () => {
+    // 1609.34 / 2.684 ≈ 599.6 s/mile; naive rounding would render "9:60".
+    const result = metersPerSecToPace(2.684);
+    expect(result?.minPerMile).toBe("10:00");
+  });
 });
 
 describe("formatDuration", () => {
