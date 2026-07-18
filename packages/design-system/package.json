@@ -17,6 +17,7 @@
   },
   "devDependencies": {
     "@storybook/addon-a11y": "10.5.2",
+    "@storybook/addon-docs": "10.5.2",
     "@storybook/react-vite": "10.5.2",
     "@strava-mcp/tsconfig": "workspace:*",
     "@types/react": "19.2.17",

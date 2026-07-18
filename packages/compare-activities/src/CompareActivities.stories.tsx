@@ -44,6 +44,9 @@ export const DarkSteadyVsRace = meta.story({
  * heart-rate overlay really rendered (and Chromatic snapshots that state).
  */
 export const SwitchMetricAndAxis = meta.story({
+  // Interaction-only test: keep it runnable and snapshotted, but off the
+  // autodocs page where SteadyVsRace already shows the overlay.
+  tags: ["!autodocs"],
   args: {
     a: baselineRun,
     b: raceRun,
