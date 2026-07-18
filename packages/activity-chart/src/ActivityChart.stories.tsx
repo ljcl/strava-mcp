@@ -46,7 +46,7 @@ export const DarkTempoRun = meta.story({
  * Interaction test (#164): toggling a legend item hides its series. The SVG
  * <desc> narration is rebuilt from the visible metrics, so it doubles as a
  * semantic assertion that the heart-rate line really left the chart (and
- * Chromatic snapshots the toggled-off state).
+ * the browser-mode test exercises the toggled-off state).
  */
 export const LegendToggleHidesSeries = meta.story({
   args: {

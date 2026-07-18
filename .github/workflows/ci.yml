@@ -48,8 +48,8 @@ jobs:
           bun run turbo boundaries
 
       # Story smoke tests: every Storybook story renders in real headless
-      # Chromium via the Vitest addon (#163). Runs after the unit-test check;
-      # coverage and Chromatic are unaffected.
+      # Chromium via the Vitest addon (#163). This is the automated UI gate;
+      # runs after the unit-test check, coverage below is unaffected.
       - name: Get Playwright version
         id: playwright-version
         run: echo "version=$(bun --print 'require("./package.json").devDependencies.playwright')" >> "$GITHUB_OUTPUT"

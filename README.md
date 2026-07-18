@@ -460,9 +460,9 @@ bun run storybook         # Storybook on port 6006
 
 ### Storybook and visual review
 
-The UI packages are developed in Storybook (`apps/storybook`). The `main` build is published to GitHub Pages and to Chromatic. Every pull request that changes a UI package is published to Chromatic, which adds two checks to the PR: a link to that branch's hosted Storybook and a visual diff against `main`. Reviewers can see UI changes without checking out the branch.
+The UI packages are developed in Storybook (`apps/storybook`). The `main` build is published to GitHub Pages. Every pull request runs the stories as automated tests: each story renders in headless Chromium via Vitest browser mode and passes an axe accessibility pass, and stories with a `play` function assert component behaviour in the same run. To review a branch's UI visually, check it out and run `bun run storybook`.
 
-Storybook also exposes a Model Context Protocol server (via `@storybook/addon-mcp`) so AI tools can read component docs and stories. Endpoints are pre-wired in `.mcp.json`: a local one at `http://localhost:6006/mcp` (while Storybook is running) and the hosted `main` build at `https://main--6a261929a3cb4ac107f3c06d.chromatic.com/mcp`.
+Storybook also exposes a Model Context Protocol server (via `@storybook/addon-mcp`) so AI tools can read component docs and stories. The endpoint is pre-wired in `.mcp.json`: a local one at `http://localhost:6006/mcp` (while Storybook is running).
 
 See `CLAUDE.md` for the full architecture reference, styling guide, Turborepo details, and MCP App patterns.
 

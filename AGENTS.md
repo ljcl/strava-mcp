@@ -187,7 +187,7 @@ The `view-route-map` tool renders an activity's or saved route's GPS track as a 
 - Waypoints (#185): `view-route-map` / `get-route-map-data` take an optional `waypoints` array (`km`, `label`, `kind: fuel|climb|water|custom`) so the model can pin fueling points or climb warnings from a race plan. Anchored by cumulative distance in `mapAnchors.ts` (`resolveWaypoints`; the recorded distance stream when present, else a haversine `cumulativeDistances` over the geometry — so saved routes work too); out-of-range waypoints are dropped into `waypointWarnings`, which the view tool's text surfaces. Rendered as per-kind coloured diamonds on the grid and elevation strip and a colored circle layer on the basemap (`WAYPOINT_COLORS` in `src/annotations.ts` — concrete hex, theme-invariant, shared with the canvas basemap), counted in the a11y narration
 - Screen-reader narration (`src/a11yDescription.ts`, unit-tested) describes the route for non-visual users — kind, distance, climb, loop vs point-to-point shape, geographic extent, altitude range, colour metric, annotation counts — in both views: the SVG grid exposes it via `<title>`/`<desc>` (`aria-labelledby`/`aria-describedby`), the basemap as visually-hidden text beside the canvas plus a route-named `aria-label` on MapLibre's canvas region; ARIA wiring is asserted by SSR-markup tests (`RouteMap.a11y.test.tsx`)
 - Segment efforts split presentation from data (`src/segments.ts`, unit-tested). The server returns up to 60 efforts with `distanceMeters`; only a lean subset earns a drawn halo — every PR/top-10 plus the longest few (`selectOutlineSegments`, behind the "Segments" toggle) — so a segment-dense activity does not bury the track. Every effort covering the scrubbed point is listed in the one shared scrub tooltip regardless of the toggle (`segmentsAtIndex`, PR-first then most-specific, capped to 3 + "N more"), so the white per-segment MapLibre popup is gone and no longer clashes with the metric value
-- MapLibre basemap (`src/BasemapView.tsx`, OpenFreeMap Liberty style) is the **default view**; a failed style load falls back silently to the offline SVG grid (which also keeps the SVG zoom/pan). The track renders as GeoJSON line features reusing the same color binning (`buildColorRuns`; GeoJSON builders in `src/basemapData.ts`, unit-tested — MapLibre paints canvas so colors there are concrete hex, not CSS vars), with MapLibre's native zoom/pan behind `cooperativeGestures` (no scroll trap), OSM attribution via MapLibre's control, and the scrub tooltip positioned via `map.project`. The tile origin is allowlisted via `_meta.ui.csp` on the route-map resource (descriptor + content response, see `docs/plans/basemap-tile-source.md`). maplibre-gl is inlined by the single-file build, importing MapLibre's **CSP build** and inlining its official pre-built worker as a `?raw` Blob URL via `maplibregl.setWorkerUrl` (`maplibre-csp.d.ts` types the deep import). This is load-bearing: the default build's self-built worker loses its GeoJSON code path once vite-plugin-singlefile flattens the bundle, so tiles render but every GeoJSON overlay (track, markers, halos) throws in the worker and silently vanishes — the CSP worker is self-contained and never re-bundled. Do not revert to `import maplibregl from "maplibre-gl"`. app.html ~658 KB → ~2.16 MB raw (~172 KB → ~563 KB gz). Grid stories pin `basemapEnabled: false` so Chromatic snapshots stay deterministic; the Basemap stories set `chromatic: { disableSnapshot: true }` (live tiles would diff every run)
+- MapLibre basemap (`src/BasemapView.tsx`, OpenFreeMap Liberty style) is the **default view**; a failed style load falls back silently to the offline SVG grid (which also keeps the SVG zoom/pan). The track renders as GeoJSON line features reusing the same color binning (`buildColorRuns`; GeoJSON builders in `src/basemapData.ts`, unit-tested — MapLibre paints canvas so colors there are concrete hex, not CSS vars), with MapLibre's native zoom/pan behind `cooperativeGestures` (no scroll trap), OSM attribution via MapLibre's control, and the scrub tooltip positioned via `map.project`. The tile origin is allowlisted via `_meta.ui.csp` on the route-map resource (descriptor + content response, see `docs/plans/basemap-tile-source.md`). maplibre-gl is inlined by the single-file build, importing MapLibre's **CSP build** and inlining its official pre-built worker as a `?raw` Blob URL via `maplibregl.setWorkerUrl` (`maplibre-csp.d.ts` types the deep import). This is load-bearing: the default build's self-built worker loses its GeoJSON code path once vite-plugin-singlefile flattens the bundle, so tiles render but every GeoJSON overlay (track, markers, halos) throws in the worker and silently vanishes — the CSP worker is self-contained and never re-bundled. Do not revert to `import maplibregl from "maplibre-gl"`. app.html ~658 KB → ~2.16 MB raw (~172 KB → ~563 KB gz). Grid stories pin `basemapEnabled: false` (the deterministic offline fallback, no live tiles) so the browser-mode story tests stay hermetic; the two Basemap stories still exercise the real default view
 
 ## MCP App (Activity Segments)
 
@@ -346,7 +346,7 @@ Supplementary checks when the change touches UI:
 - Storybook sweep: visit each affected story in desktop and the `claudeIosCard` mobile viewport. The claude-in-chrome or storybook MCP tools can do this without leaving the session.
 - MCP endpoint smoke test: `cd apps/server && bun run start`, then `curl http://localhost:3000/health` from another shell. Needs valid `STRAVA_REFRESH_TOKEN`; skip if tokens are stale and note it explicitly.
 
-Coverage thresholds (#162): `apps/server`, `packages/data`, and `packages/design-system` set `coverage.thresholds` in their vitest.config.ts, and each `test:coverage` run **auto-ratchets** them: vitest rewrites the numbers to a fixed cushion under measured coverage (5 points for the server, 2 for the ~100% packages), so the floor rises as coverage grows and a genuine drop fails CI. If a coverage run dirties a vitest.config.ts, that's the ratchet — commit it, never hand-edit the numbers. The view-heavy packages are intentionally unthresholded — their component coverage belongs to Chromatic.
+Coverage thresholds (#162): `apps/server`, `packages/data`, and `packages/design-system` set `coverage.thresholds` in their vitest.config.ts, and each `test:coverage` run **auto-ratchets** them: vitest rewrites the numbers to a fixed cushion under measured coverage (5 points for the server, 2 for the ~100% packages), so the floor rises as coverage grows and a genuine drop fails CI. If a coverage run dirties a vitest.config.ts, that's the ratchet — commit it, never hand-edit the numbers. The view-heavy packages are intentionally unthresholded — their component coverage belongs to the story render-path coverage (the browser-mode smoke tests).
 
 ## Commands
 
@@ -421,14 +421,13 @@ Do NOT change root `lint` to `turbo run lint` (would create an infinite loop). B
 
 Built via `turbo prune @strava-mcp/server --docker`. The Dockerfile's build step uses `--filter=@strava-mcp/server^...` to build only the server's workspace dependencies (the MCP App packages), excluding the server itself since it is JIT. The build (prune) stage derives the package set from the workspace graph, so it needs no edit per package. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/<app>/app.html")`, so each app package must declare an `./app.html` export and a `dist/` build output — and the distroless **runner** stage `COPY`s each app's `dist/` explicitly, so adding an MCP App means adding one `COPY --from=builder .../packages/<app>/dist` line there.
 
-## Storybook and Chromatic
+## Storybook
 
-Storybook (`apps/storybook`) renders the UI packages. Two deploys:
+Storybook (`apps/storybook`) renders the UI packages. The `main` build is published to GitHub Pages (`storybook.yml`) so reviewers get a hosted, clickable Storybook; there is no per-PR hosted build, so review a branch's UI by checking it out and running `bun run storybook`.
 
-- `main` is published to GitHub Pages (`storybook.yml`) and to Chromatic.
-- Each PR that touches a UI package is published to Chromatic (`chromatic.yml`), which posts two PR checks: `Storybook Publish` (a link to that branch's hosted Storybook) and `UI Tests` (visual diffs against the `main` baseline). It is a review aid, not a merge gate (`exitZeroOnChanges`); `autoAcceptChanges: main` advances the baseline as changes land.
+The automated UI gate in CI is the Vitest browser-mode story tests (see **Story smoke tests** below) plus the per-story axe checks: every story renders in real headless Chromium and passes accessibility, on every PR and main push. Behaviour is asserted in the stories' own `play` functions, which grow over time.
 
-TurboSnap (`onlyChanged`) only snapshots stories affected by the diff, to conserve the free-plan budget. It relies on `preview-stats.json` (emitted by `--stats-json` in `build:storybook`) and `storybookBaseDir: apps/storybook`. Stories are co-located in `packages/*`, so when tracing cannot resolve a change it snapshots conservatively rather than missing a regression. Requires `CHROMATIC_PROJECT_TOKEN` as a repo secret.
+There is intentionally **no pixel-level visual-regression gate**. Chromatic previously published a per-PR hosted Storybook and diffed each PR's stories against the `main` baseline; it was removed once the free-plan snapshot budget was exhausted (the render + a11y + interaction coverage above stayed). Vitest 4 browser mode ships a `toMatchScreenshot` assertion if self-hosted visual regression is ever wanted, but it needs a pinned/Docker render environment and committed baseline images, which we chose not to take on.
 
 ### Autodocs
 
@@ -464,8 +463,8 @@ in headless Chromium (Playwright). All stories use CSF factories, so no
 project's `test.dir` must stay at the repo root: the addon pins the project root to
 `apps/storybook` (configDir's parent) but resolves the co-located story globs against `test.dir`,
 and with the two misaligned no story files are found. The run is cached as the `//#test:stories`
-turbo root task (inputs: story/package sources and the Storybook config). Per-package unit tests,
-the coverage table, and Chromatic are unchanged — this layer only asserts that every story renders
+turbo root task (inputs: story/package sources and the Storybook config). Per-package unit tests
+and the coverage table are unchanged — this layer only asserts that every story renders
 in a real DOM without throwing. Needs Playwright browsers (`bunx playwright install chromium`); CI
 caches them keyed on the pinned `playwright` version, and `PLAYWRIGHT_BROWSERS_PATH` passes through
 turbo for environments with pre-installed browsers.
@@ -494,11 +493,9 @@ toggles must stay readable.
 
 ### Agent access
 
-- A PR's hosted Storybook URL and diff status: `gh pr checks <PR>` (the `Storybook Publish` and `UI Tests` rows).
-- Storybook ships a Model Context Protocol server (via `@storybook/addon-mcp`) with story, docs, and test tools. Endpoints are pre-wired in `.mcp.json`:
+- Storybook ships a Model Context Protocol server (via `@storybook/addon-mcp`) with story, docs, and test tools. The endpoint is pre-wired in `.mcp.json`:
   - `storybook`: `http://localhost:6006/mcp` (while `bun run storybook` is running)
-  - `storybook-chromatic`: `https://main--6a261929a3cb4ac107f3c06d.chromatic.com/mcp` (the hosted `main` build; live after the first main publish)
-- Publish on demand: `CHROMATIC_PROJECT_TOKEN=... bunx chromatic --storybook-build-dir apps/storybook/storybook-static`.
+- The `main` Storybook is hosted on GitHub Pages (`storybook.yml`) for browsing; it is a static build with no MCP endpoint.
 
 ## Testing the MCP endpoint
 

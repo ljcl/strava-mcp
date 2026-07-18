@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     # Redeploying Pages only makes sense when the Storybook content can have
-    # changed (same path set chromatic.yml uses).
+    # changed.
     paths:
       - "packages/**"
       - "apps/storybook/**"

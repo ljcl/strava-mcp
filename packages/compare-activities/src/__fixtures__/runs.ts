@@ -15,7 +15,7 @@ interface SynthRunOptions {
 
 /**
  * Deterministic synthetic run (sine-modulated around the bases) so stories
- * and Chromatic snapshots never drift.
+ * stay stable across runs.
  */
 function synthRun(options: SynthRunOptions): ActivityStreamData {
   const { activityId, name, seconds, mps, hrBase, cadenceBase, wattsBase } =

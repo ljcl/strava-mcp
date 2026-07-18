@@ -13,7 +13,8 @@ Every story here runs in three complementary ways:
 - **As a workshop preview** — build and review a component in isolation.
 - **As a smoke test** — `bun run test:stories` renders each story in headless
   Chromium and runs an axe accessibility pass.
-- **As a visual baseline** — Chromatic diffs each PR against `main`.
+- **As an interaction test** — stories with a `play` function drive and assert
+  component behaviour in that same browser-mode run.
 
 ## Autodocs
 
@@ -38,7 +39,7 @@ config:
 
 ```tsx
 // Hide a pure interaction-test story from the Docs page, while keeping it a
-// runnable story and a Chromatic/vitest snapshot (see Compare Activities):
+// runnable browser-mode test (see Compare Activities):
 export const SwitchMetricAndAxis = meta.story({
   tags: ["!autodocs"],
   play: async ({ canvas }) => {
