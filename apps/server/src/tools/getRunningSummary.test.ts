@@ -59,7 +59,7 @@ describe("getRunningSummaryTool.execute", () => {
   it("errors when the access token is missing", async () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
 
-    const result = await getRunningSummaryTool.execute({ activityId: 1 });
+    const result = await getRunningSummaryTool.execute({ activityId: "1" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Missing Strava access token");
@@ -68,7 +68,7 @@ describe("getRunningSummaryTool.execute", () => {
   it("rejects non-running activities", async () => {
     mockedById.mockResolvedValueOnce(asDetail(rideActivity));
 
-    const result = await getRunningSummaryTool.execute({ activityId: 999 });
+    const result = await getRunningSummaryTool.execute({ activityId: "999" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("is not a running activity");
@@ -84,7 +84,7 @@ describe("getRunningSummaryTool.execute", () => {
     mockedLaps.mockResolvedValueOnce([sampleLap]);
 
     const result = await getRunningSummaryTool.execute({
-      activityId: 12345678,
+      activityId: "12345678",
     });
 
     expect(result.isError).toBeUndefined();
@@ -98,7 +98,7 @@ describe("getRunningSummaryTool.execute", () => {
     expect(text).toContain("**Gear**: Pegasus");
 
     const summary = result.structuredContent;
-    expect(summary?.activity_id).toBe(12345678);
+    expect(summary?.activity_id).toBe("12345678");
     expect(summary?.laps).toHaveLength(1);
     // No HR stream + no zones => zone distribution is omitted.
     expect(summary?.heart_rate?.zones).toBeNull();
@@ -122,7 +122,7 @@ describe("getRunningSummaryTool.execute", () => {
     } as never);
 
     const result = await getRunningSummaryTool.execute({
-      activityId: 12345678,
+      activityId: "12345678",
     });
 
     expect(result.content[0]?.text).toContain("Zone Distribution");
@@ -132,7 +132,7 @@ describe("getRunningSummaryTool.execute", () => {
   it("maps a not-found error to a friendly message", async () => {
     mockedById.mockRejectedValueOnce(new Error("Record Not Found"));
 
-    const result = await getRunningSummaryTool.execute({ activityId: 42 });
+    const result = await getRunningSummaryTool.execute({ activityId: "42" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Activity with ID 42 not found");
