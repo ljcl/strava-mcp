@@ -72,3 +72,16 @@ jobs:
 
       - name: Publish
         run: ./mcp-publisher publish
+
+      # Record what was published in the run summary. server.json was stamped
+      # with the tag's version and image identifier earlier in this job.
+      - name: Publish summary
+        if: success()
+        run: |
+          {
+            echo "## MCP registry"
+            echo ""
+            echo "Published \`$(jq -r '.name' server.json)\` version \`$(jq -r '.version' server.json)\`."
+            echo ""
+            echo "- Package: \`$(jq -r '.packages[0].identifier' server.json)\`"
+          } >> "$GITHUB_STEP_SUMMARY"

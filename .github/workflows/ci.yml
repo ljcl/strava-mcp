@@ -74,8 +74,55 @@ jobs:
       - name: Coverage
         run: bun run turbo run test:coverage
 
+      # Restore the latest main coverage snapshot into coverage-baseline/ so the
+      # summary can annotate each cell with its delta vs main. Best-effort: the
+      # primary key never hits (it is stamped with this run's SHA), so the
+      # restore-keys prefix picks the most recent saved baseline; the first main
+      # run and fork PRs simply get no baseline and the table degrades to
+      # absolute numbers.
+      - name: Restore coverage baseline
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: coverage-baseline
+          key: coverage-baseline-${{ github.sha }}
+          restore-keys: |
+            coverage-baseline-
+
       - name: Publish coverage summary
         run: bun run coverage:summary >> "$GITHUB_STEP_SUMMARY"
+
+      # On main, replace the baseline with this run's coverage and persist it so
+      # the next PR diffs against it. Rebuilt from scratch (not the restored
+      # copy) so a package that stops emitting coverage drops out of the baseline
+      # too. Cached with a SHA-stamped key because cache entries are immutable.
+      - name: Stage coverage baseline
+        if: github.event_name == 'push'
+        run: |
+          rm -rf coverage-baseline
+          for f in apps/*/coverage/coverage-summary.json \
+                   packages/*/coverage/coverage-summary.json \
+                   coverage-stories/coverage-summary.json; do
+            [ -f "$f" ] || continue
+            mkdir -p "coverage-baseline/$(dirname "$f")"
+            cp "$f" "coverage-baseline/$f"
+          done
+
+      - name: Save coverage baseline
+        if: github.event_name == 'push'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: coverage-baseline
+          key: coverage-baseline-${{ github.sha }}
+
+      # Informational dead-code readout beside the turbo `knip` gate above (a
+      # green build already means zero issues). Re-runs the analysis with the
+      # JSON reporter; --no-exit-code plus the script's always-zero exit keep it
+      # from ever failing the build.
+      - name: Knip summary
+        if: ${{ !cancelled() }}
+        run: |
+          bun run knip --reporter json --no-exit-code 2>/dev/null \
+            | bun scripts/knip-summary.ts >> "$GITHUB_STEP_SUMMARY" || true
 
   audit:
     runs-on: ubuntu-latest
