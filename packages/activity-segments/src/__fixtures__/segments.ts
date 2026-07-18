@@ -4,7 +4,8 @@ import { type ActivitySegmentsData, type SegmentEffortRow } from "../types";
  * Deterministic segment-effort fixtures for stories, tests, and local dev.
  * Values are hand-tuned to be realistic (no Math.random): varied distances,
  * paces, a couple of PRs, one KOM/top-10, climbs with real grades, and a few
- * efforts with HR / cadence / power streams.
+ * efforts with HR / cadence / power streams. Cadence is steps-per-minute (the
+ * server doubles running cadence in mapActivitySegments before it reaches here).
  */
 
 function effort(
@@ -44,7 +45,7 @@ const runEfforts: SegmentEffortRow[] = [
     prRank: 1,
     averageHeartrate: 168,
     maxHeartrate: 176,
-    averageCadence: 92,
+    averageCadence: 184,
     startIndex: 40,
   }),
   effort({
@@ -57,7 +58,7 @@ const runEfforts: SegmentEffortRow[] = [
     maximumGrade: 2.1,
     averageHeartrate: 162,
     maxHeartrate: 170,
-    averageCadence: 89,
+    averageCadence: 178,
     startIndex: 150,
   }),
   effort({
@@ -72,7 +73,7 @@ const runEfforts: SegmentEffortRow[] = [
     komRank: 8,
     averageHeartrate: 178,
     maxHeartrate: 188,
-    averageCadence: 84,
+    averageCadence: 168,
     startIndex: 300,
   }),
   effort({
@@ -85,7 +86,7 @@ const runEfforts: SegmentEffortRow[] = [
     maximumGrade: 1.0,
     averageHeartrate: 160,
     maxHeartrate: 167,
-    averageCadence: 88,
+    averageCadence: 176,
     startIndex: 520,
   }),
   effort({
@@ -99,7 +100,7 @@ const runEfforts: SegmentEffortRow[] = [
     prRank: 2,
     averageHeartrate: 156,
     maxHeartrate: 164,
-    averageCadence: 95,
+    averageCadence: 190,
     startIndex: 700,
   }),
   effort({
@@ -112,7 +113,7 @@ const runEfforts: SegmentEffortRow[] = [
     maximumGrade: 5.5,
     averageHeartrate: 165,
     maxHeartrate: 174,
-    averageCadence: 87,
+    averageCadence: 174,
     startIndex: 820,
   }),
   effort({
@@ -127,7 +128,7 @@ const runEfforts: SegmentEffortRow[] = [
     averageWatts: 312,
     averageHeartrate: 170,
     maxHeartrate: 179,
-    averageCadence: 90,
+    averageCadence: 180,
     startIndex: 1100,
   }),
   effort({
@@ -141,7 +142,7 @@ const runEfforts: SegmentEffortRow[] = [
     climbCategory: 4,
     averageHeartrate: 174,
     maxHeartrate: 183,
-    averageCadence: 85,
+    averageCadence: 170,
     startIndex: 1320,
   }),
   effort({
@@ -156,7 +157,7 @@ const runEfforts: SegmentEffortRow[] = [
     averageWatts: 298,
     averageHeartrate: 168,
     maxHeartrate: 176,
-    averageCadence: 88,
+    averageCadence: 176,
     startIndex: 1500,
   }),
   effort({
@@ -169,7 +170,7 @@ const runEfforts: SegmentEffortRow[] = [
     maximumGrade: 6.2,
     averageHeartrate: 163,
     maxHeartrate: 175,
-    averageCadence: 86,
+    averageCadence: 172,
     startIndex: 1800,
   }),
   effort({
@@ -193,7 +194,7 @@ const runEfforts: SegmentEffortRow[] = [
     maximumGrade: 0.9,
     averageHeartrate: 175,
     maxHeartrate: 184,
-    averageCadence: 96,
+    averageCadence: 192,
     startIndex: 2300,
   }),
 ];
