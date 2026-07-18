@@ -82,8 +82,11 @@ export interface PaceResult {
  * Format seconds as M:SS pace string.
  */
 function formatPaceString(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.round(totalSeconds % 60);
+  // Round first, then split, so 359.5s carries into 6:00 rather than
+  // flooring to 5 minutes and rounding the remainder to an invalid ":60".
+  const rounded = Math.round(totalSeconds);
+  const minutes = Math.floor(rounded / 60);
+  const seconds = rounded % 60;
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
