@@ -64,6 +64,48 @@ export const SavedRoute = meta.story({
   args: { data: pointToPointRoute, basemapEnabled: false },
 });
 
+/**
+ * Keyboard/pointerless zoom (#167): the grid view carries visible zoom
+ * in/out/reset buttons and the focused SVG responds to +/- and arrow keys, so
+ * the offline grid is fully operable without a wheel or a mouse. The buttons
+ * disable at the frame edges (nothing to zoom out of at base), and the SVG
+ * viewBox shrinking below the 640-unit base frame is proof the view zoomed.
+ */
+export const GridZoomControls = meta.story({
+  args: { data: loopActivity, basemapEnabled: false },
+  play: async ({ canvas, userEvent }) => {
+    const map = canvas.getByRole("img", { name: /Golden Gate Park Loop/ });
+    const viewWidth = () =>
+      Number(map.getAttribute("viewBox")?.split(" ")[2] ?? Number.NaN);
+    const zoomIn = canvas.getByRole("button", { name: "Zoom in" });
+    const zoomOut = canvas.getByRole("button", { name: "Zoom out" });
+    const reset = canvas.getByRole("button", { name: "Reset zoom" });
+
+    // At the base frame only zoom-in is actionable.
+    expect(viewWidth()).toBe(640);
+    expect(zoomOut).toBeDisabled();
+    expect(reset).toBeDisabled();
+
+    // The zoom-in button shrinks the viewBox and enables the other controls.
+    await userEvent.click(zoomIn);
+    await waitFor(() => expect(viewWidth()).toBeLessThan(640));
+    await expect(zoomOut).toBeEnabled();
+    await expect(reset).toBeEnabled();
+
+    // Reset restores the base frame and re-disables the pair.
+    await userEvent.click(reset);
+    await waitFor(() => expect(viewWidth()).toBe(640));
+    await expect(reset).toBeDisabled();
+
+    // The focused SVG zooms via the + key and resets via 0 — no pointer.
+    map.focus();
+    await userEvent.keyboard("+");
+    await waitFor(() => expect(viewWidth()).toBeLessThan(640));
+    await userEvent.keyboard("0");
+    await waitFor(() => expect(viewWidth()).toBe(640));
+  },
+});
+
 export const DarkActivityLoop = meta.story({
   globals: darkGlobals,
   args: { data: loopActivity, basemapEnabled: false },

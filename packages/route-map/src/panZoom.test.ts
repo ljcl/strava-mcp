@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  canZoomIn,
   clampView,
   isZoomed,
   MAX_ZOOM,
+  panByFraction,
   panViewBox,
   type ViewBox,
+  zoomAboutCenter,
+  zoomLevel,
   zoomViewBox,
 } from "./panZoom";
 
@@ -14,6 +18,51 @@ describe("isZoomed", () => {
   it("is false at the base frame and true when the viewport shrinks", () => {
     expect(isZoomed(BASE, BASE)).toBe(false);
     expect(isZoomed({ x: 0, y: 0, w: 320, h: 190 }, BASE)).toBe(true);
+  });
+});
+
+describe("canZoomIn", () => {
+  it("is true until the viewport reaches the MAX_ZOOM floor", () => {
+    expect(canZoomIn(BASE, BASE)).toBe(true);
+    const deepest = clampView(
+      { x: 0, y: 0, w: BASE.w / MAX_ZOOM, h: BASE.h / MAX_ZOOM },
+      BASE,
+    );
+    expect(canZoomIn(deepest, BASE)).toBe(false);
+  });
+});
+
+describe("zoomLevel", () => {
+  it("reports the multiplier relative to the base frame", () => {
+    expect(zoomLevel(BASE, BASE)).toBeCloseTo(1);
+    expect(zoomLevel({ x: 0, y: 0, w: 320, h: 190 }, BASE)).toBeCloseTo(2);
+  });
+});
+
+describe("zoomAboutCenter", () => {
+  it("keeps the viewport centre fixed while zooming in", () => {
+    const view = zoomAboutCenter(BASE, BASE, 2);
+    expect(view.w).toBe(BASE.w / 2);
+    // The centre of the base frame is still the centre of the zoomed view.
+    expect(view.x + view.w / 2).toBeCloseTo(BASE.w / 2);
+    expect(view.y + view.h / 2).toBeCloseTo(BASE.h / 2);
+  });
+
+  it("zooming out from base stays at base", () => {
+    expect(zoomAboutCenter(BASE, BASE, 0.5)).toEqual(BASE);
+  });
+});
+
+describe("panByFraction", () => {
+  it("pans by fractions of the current viewport, clamped to the frame", () => {
+    const zoomed = zoomAboutCenter(BASE, BASE, 2); // w=320, h=190, centred
+    const panned = panByFraction(zoomed, BASE, 0.25, -0.5);
+    expect(panned.x).toBeCloseTo(zoomed.x + 0.25 * zoomed.w);
+    expect(panned.y).toBeCloseTo(zoomed.y - 0.5 * zoomed.h);
+  });
+
+  it("cannot move the viewport at base zoom", () => {
+    expect(panByFraction(BASE, BASE, 0.5, 0.5)).toEqual(BASE);
   });
 });
 
