@@ -16,6 +16,7 @@ import {
   toOverlayPoints,
 } from "./normalize";
 import { OverlayView } from "./OverlayView";
+import { RunSelectList } from "./RunSelectList";
 import { ScatterView } from "./ScatterView";
 import { TrendView } from "./TrendView";
 import {
@@ -33,6 +34,9 @@ const VIEWS: Array<{ id: ViewId; label: string }> = [
   { id: "zones", label: "Zones" },
   { id: "overlay", label: "Overlay" },
 ];
+
+/** Overlay comparison cap, shared by the dot-click toggle and the run picker. */
+const MAX_COMPARE_RUNS = 4;
 
 interface AppProps {
   app: ReturnType<typeof useApp>["app"];
@@ -65,7 +69,7 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
       const next = new Set(prev);
       if (next.has(runId)) {
         next.delete(runId);
-      } else if (next.size < 4) {
+      } else if (next.size < MAX_COMPARE_RUNS) {
         next.add(runId);
       }
       return next;
@@ -115,6 +119,15 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
     () => data.activities.filter((a) => selectedRunIds.has(a.id)),
     [data.activities, selectedRunIds],
   );
+
+  // Runs the overlay can plot (it needs a cadence stream); the same pool the
+  // Trend/Scatter dots draw from, offered as a keyboard/touch picker (#169).
+  const selectableRuns = useMemo(
+    () => data.activities.filter((a) => a.averageCadence > 0),
+    [data.activities],
+  );
+
+  const showRunPicker = activeView === "trend" || activeView === "scatter";
 
   useModelContextSync(
     app ?? undefined,
@@ -191,6 +204,15 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
           />
         )}
       </div>
+      {showRunPicker && (
+        <RunSelectList
+          runs={selectableRuns}
+          selectedRunIds={selectedRunIds}
+          onToggleRun={toggleRunSelection}
+          maxSelected={MAX_COMPARE_RUNS}
+          mode={isMobile ? "mobile" : "desktop"}
+        />
+      )}
       {selectedRuns.length > 0 && (
         <div className={styles.selectionBar}>
           {selectedRuns.map((run) => (

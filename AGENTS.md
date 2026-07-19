@@ -169,6 +169,7 @@ The `view-cadence-trends` tool renders an interactive cadence analysis dashboard
 - Calls `get-cadence-trend-data` (app-only) to fetch summary data on mount
 - Calls `get-activity-streams-raw` (app-only) for per-second overlay data on demand
 - Four views: Trend timeline, Scatter plot, Pace Zones, Overlay comparison
+- Overlay run selection has two entry points sharing App's `toggleRunSelection` (capped at 4): clicking Trend/Scatter dots, and a keyboard/touch-accessible run picker (`RunSelectList.tsx`, #169). Recharts `Cell` dots carry no tabindex/role/key handling, so the picker — a Base UI `ToggleGroup` of toggle chips (roving tabindex, one Tab stop, `aria-pressed` per run) shown under the Trend/Scatter charts — is the accessible alternative rather than fighting SVG focus. Unselected chips disable at the cap so the limit is legible
 
 ## MCP App (Route Map)
 
