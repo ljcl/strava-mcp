@@ -13,6 +13,7 @@ import {
   useModelContextSync,
 } from "@strava-mcp/ui";
 import {
+  type KeyboardEvent,
   type PointerEvent,
   useEffect,
   useId,
@@ -43,7 +44,18 @@ import {
   RAMP_GRADIENT_CSS,
 } from "./metrics";
 import { nearestPointIndex, type Point, projectRoute } from "./normalize";
-import { isZoomed, panViewBox, type ViewBox, zoomViewBox } from "./panZoom";
+import {
+  canZoomIn,
+  isZoomed,
+  KEYBOARD_PAN_FRACTION,
+  KEYBOARD_ZOOM_FACTOR,
+  panByFraction,
+  panViewBox,
+  type ViewBox,
+  zoomAboutCenter,
+  zoomLevel,
+  zoomViewBox,
+} from "./panZoom";
 import styles from "./RouteMap.module.css";
 import {
   formatSegmentDistance,
@@ -105,6 +117,31 @@ const LAYER_COLORS: Record<LayerKey, string> = {
  * circular split/photo markers. */
 function diamondPath(cx: number, cy: number, r: number): string {
   return `M${cx} ${cy - r} L${cx + r} ${cy} L${cx} ${cy + r} L${cx - r} ${cy} Z`;
+}
+
+/** Line-icon glyphs for the grid view's zoom buttons (plus / minus / fit). */
+const ZOOM_ICON_PATHS: Record<"in" | "out" | "reset", string> = {
+  in: "M7 3.5v7 M3.5 7h7",
+  out: "M3.5 7h7",
+  reset: "M2.5 5V2.5H5 M9 2.5h2.5V5 M2.5 9v2.5H5 M11.5 9v2.5H9",
+};
+
+function ZoomIcon({ kind }: { kind: "in" | "out" | "reset" }) {
+  return (
+    <svg
+      aria-hidden="true"
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d={ZOOM_ICON_PATHS[kind]} />
+    </svg>
+  );
 }
 
 function segmentHaloColor(segment: { isPr: boolean; isTop10: boolean }) {
@@ -295,6 +332,63 @@ export function RouteMap({
     svg.addEventListener("wheel", onWheel, { passive: false });
     return () => svg.removeEventListener("wheel", onWheel);
   }, [canZoom, base, svgEl]);
+
+  // Polite screen-reader narration of zoom changes (the SVG's <desc> is static;
+  // this announces the button / keyboard zoom actions as they happen).
+  const [zoomMessage, setZoomMessage] = useState("");
+  const applyView = (next: ViewBox) => {
+    setView(next);
+    setZoomMessage(
+      isZoomed(next, base)
+        ? `Zoomed to ${zoomLevel(next, base).toFixed(1)}×`
+        : "Showing the whole route",
+    );
+  };
+  const zoomByCenter = (factor: number) =>
+    applyView(zoomAboutCenter(viewRef.current, base, factor));
+  const resetView = () => applyView(base);
+
+  // Arrow keys pan (only meaningful when zoomed), +/- zoom about the centre,
+  // 0 resets — reusing the same clamping/counter-scaling as the pointer paths.
+  const handleMapKeyDown = (e: KeyboardEvent<SVGSVGElement>) => {
+    if (!canZoom) return;
+    const panIfZoomed = (fx: number, fy: number) => {
+      // At base zoom there is nothing to pan; let the arrow scroll the page.
+      if (!isZoomed(viewRef.current, base)) return;
+      e.preventDefault();
+      setView((v) => panByFraction(v, base, fx, fy));
+    };
+    switch (e.key) {
+      case "ArrowUp":
+        panIfZoomed(0, -KEYBOARD_PAN_FRACTION);
+        break;
+      case "ArrowDown":
+        panIfZoomed(0, KEYBOARD_PAN_FRACTION);
+        break;
+      case "ArrowLeft":
+        panIfZoomed(-KEYBOARD_PAN_FRACTION, 0);
+        break;
+      case "ArrowRight":
+        panIfZoomed(KEYBOARD_PAN_FRACTION, 0);
+        break;
+      case "+":
+      case "=":
+        e.preventDefault();
+        zoomByCenter(KEYBOARD_ZOOM_FACTOR);
+        break;
+      case "-":
+      case "_":
+        e.preventDefault();
+        zoomByCenter(1 / KEYBOARD_ZOOM_FACTOR);
+        break;
+      case "0":
+        e.preventDefault();
+        resetView();
+        break;
+      default:
+        break;
+    }
+  };
 
   /* ── Scrub ───────────────────────────────────────────────────── */
 
@@ -607,7 +701,10 @@ export function RouteMap({
               role="img"
               aria-labelledby={mapTitleId}
               aria-describedby={mapDescId}
+              tabIndex={canZoom ? 0 : undefined}
+              aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight Plus Minus"
               data-zoomed={zoomed || undefined}
+              onKeyDown={handleMapKeyDown}
               onPointerDown={handleMapPointerDown}
               onPointerMove={handleMapPointerMove}
               onPointerUp={handleMapPointerEnd}
@@ -806,6 +903,47 @@ export function RouteMap({
             </svg>
           </div>
 
+          {canZoom && (
+            <div
+              className={styles.zoomControls}
+              role="toolbar"
+              aria-label="Zoom map"
+            >
+              <button
+                type="button"
+                className={styles.zoomButton}
+                aria-label="Zoom in"
+                disabled={!canZoomIn(view, base)}
+                onClick={() => zoomByCenter(KEYBOARD_ZOOM_FACTOR)}
+              >
+                <ZoomIcon kind="in" />
+              </button>
+              <button
+                type="button"
+                className={styles.zoomButton}
+                aria-label="Zoom out"
+                disabled={!zoomed}
+                onClick={() => zoomByCenter(1 / KEYBOARD_ZOOM_FACTOR)}
+              >
+                <ZoomIcon kind="out" />
+              </button>
+              <button
+                type="button"
+                className={styles.zoomButton}
+                aria-label="Reset zoom"
+                disabled={!zoomed}
+                onClick={resetView}
+              >
+                <ZoomIcon kind="reset" />
+              </button>
+            </div>
+          )}
+
+          {/* Polite narration of zoom actions for screen-reader users. */}
+          <p className={styles.srOnly} aria-live="polite">
+            {zoomMessage}
+          </p>
+
           {scrubInView && scrubTipContent && (
             <div
               className={styles.scrubTip}
@@ -899,7 +1037,7 @@ export function RouteMap({
         </svg>
       )}
 
-      {projected && (series.length > 0 || (zoomed && !showBasemap)) && (
+      {projected && series.length > 0 && (
         <div className={styles.controls}>
           {series.length > 1 && (
             <PillGroup>
@@ -912,13 +1050,6 @@ export function RouteMap({
                   {isMobile ? s.shortLabel : s.label}
                 </Pill>
               ))}
-            </PillGroup>
-          )}
-          {zoomed && !showBasemap && (
-            <PillGroup>
-              <Pill active onClick={() => setView(base)}>
-                Reset view
-              </Pill>
             </PillGroup>
           )}
           {activeSeries && (

@@ -53,6 +53,64 @@
   cursor: grab;
 }
 
+/* Keyboard focus ring for the map region (arrow-key pan, +/- zoom). Inset so
+ * .mapWrap's overflow: hidden and border-radius don't clip it. */
+.svg:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: -2px;
+}
+
+/* ── Zoom controls (grid view) ────────────────── */
+
+/* Stacked +/-/reset buttons overlaid on the map corner. Live outside
+ * .mapWrap so they escape its overflow clip; the grid view's only pointerless
+ * zoom path and a visible affordance for keyboard/no-wheel users. */
+.zoomControls {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  z-index: 4;
+  display: inline-flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.zoomButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-border-tertiary);
+  border-radius: var(--border-radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.container[data-compact] .zoomButton {
+  width: 34px;
+  height: 34px;
+}
+
+.zoomButton:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  background: var(--color-background-secondary);
+}
+
+.zoomButton:focus-visible {
+  outline: 2px solid var(--color-text-primary);
+  outline-offset: 2px;
+}
+
+.zoomButton:disabled {
+  color: var(--color-text-tertiary);
+  cursor: default;
+  opacity: 0.5;
+}
+
 .scrubTip {
   position: absolute;
   z-index: 5;

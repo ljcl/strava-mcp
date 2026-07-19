@@ -15,9 +15,25 @@ export interface ViewBox {
 /** Deepest zoom-in: the viewport can shrink to 1/8 of the base frame. */
 export const MAX_ZOOM = 8;
 
+/** Zoom step applied by the +/- keys and the on-screen zoom buttons. */
+export const KEYBOARD_ZOOM_FACTOR = 1.4;
+
+/** Fraction of the current viewport that one arrow-key press pans. */
+export const KEYBOARD_PAN_FRACTION = 0.2;
+
 /** Whether the view is zoomed in relative to its base frame. */
 export function isZoomed(view: ViewBox, base: ViewBox): boolean {
   return view.w < base.w - 1e-6;
+}
+
+/** Whether the view can still zoom in (not yet at MAX_ZOOM). */
+export function canZoomIn(view: ViewBox, base: ViewBox): boolean {
+  return view.w > base.w / MAX_ZOOM + 1e-6;
+}
+
+/** Current zoom multiplier relative to the base frame (1 = fully zoomed out). */
+export function zoomLevel(view: ViewBox, base: ViewBox): number {
+  return base.w / view.w;
 }
 
 /**
@@ -51,6 +67,25 @@ export function zoomViewBox(
   return clampView({ x: cx - fx * w, y: cy - fy * h, w, h }, base);
 }
 
+/**
+ * Zoom by `factor` (> 1 zooms in) about the viewport's own centre, then clamp
+ * to the base frame. Used by the +/- keys and the zoom buttons, which have no
+ * pointer focal point to zoom around.
+ */
+export function zoomAboutCenter(
+  view: ViewBox,
+  base: ViewBox,
+  factor: number,
+): ViewBox {
+  return zoomViewBox(
+    view,
+    base,
+    factor,
+    view.x + view.w / 2,
+    view.y + view.h / 2,
+  );
+}
+
 /** Pan by (dx, dy) in viewBox units, clamped to the base frame. */
 export function panViewBox(
   view: ViewBox,
@@ -62,4 +97,17 @@ export function panViewBox(
     { x: view.x + dx, y: view.y + dy, w: view.w, h: view.h },
     base,
   );
+}
+
+/**
+ * Pan by fractions of the current viewport (arrow keys), clamped to the base
+ * frame. A positive `fx` moves the window right, a positive `fy` moves it down.
+ */
+export function panByFraction(
+  view: ViewBox,
+  base: ViewBox,
+  fx: number,
+  fy: number,
+): ViewBox {
+  return panViewBox(view, base, fx * view.w, fy * view.h);
 }
