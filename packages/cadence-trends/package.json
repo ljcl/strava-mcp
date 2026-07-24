@@ -29,7 +29,7 @@
     "@strava-mcp/vite-config": "workspace:*",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
-    "storybook": "10.5.2",
+    "storybook": "10.5.4",
     "typescript": "7.0.2",
     "vite": "8.1.5",
     "vitest": "4.1.10"
