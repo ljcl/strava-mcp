@@ -360,7 +360,7 @@ bun run knip              # Dead code / unused export analysis
 
 Supplementary checks when the change touches UI:
 
-- Storybook sweep: visit each affected story in desktop and the `claudeIosCard` mobile viewport. The claude-in-chrome or storybook MCP tools can do this without leaving the session.
+- Storybook sweep: look at each affected story in desktop and the `claudeIosCard` mobile viewport. `bun run shots <story-id>…` renders them to PNGs from any session (see **Story screenshots**); the claude-in-chrome or storybook MCP tools work too when a browser is reachable.
 - MCP endpoint smoke test: `cd apps/server && bun run start`, then `curl http://localhost:3000/health` from another shell. Needs valid `STRAVA_REFRESH_TOKEN`; skip if tokens are stale and note it explicitly.
 
 Coverage thresholds (#162): `apps/server`, `packages/data`, and `packages/design-system` set `coverage.thresholds` in their vitest.config.ts, and each `test:coverage` run **auto-ratchets** them: vitest rewrites the numbers to a fixed cushion under measured coverage (5 points for the server, 2 for the ~100% packages), so the floor rises as coverage grows and a genuine drop fails CI. If a coverage run dirties a vitest.config.ts, that's the ratchet — commit it, never hand-edit the numbers. The view-heavy packages are intentionally unthresholded — their component coverage belongs to the story render-path coverage (the browser-mode smoke tests).
@@ -378,6 +378,7 @@ bun run test:stories      # Run every Storybook story as a Vitest browser-mode s
 bun run test:stories:coverage # Same, plus render-path coverage into coverage-stories/
 bun run test:coverage     # Tests with coverage (per-package coverage/ output)
 bun run coverage:summary  # Aggregate coverage into one markdown table (CI job summary)
+bun run shots --list      # List story ids; `bun run shots <id>…` screenshots them to story-shots/
 bun run typecheck         # Typecheck all packages (via Turborepo)
 bun run typecheck:affected # Typecheck only changed packages
 bun run lint              # Lint all packages (Biome, root task)
@@ -497,6 +498,35 @@ packages a floor their unit tests can't. Config caveat: the storybookTest addon 
 root to `apps/storybook`, so `coverage.allowExternal: true` is load-bearing — without it every
 `packages/*` file is "external" and the report is empty. Plain `bun run test:stories` stays
 coverage-free for fast local runs.
+
+Browser resolution: `vitest.stories.config.ts` passes `launchOptions.executablePath` from
+`resolveChromiumExecutablePath()` (`scripts/playwright-chromium.ts`). It returns `undefined` —
+a no-op — whenever Playwright's own pinned build is installed, which is the case locally and in
+CI. It only resolves to a path in sandboxes that ship a *different* pre-installed Chromium and
+block the download (Claude Code cloud sessions: `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` at
+one revision, egress proxy refusing `playwright install`), where the UI gate would otherwise
+fail before rendering a single story. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` overrides everything.
+
+### Story screenshots
+
+`bun run shots <story-id>…` renders stories to PNGs in the gitignored `story-shots/`. It is a
+**look-at-it tool, not a gate** — the pixels are for a human or an agent to judge, and nothing
+compares them against a baseline (see the no-visual-regression note above). It catches the class
+of problem a DOM assertion structurally cannot: a smoothed line implying data between two points,
+a clipped axis label, a chart that renders perfectly and says the wrong thing.
+
+```bash
+bun run shots --list                              # story ids, from the build index
+bun run shots training-load-app--default          # PNG per story id
+bun run shots --width 380 <id>                    # mobile width (pair with the Mobile story)
+bun run shots --dark <id>                         # backgrounds.value:dark
+bun run shots --hover "svg.recharts-surface" <id> # capture a chart tooltip
+bun run shots --url http://localhost:6006 <id>    # shoot a running dev server, skip the build
+```
+
+It builds `storybook-static` on first use and reuses it (`--rebuild` to refresh), so a sweep of
+several stories costs one build. `--hover-at x,y` aims within the hovered element (fractions of
+its box, default centre) and `--wait` extends the settle beat for charts that mount slowly.
 
 ### Per-story axe checks
 

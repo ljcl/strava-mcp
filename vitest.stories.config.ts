@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+import { resolveChromiumExecutablePath } from "./scripts/playwright-chromium";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,7 +65,16 @@ export default defineConfig({
           dir: dirname,
           browser: {
             enabled: true,
-            provider: playwright(),
+            provider: playwright({
+              // Undefined on a normally provisioned machine (CI installs the
+              // pinned build), so this is a no-op there. It only resolves to
+              // a path in sandboxes that ship a different pre-installed
+              // Chromium and block the download — see scripts/
+              // playwright-chromium.ts.
+              launchOptions: {
+                executablePath: resolveChromiumExecutablePath(),
+              },
+            }),
             headless: true,
             instances: [{ browser: "chromium" }],
           },
