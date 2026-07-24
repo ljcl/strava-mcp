@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.8.0](https://github.com/ljcl/strava-mcp/compare/v2.7.2...v2.8.0) (2026-07-24)
+
+
+### Features
+
+* keyboard zoom and pan for the route-map grid view ([#228](https://github.com/ljcl/strava-mcp/issues/228)) ([99804f6](https://github.com/ljcl/strava-mcp/commit/99804f62e1ba29f6d0f7f96941f843f17cc98ff5))
+* keyboard-accessible run selection in cadence-trends ([#230](https://github.com/ljcl/strava-mcp/issues/230)) ([9583c78](https://github.com/ljcl/strava-mcp/commit/9583c78bcde993b58f8f85340d574ed3cfa41789))
+
 ## [2.7.2](https://github.com/ljcl/strava-mcp/compare/v2.7.1...v2.7.2) (2026-07-18)
 
 
