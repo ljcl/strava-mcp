@@ -22,6 +22,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `packages/activity-segments/` — React MCP App listing one activity's segment efforts (no Recharts, no MapLibre)
 - `packages/compare-activities/` — React + Recharts MCP App overlaying two activities' streams with a delta summary
 - `packages/activity-zones/` — React + Recharts MCP App for per-activity HR/power time-in-zone distribution
+- `packages/segment-progress/` — React + Recharts MCP App charting the athlete's own effort history on one segment
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar, AppShell, CardHeader, EmptyState, ErrorState, LoadingState, Skeleton)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
@@ -109,6 +110,8 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | `get-compare-activities-data` | Aggregate comparison (summaries, activity2−activity1 differences, efficiency) for the compare-activities UI (app-only) |
 | `view-activity-zones` | Time-in-zone bar chart for one activity's HR and power zones with an easy/moderate/hard split (MCP App) |
 | `get-activity-zones-data` | Per-zone time distributions (bucket bounds, seconds, percentages) for the activity-zones UI (app-only) |
+| `view-segment-progress` | Effort history on one segment: time over date with PR/top-3 highlights, an average-HR overlay, and an expandable effort list (MCP App) |
+| `get-segment-progress-data` | Segment details, per-effort rows, and the derived progress summary for the segment-progress UI (app-only) |
 
 ## Styling
 
@@ -232,6 +235,19 @@ The `view-activity-zones` tool renders one activity's time-in-zone distribution 
 - The server maps the raw `/activities/{id}/zones` response (the same fetch behind the `get-activity-zones` text tool) to chart-ready sets in `apps/server/src/activityZones.ts` (`mapActivityZones`, unit-tested): per-bucket seconds and percentages, the `-1` open-ended top bucket normalised to `null`, sets without buckets or with zero time dropped
 - One `BarChart` per zone set (heart rate in `--chart-heartrate`, power in `--chart-power`, opacity ramp Z1→Zn), pct labels on top, shared `Tooltip` with time + share, following cadence-trends' `ZonesView` pattern; a `PillGroup` switches between HR and power when both exist, and estimated (non-sensor) power sets carry a footnote
 - Presentation logic is pure and unit-tested in `src/normalize.ts` (`buildZoneRows`, `intensitySplit` — zones 1–2 easy / 3 moderate / 4+ hard, `buildSummaryStats` for the shared `SummaryBar`); a11y narration in `src/a11y.ts`, host context sync via `useModelContextSync` (`src/contextSummary.ts`), all per the established conventions
+
+## MCP App (Segment Progress)
+
+The `view-segment-progress` tool charts the athlete's own repeated efforts on one segment (#184) — the progression signal Strava's dead leaderboard endpoints no longer provide.
+
+- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); Recharts, bundled as a single HTML file via `vite-plugin-singlefile`
+- Served as MCP resource at `ui://segment-progress/app.html`; calls `get-segment-progress-data` (app-only) on mount with the `segment_id` and the optional `start_date_local` / `end_date_local` range
+- The server pairs `get-segment` with `list-segment-efforts` (one page, 200 efforts max) and maps them in `apps/server/src/segmentProgress.ts` (`buildSegmentProgress`, unit-tested): efforts sorted oldest-first, ranked by elapsed time, pace derived per km, run cadence doubled to spm as in `mapActivitySegments`. `summarizeSegmentProgress` derives the summary both surfaces render — best/latest/median, the gap to the best, and **chronological halves** (early vs recent mean time and mean heart rate, from four efforts up). Those halves are what make the "same segment time, −8 bpm" read legible; the `view-` tool's text prints the same numbers, so chart and prose cannot drift
+- The segment-efforts endpoint is subscriber-only; the handler turns Strava's `SUBSCRIPTION_REQUIRED:` sentinel into a plain-English tool error
+- `ComposedChart`: effort time on a **reversed** left axis (faster sits higher, so improvement reads up, labelled "time (faster ↑)"), average heart rate as a dashed line on the right axis (legend-toggleable, only when some effort recorded it). Lines are `type="linear"` — efforts are weeks apart and a spline would invent times between them
+- Per-effort dots come from a custom `dot` renderer keyed on the row's `highlight` tier (`--color-tier-pr` gold for the personal best, `--color-tier-top10` purple for ranks 2–3, and no top-3 tier at all when there are three efforts or fewer). Deliberately not extra `Scatter` series: Scatter draws a symbol for every row including the null ones, so highlights arrive with phantom points attached
+- `EffortList.tsx` lists the efforts newest-first as Base UI `Collapsible` rows (date, badge, time; pace, gap to best, HR — expanding to rank, moving time, max HR, cadence, power, and the parent activity id). The open row is reported to the host through `useModelContextSync` so the model can name the effort the user is looking at
+- Presentation logic is pure and unit-tested in `src/normalize.ts` (`buildChartRows`, `highlightForRank`, `buildSummaryStats`, the formatters); a11y narration in `src/a11y.ts`, host context sync in `src/contextSummary.ts`, all per the established conventions
 
 ## Targeting Mobile for MCP Apps
 
@@ -400,6 +416,9 @@ INPUT=app.html bunx vite build  # Rebuild single-file HTML
 cd packages/activity-zones
 INPUT=app.html bunx vite build  # Rebuild single-file HTML
 
+cd packages/segment-progress
+INPUT=app.html bunx vite build  # Rebuild single-file HTML
+
 # Docker
 docker compose build
 docker compose up -d
@@ -408,7 +427,7 @@ docker compose logs -f
 
 ## Turborepo
 
-The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only the MCP App packages (`activity-chart`, `cadence-trends`, `route-map`, `activity-segments`, `training-load`, `compare-activities`, `activity-zones`) produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
+The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only the MCP App packages (`activity-chart`, `cadence-trends`, `route-map`, `activity-segments`, `training-load`, `compare-activities`, `activity-zones`, `segment-progress`) produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
 
 Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough to run at root per the Turborepo docs. Knip is a whole-graph analyzer that cannot be decomposed per-package. In CI, `ci.yml` runs Biome as a dedicated step (`bun run lint --reporter=github`, not through turbo) so its workflow commands surface diagnostics — including warn-level rules — as inline PR annotations; turbo's task-name prefix would break that parsing. The turbo `lint` task remains the local path via `bun run check`.
 

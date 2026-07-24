@@ -18,6 +18,7 @@ import {
   mapActivityZones,
 } from "./activityZones";
 import { stravaApi } from "./fetchClient";
+import { formatDuration } from "./formatters";
 import {
   cumulativeDistances,
   indexAtDistance,
@@ -29,12 +30,18 @@ import {
 import { decodePolyline } from "./polyline";
 import { getPrompt, listPrompts } from "./prompts";
 import {
+  buildSegmentProgress,
+  type SegmentProgressData,
+} from "./segmentProgress";
+import {
   getActivityById,
   getActivityLaps,
   getActivityPhotos,
   getActivityZones,
   getAllActivities as getAllActivitiesFn,
   getRouteById,
+  getSegmentById,
+  listSegmentEfforts,
   type StravaDetailedActivity,
 } from "./stravaClient";
 import { READ_ONLY } from "./tools/_annotations";
@@ -139,6 +146,27 @@ const waypointsInput = z
       "Rendered as a toggleable marker layer on the map and elevation profile. Waypoints beyond the end of the track are dropped with a warning.",
   );
 
+/**
+ * Segment-progress args, shared by the view and data tools. The optional
+ * date range narrows a long history (e.g. "this season only"); omitting it
+ * returns every effort Strava will page back.
+ */
+const segmentProgressInput = z.object({
+  segment_id: stravaIdInput(
+    "The Strava segment ID whose effort history to chart.",
+  ),
+  start_date_local: z
+    .string()
+    .datetime({ error: "Invalid start date format. Use ISO 8601." })
+    .optional()
+    .describe("Only include efforts starting after this ISO 8601 date-time."),
+  end_date_local: z
+    .string()
+    .datetime({ error: "Invalid end date format. Use ISO 8601." })
+    .optional()
+    .describe("Only include efforts ending before this ISO 8601 date-time."),
+});
+
 const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   "view-activity-chart": z.object({
     activity_id: stravaIdInput("The Strava activity ID to visualize."),
@@ -172,6 +200,8 @@ const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   "get-activity-zones-data": z.object({
     activity_id: stravaIdInput("The Strava activity ID."),
   }),
+  "view-segment-progress": segmentProgressInput,
+  "get-segment-progress-data": segmentProgressInput,
   "view-compare-activities": z.object({
     activity_id_1: stravaIdInput(
       "First activity ID (baseline/older activity).",
@@ -258,6 +288,11 @@ const APP_RESOURCES: AppResource[] = [
     uri: "ui://activity-zones/app.html",
     name: "Activity Zones",
     htmlPath: appHtmlRequire.resolve("@strava-mcp/activity-zones/app.html"),
+  },
+  {
+    uri: "ui://segment-progress/app.html",
+    name: "Segment Progress",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/segment-progress/app.html"),
   },
 ];
 
@@ -501,6 +536,38 @@ function buildToolDefs(): ToolDef[] {
     _meta: {
       ui: {
         resourceUri: "ui://activity-zones/app.html",
+        visibility: ["app"],
+      },
+    },
+  });
+
+  defs.push({
+    name: "view-segment-progress",
+    description:
+      "Open an interactive history of the athlete's own efforts on one segment: effort time over date with the personal best and top three highlighted, an optional average heart rate series, and a per-effort list. " +
+      "Prefer this over the text-only list-segment-efforts when the user wants to see whether they are getting faster on a climb or course segment, or whether the same time is now costing less heart rate. " +
+      "Takes the segment id (from list-starred-segments, explore-segments, or get-segment) and an optional date range.",
+    inputSchema: toInputSchema(
+      APP_TOOL_INPUT_SCHEMAS["view-segment-progress"]!,
+    ),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: { resourceUri: "ui://segment-progress/app.html" },
+    },
+  });
+
+  defs.push({
+    name: "get-segment-progress-data",
+    description:
+      "Internal data feed for the segment-progress UI: returns the segment's details plus the athlete's efforts on it (date, elapsed and moving time, pace, heart rate, power, cadence, PR/KOM ranks, rank within the history) and a derived summary as JSON. " +
+      "The view-segment-progress app calls this; not intended for direct model use.",
+    inputSchema: toInputSchema(
+      APP_TOOL_INPUT_SCHEMAS["get-segment-progress-data"]!,
+    ),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: {
+        resourceUri: "ui://segment-progress/app.html",
         visibility: ["app"],
       },
     },
@@ -857,6 +924,107 @@ async function handleViewActivityZones(
     }
   }
   lines.push("", "[Interactive zone distribution chart rendered above]");
+  return { content: [{ type: "text", text: lines.join("\n") }] };
+}
+
+/**
+ * Strava caps `/segment_efforts` at 200 per page; one page covers even a
+ * daily-commute segment for well over half a year, and the chart stays
+ * readable well before that.
+ */
+const SEGMENT_PROGRESS_MAX_EFFORTS = 200;
+
+/** Shared fetch + mapping for the segment-progress view and data tools. */
+async function loadSegmentProgressData(
+  token: string,
+  args: Record<string, unknown>,
+): Promise<SegmentProgressData> {
+  const segmentId = String(args.segment_id);
+  const [segment, efforts] = await Promise.all([
+    getSegmentById(token, segmentId),
+    listSegmentEfforts(token, segmentId, {
+      startDateLocal: args.start_date_local as string | undefined,
+      endDateLocal: args.end_date_local as string | undefined,
+      perPage: SEGMENT_PROGRESS_MAX_EFFORTS,
+    }).catch((error: unknown) => {
+      const message = error instanceof Error ? error.message : String(error);
+      // The effort-history endpoint is subscriber-only; say so plainly
+      // instead of surfacing Strava's raw sentinel.
+      if (message.startsWith("SUBSCRIPTION_REQUIRED:")) {
+        throw new Error(
+          "Segment effort history requires a Strava subscription — Strava restricts the segment-efforts endpoint to subscribers.",
+        );
+      }
+      throw error;
+    }),
+  ]);
+  return buildSegmentProgress(segment, efforts);
+}
+
+/** ISO date part, so the text stays deterministic across locales. */
+function isoDay(date: string): string {
+  return date.slice(0, 10);
+}
+
+/** "-8s" / "+12s" / "same" — signed deltas read the same way everywhere. */
+function signedSeconds(delta: number): string {
+  if (delta === 0) return "same";
+  return `${delta > 0 ? "+" : ""}${delta}s`;
+}
+
+async function handleGetSegmentProgressData(
+  args: Record<string, unknown>,
+): Promise<ToolCallResult> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
+  }
+
+  const data = await loadSegmentProgressData(token, args);
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
+}
+
+async function handleViewSegmentProgress(
+  args: Record<string, unknown>,
+): Promise<ToolCallResult> {
+  const token = process.env.STRAVA_ACCESS_TOKEN;
+  if (!token) {
+    return {
+      isError: true,
+      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
+    };
+  }
+
+  const { segment, summary } = await loadSegmentProgressData(token, args);
+  const grade =
+    segment.averageGrade == null ? "" : `, ${segment.averageGrade.toFixed(1)}%`;
+  const lines = [
+    `Segment: ${segment.name} (${Math.round(segment.distanceMeters)} m${grade})`,
+  ];
+
+  if (summary.effortCount === 0) {
+    lines.push("No efforts recorded on this segment in the selected range.");
+  } else {
+    lines.push(
+      `Efforts: ${summary.effortCount} from ${isoDay(summary.firstDate!)} to ${isoDay(summary.lastDate!)}`,
+      `Best: ${formatDuration(summary.bestSeconds)} on ${isoDay(summary.bestDate!)}`,
+      `Latest: ${formatDuration(summary.latestSeconds)} on ${isoDay(summary.latestDate!)} (${signedSeconds(summary.latestVsBestSeconds!)} vs best)`,
+    );
+    if (summary.avgSecondsDelta != null) {
+      const hr =
+        summary.avgHeartrateDelta == null
+          ? ""
+          : `, ${summary.avgHeartrateDelta > 0 ? "+" : ""}${summary.avgHeartrateDelta} bpm average heart rate`;
+      lines.push(
+        `Recent half vs early half: ${signedSeconds(summary.avgSecondsDelta)} average time${hr}`,
+      );
+    }
+  }
+
+  lines.push("", "[Interactive segment progress chart rendered above]");
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
 
@@ -1398,6 +1566,8 @@ const APP_TOOL_HANDLERS: Record<
   "get-training-load-data": handleGetTrainingLoadData,
   "view-activity-zones": handleViewActivityZones,
   "get-activity-zones-data": handleGetActivityZonesData,
+  "view-segment-progress": handleViewSegmentProgress,
+  "get-segment-progress-data": handleGetSegmentProgressData,
   "view-compare-activities": handleViewCompareActivities,
   "get-compare-activities-data": handleGetCompareActivitiesData,
 };

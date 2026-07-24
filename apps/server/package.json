@@ -20,6 +20,7 @@
     "@strava-mcp/cadence-trends": "workspace:*",
     "@strava-mcp/compare-activities": "workspace:*",
     "@strava-mcp/route-map": "workspace:*",
+    "@strava-mcp/segment-progress": "workspace:*",
     "@strava-mcp/training-load": "workspace:*",
     "dotenv": "17.4.2",
     "zod": "4.4.3"

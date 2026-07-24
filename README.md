@@ -350,6 +350,8 @@ Ask your AI assistant questions like these (use the official Strava MCP to disco
 - "List the segments I starred near Boulder, Colorado"
 - "Get details for the 'Alpe du Zwift' segment"
 - "Star the 'Flagstaff Road Climb' segment for me"
+- "Am I getting faster on segment 8109834? Show my effort history"
+- "Star the climbs on my goal race course, then review my progress on them each month"
 
 **Routes:**
 - "List my saved Strava routes"
@@ -420,6 +422,8 @@ The server exposes the following MCP tools:
 | `get-compare-activities-data` | Aggregate comparison (summaries, differences, efficiency) for the compare-activities UI (app-only) |
 | `view-activity-zones` | Time-in-zone bar chart for one activity's HR and power zones with an easy/moderate/hard split (MCP App) |
 | `get-activity-zones-data` | Per-zone time distributions for the activity-zones UI (app-only) |
+| `view-segment-progress` | Effort history on one segment: time over date with PR/top-3 highlights, an average-HR overlay, and an expandable effort list (MCP App) |
+| `get-segment-progress-data` | Segment details, per-effort rows, and the progress summary for the segment-progress UI (app-only) |
 
 ## Project Structure
 
@@ -431,6 +435,7 @@ packages/cadence-trends/     Cadence trend analysis (MCP App)
 packages/route-map/          Activity/route GPS map (MCP App)
 packages/activity-segments/  Activity segment-effort list (MCP App)
 packages/compare-activities/ Two-activity stream overlay (MCP App)
+packages/segment-progress/   Segment effort history (MCP App)
 packages/data/               Shared pure data utilities
 packages/ui/                 Shared presentational React components
 packages/design-system/      Design tokens, color constants, Storybook preview

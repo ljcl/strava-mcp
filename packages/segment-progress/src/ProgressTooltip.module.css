@@ -1,0 +1,19 @@
+.badge {
+  align-self: flex-start;
+  padding: var(--space-0-5) var(--space-1-5);
+  margin-top: var(--space-1);
+  font-size: var(--font-text-xs-size);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-inverse);
+  white-space: nowrap;
+  border-radius: var(--border-radius-full);
+}
+
+.badge[data-tier="pr"] {
+  background: var(--color-tier-pr);
+}
+
+.badge[data-tier="top10"] {
+  background: var(--color-tier-top10);
+}

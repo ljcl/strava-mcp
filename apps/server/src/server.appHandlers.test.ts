@@ -13,8 +13,12 @@ import {
   getActivityZones,
   getAllActivities,
   getRouteById,
+  getSegmentById,
+  listSegmentEfforts,
   type StravaActivityZone,
   type StravaDetailedActivity,
+  type StravaDetailedSegment,
+  type StravaDetailedSegmentEffort,
   type StravaLap,
   type StravaRoute,
   type StravaSummaryActivity,
@@ -30,6 +34,8 @@ vi.mock("./stravaClient", async (importOriginal) => {
     getActivityZones: vi.fn(),
     getAllActivities: vi.fn(),
     getRouteById: vi.fn(),
+    getSegmentById: vi.fn(),
+    listSegmentEfforts: vi.fn(),
   };
 });
 
@@ -50,6 +56,8 @@ const mockedZones = vi.mocked(getActivityZones);
 const mockedPhotos = vi.mocked(getActivityPhotos);
 const mockedList = vi.mocked(getAllActivities);
 const mockedRoute = vi.mocked(getRouteById);
+const mockedSegment = vi.mocked(getSegmentById);
+const mockedSegmentEfforts = vi.mocked(listSegmentEfforts);
 const mockedApiGet = vi.mocked(stravaApi.get);
 
 // Google's polyline example: three points near (38.5, -120.2).
@@ -94,6 +102,37 @@ function summaryRun(
   } as unknown as StravaSummaryActivity;
 }
 
+function detailedSegment(
+  overrides: Record<string, unknown> = {},
+): StravaDetailedSegment {
+  return {
+    id: "55",
+    name: "Heartbreak Hill",
+    activity_type: "Run",
+    distance: 800,
+    average_grade: 5.4,
+    maximum_grade: 11.2,
+    total_elevation_gain: 43,
+    climb_category: 3,
+    starred: true,
+    ...overrides,
+  } as unknown as StravaDetailedSegment;
+}
+
+function segmentEffort(
+  overrides: Record<string, unknown> = {},
+): StravaDetailedSegmentEffort {
+  return {
+    id: "1",
+    activity: { id: "900" },
+    start_date_local: "2026-01-05T07:00:00Z",
+    elapsed_time: 250,
+    moving_time: 248,
+    distance: 800,
+    ...overrides,
+  } as unknown as StravaDetailedSegmentEffort;
+}
+
 beforeEach(() => {
   process.env.STRAVA_ACCESS_TOKEN = "test-token";
   vi.clearAllMocks();
@@ -119,6 +158,8 @@ const APP_TOOL_CALLS: Array<[string, Record<string, unknown>]> = [
   ["get-activity-zones-data", { activity_id: "123" }],
   ["view-compare-activities", { activity_id_1: "1", activity_id_2: "2" }],
   ["get-compare-activities-data", { activity_id_1: "1", activity_id_2: "2" }],
+  ["view-segment-progress", { segment_id: "55" }],
+  ["get-segment-progress-data", { segment_id: "55" }],
 ];
 
 describe("app handlers without STRAVA_ACCESS_TOKEN", () => {
@@ -280,6 +321,110 @@ describe("training load handlers", () => {
     expect(parsed.days).toBe(84);
     expect(parsed.totals.runs).toBe(1);
     expect(parsed.weeks.length).toBeGreaterThan(0);
+  });
+});
+
+describe("segment progress handlers", () => {
+  it("view-segment-progress summarises best, latest, and the half-vs-half trend", async () => {
+    mockedSegment.mockResolvedValueOnce(detailedSegment());
+    mockedSegmentEfforts.mockResolvedValueOnce([
+      segmentEffort({
+        id: "1",
+        start_date_local: "2026-01-05T07:00:00Z",
+        elapsed_time: 260,
+        average_heartrate: 172,
+      }),
+      segmentEffort({
+        id: "2",
+        start_date_local: "2026-02-05T07:00:00Z",
+        elapsed_time: 250,
+        average_heartrate: 170,
+      }),
+      segmentEffort({
+        id: "3",
+        start_date_local: "2026-03-05T07:00:00Z",
+        elapsed_time: 250,
+        average_heartrate: 162,
+      }),
+      segmentEffort({
+        id: "4",
+        start_date_local: "2026-04-05T07:00:00Z",
+        elapsed_time: 260,
+        average_heartrate: 160,
+      }),
+    ]);
+
+    const result = await dispatchToolCall("view-segment-progress", {
+      segment_id: "55",
+    });
+
+    expect(result.isError).toBeUndefined();
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("Segment: Heartbreak Hill (800 m, 5.4%)");
+    expect(text).toContain("Efforts: 4 from 2026-01-05 to 2026-04-05");
+    expect(text).toContain("Best: 4:10 on 2026-02-05");
+    expect(text).toContain("Latest: 4:20 on 2026-04-05 (+10s vs best)");
+    expect(text).toContain(
+      "Recent half vs early half: same average time, -10 bpm average heart rate",
+    );
+  });
+
+  it("view-segment-progress says so when the range holds no efforts", async () => {
+    mockedSegment.mockResolvedValueOnce(detailedSegment());
+    mockedSegmentEfforts.mockResolvedValueOnce([]);
+
+    const result = await dispatchToolCall("view-segment-progress", {
+      segment_id: "55",
+      start_date_local: "2026-06-01T00:00:00Z",
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]?.text).toContain("No efforts recorded");
+  });
+
+  it("get-segment-progress-data returns the ranked effort history", async () => {
+    mockedSegment.mockResolvedValueOnce(detailedSegment());
+    mockedSegmentEfforts.mockResolvedValueOnce([
+      segmentEffort({ id: "2", start_date_local: "2026-02-05T07:00:00Z" }),
+      segmentEffort({
+        id: "1",
+        start_date_local: "2026-01-05T07:00:00Z",
+        elapsed_time: 240,
+        pr_rank: 1,
+      }),
+    ]);
+
+    const result = await dispatchToolCall("get-segment-progress-data", {
+      segment_id: "55",
+      end_date_local: "2026-03-01T00:00:00Z",
+    });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.segment.name).toBe("Heartbreak Hill");
+    expect(parsed.efforts.map((e: { id: string }) => e.id)).toEqual(["1", "2"]);
+    expect(parsed.efforts[0]).toMatchObject({ rank: 1, prRank: 1 });
+    expect(parsed.summary.bestSeconds).toBe(240);
+    expect(mockedSegmentEfforts).toHaveBeenCalledWith("test-token", "55", {
+      startDateLocal: undefined,
+      endDateLocal: "2026-03-01T00:00:00Z",
+      perPage: 200,
+    });
+  });
+
+  it("explains the subscriber-only endpoint instead of leaking the sentinel", async () => {
+    mockedSegment.mockResolvedValueOnce(detailedSegment());
+    mockedSegmentEfforts.mockRejectedValueOnce(
+      new Error("SUBSCRIPTION_REQUIRED: segment efforts"),
+    );
+
+    const result = await dispatchToolCall("view-segment-progress", {
+      segment_id: "55",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("requires a Strava subscription");
+    expect(result.content[0]?.text).not.toContain("SUBSCRIPTION_REQUIRED");
   });
 });
 
