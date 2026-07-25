@@ -34,10 +34,13 @@ describe("get-activity-photos execute", () => {
   it("summarises photos and appends the raw JSON payload", async () => {
     mockedFetch.mockResolvedValueOnce([photo]);
 
-    const result = await getActivityPhotosTool.execute({ id: 123, size: 600 });
+    const result = await getActivityPhotosTool.execute({
+      id: "123",
+      size: 600,
+    });
 
     expect(result.isError).toBeUndefined();
-    expect(mockedFetch).toHaveBeenCalledWith("test-token", 123, 600);
+    expect(mockedFetch).toHaveBeenCalledWith("test-token", "123", 600);
     const summary = result.content[0]?.text ?? "";
     expect(summary).toContain("Total Photos: 1");
     expect(summary).toContain("Source: Strava");
@@ -48,27 +51,34 @@ describe("get-activity-photos execute", () => {
     expect(JSON.parse(raw.slice(raw.indexOf("[")))).toHaveLength(1);
   });
 
-  it("accepts a string activity id", async () => {
+  it("passes a 64-bit id through as digits rather than parsing it to a number", async () => {
     mockedFetch.mockResolvedValueOnce([photo]);
 
-    const result = await getActivityPhotosTool.execute({ id: "123" });
+    const big = "3516039180561708486";
+    await getActivityPhotosTool.execute({ id: big });
 
-    expect(result.isError).toBeUndefined();
-    expect(mockedFetch).toHaveBeenCalledWith("test-token", 123, undefined);
+    expect(mockedFetch).toHaveBeenCalledWith("test-token", big, undefined);
   });
 
-  it("rejects a non-numeric string id without calling Strava", async () => {
-    const result = await getActivityPhotosTool.execute({ id: "not-an-id" });
+  it("rejects a non-numeric id at the schema, before execute runs", async () => {
+    const parsed = getActivityPhotosTool.inputSchema.safeParse({
+      id: "not-an-id",
+    });
 
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Invalid activity ID");
+    expect(parsed.success).toBe(false);
     expect(mockedFetch).not.toHaveBeenCalled();
+  });
+
+  it("coerces a safe-integer number id to its digit string", () => {
+    const parsed = getActivityPhotosTool.inputSchema.parse({ id: 123 });
+
+    expect(parsed.id).toBe("123");
   });
 
   it("reports an empty photo list without an error flag", async () => {
     mockedFetch.mockResolvedValueOnce([]);
 
-    const result = await getActivityPhotosTool.execute({ id: 123 });
+    const result = await getActivityPhotosTool.execute({ id: "123" });
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain(
@@ -79,7 +89,7 @@ describe("get-activity-photos execute", () => {
   it("maps a 404 to an activity-not-found message", async () => {
     mockedFetch.mockRejectedValueOnce(new Error("Record Not Found"));
 
-    const result = await getActivityPhotosTool.execute({ id: 123 });
+    const result = await getActivityPhotosTool.execute({ id: "123" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Activity with ID 123 not found");
@@ -88,7 +98,7 @@ describe("get-activity-photos execute", () => {
   it("returns a configuration error without a token", async () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
 
-    const result = await getActivityPhotosTool.execute({ id: 123 });
+    const result = await getActivityPhotosTool.execute({ id: "123" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Missing Strava access token");

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { type Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
+import { parseJsonWithLargeInts } from "./fetchClient";
 
 /** JSON-RPC error codes used by the raw HTTP layer (before a transport exists). */
 const PARSE_ERROR = -32700;
@@ -70,9 +71,15 @@ export function createMcpSessionManager(
     if (req.method === "POST") {
       // A malformed body must surface as a JSON-RPC parse error, not an
       // unhandled rejection out of req.json() (which returned a bare 500).
+      //
+      // Parsed with the large-int-preserving reviver rather than `req.json()`:
+      // a 64-bit Strava id sent as a JSON number (e.g. a route id above 2^53)
+      // would otherwise be rounded here, before any tool schema sees it. When
+      // the exact digits do reach us they survive as a string, which the id
+      // schemas accept losslessly.
       let body: unknown;
       try {
-        body = await req.json();
+        body = parseJsonWithLargeInts(await req.text());
       } catch {
         return jsonRpcError(PARSE_ERROR, "Parse error: invalid JSON", 400);
       }

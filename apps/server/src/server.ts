@@ -45,7 +45,7 @@ import {
   type StravaDetailedActivity,
 } from "./stravaClient";
 import { READ_ONLY } from "./tools/_annotations";
-import { stravaIdInput } from "./tools/_ids";
+import { stravaIdInput, stravaIdJsonSchemaOverride } from "./tools/_ids";
 import {
   buildComparison,
   compareActivitiesTool,
@@ -85,9 +85,15 @@ const EMPTY_SCHEMA = { type: "object", properties: {}, required: [] } as const;
  * which accepts a digit string or a safe-integer number and normalises to a
  * string) advertise the accepted input shape rather than throwing on the
  * output-side transform. Output schemas keep the default (output) projection.
+ *
+ * `stravaIdJsonSchemaOverride` then narrows every Strava id to the string form
+ * so a host cannot generate the lossy number branch for an id above 2^53.
  */
 function toInputSchema(schema: z.ZodType): Record<string, unknown> {
-  return z.toJSONSchema(schema, { io: "input" });
+  return z.toJSONSchema(schema, {
+    io: "input",
+    override: stravaIdJsonSchemaOverride,
+  });
 }
 
 /**
