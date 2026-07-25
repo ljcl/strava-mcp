@@ -26,7 +26,8 @@
     "knip": "knip",
     "storybook": "turbo run storybook --filter=@strava-mcp/storybook",
     "build-storybook": "turbo run build:storybook --filter=@strava-mcp/storybook",
-    "coverage:summary": "bun scripts/coverage-summary.ts"
+    "coverage:summary": "bun scripts/coverage-summary.ts",
+    "shots": "bun scripts/story-shots.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.4",

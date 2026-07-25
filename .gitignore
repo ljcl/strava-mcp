@@ -48,3 +48,6 @@ cursor_rules.json
 
 # Playwright/vitest run artifacts
 test-results/
+
+# Story screenshots (bun run shots) — look-at-it artifacts, never baselines
+story-shots/
