@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getActivityPhotos as getActivityPhotosClient } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 
 const name = "get-activity-photos";
 
@@ -34,9 +35,7 @@ Notes:
 `;
 
 const inputSchema = z.object({
-  id: z
-    .union([z.number(), z.string()])
-    .describe("The identifier of the activity to fetch photos for."),
+  id: stravaIdInput("The identifier of the activity to fetch photos for."),
   size: z
     .number()
     .int()
@@ -69,27 +68,19 @@ export const getActivityPhotosTool = {
     }
 
     try {
-      // Convert id to number if it's a string
-      const activityId = typeof id === "string" ? Number.parseInt(id, 10) : id;
-
-      if (Number.isNaN(activityId)) {
-        return {
-          content: [
-            { type: "text" as const, text: `Invalid activity ID: ${id}` },
-          ],
-          isError: true,
-        };
-      }
-
-      console.error(`Fetching photos for activity ID: ${activityId}...`);
-      const photos = await getActivityPhotosClient(token, activityId, size);
+      // `id` arrives already validated and normalised to a digit string by
+      // `stravaIdInput`; parsing it back to a number here (as this handler
+      // used to) would re-introduce the precision loss the string form exists
+      // to avoid, for any id above 2^53.
+      console.error(`Fetching photos for activity ID: ${id}...`);
+      const photos = await getActivityPhotosClient(token, id, size);
 
       if (!photos || photos.length === 0) {
         return {
           content: [
             {
               type: "text" as const,
-              text: `No photos found for activity ID: ${activityId}`,
+              text: `No photos found for activity ID: ${id}`,
             },
           ],
         };
@@ -142,13 +133,13 @@ export const getActivityPhotosTool = {
         return details.join("\n");
       });
 
-      const summaryText = `Activity Photos (ID: ${activityId})\nTotal Photos: ${photos.length}\n\n${photoSummaries.join("\n\n")}`;
+      const summaryText = `Activity Photos (ID: ${id})\nTotal Photos: ${photos.length}\n\n${photoSummaries.join("\n\n")}`;
 
       // Add raw data section
       const rawDataText = `\n\nComplete Photo Data:\n${JSON.stringify(photos, null, 2)}`;
 
       console.error(
-        `Successfully fetched ${photos.length} photos for activity ${activityId}`,
+        `Successfully fetched ${photos.length} photos for activity ${id}`,
       );
 
       return {

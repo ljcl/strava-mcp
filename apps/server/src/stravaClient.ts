@@ -1616,7 +1616,7 @@ export async function getActivityZones(
  */
 export async function getActivityPhotos(
   accessToken: string,
-  activityId: number,
+  activityId: number | string,
   size = 2048,
 ): Promise<StravaPhoto[]> {
   if (!accessToken) {

@@ -104,6 +104,57 @@ describe("dispatchToolCall input validation", () => {
     expect(mockedById).not.toHaveBeenCalled();
   });
 
+  it("explains an oversized route_id sent as a JSON number (view-route-map)", async () => {
+    // Reported failure: a route pasted from https://www.strava.com/routes/
+    // 3516039180561708486 was called as an unquoted number, which the host's
+    // JSON.parse rounded to ...500 before dispatch. The advertised schema is
+    // now string-only so this shape should not be generated at all; when it
+    // is, the error must name the rounded value and the string fix once,
+    // rather than claiming the value is not a whole number.
+    const result = await dispatchToolCall("view-route-map", {
+      route_id: JSON.parse("3516039180561708486"),
+    });
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("Invalid arguments for view-route-map");
+    expect(text).toContain("3516039180561708500");
+    expect(text).toContain("quoted as a string of digits");
+    expect(text).not.toContain("whole number");
+  });
+
+  it("accepts an oversized route_id as a digit string", async () => {
+    // The lossless form the advertised schema now asks for. It gets past
+    // validation and fails later, at the (unmocked) Strava fetch.
+    const result = await dispatchToolCall("view-route-map", {
+      route_id: "3516039180561708486",
+    });
+
+    expect(result.content[0]?.text ?? "").not.toContain("Invalid arguments");
+  });
+
+  it("advertises every id argument as a digit string, never a number", async () => {
+    // A number branch in the advertised schema is what invited the lossy
+    // call above; ids must stay string-only across every tool.
+    const { TOOLS } = await import("./server");
+    const idSchemas = (
+      TOOLS as Array<{
+        name: string;
+        inputSchema?: { properties?: Record<string, Record<string, unknown>> };
+      }>
+    ).flatMap((tool) =>
+      Object.entries(tool.inputSchema?.properties ?? {})
+        .filter(([key]) => key === "id" || key.endsWith("_id"))
+        .map(([key, schema]) => ({ field: `${tool.name}.${key}`, schema })),
+    );
+
+    expect(idSchemas.length).toBeGreaterThan(10);
+    for (const { field, schema } of idSchemas) {
+      expect(`${field}: ${schema.type}`).toBe(`${field}: string`);
+      expect(`${field}: ${schema.pattern}`).toBe(`${field}: ^\\d+$`);
+    }
+  });
+
   it("applies the weeks default for app tools", async () => {
     mockedList.mockResolvedValueOnce([]);
 

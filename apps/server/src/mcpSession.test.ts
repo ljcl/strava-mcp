@@ -5,6 +5,7 @@
  * and shutdown drains every open transport.
  */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { CallToolRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { describe, expect, it } from "vitest";
 import { createMcpSessionManager, type McpSessionManager } from "./mcpSession";
 
@@ -104,6 +105,36 @@ describe("createMcpSessionManager", () => {
     expect(body.jsonrpc).toBe("2.0");
     expect(body.error.code).toBe(-32700);
     expect(body.id).toBeNull();
+  });
+
+  it("preserves a 64-bit id sent as a JSON number instead of rounding it", async () => {
+    // Strava route/segment-effort ids exceed 2^53. `req.json()` would round
+    // 3516039180561708486 to ...500 before any tool schema could see it, so
+    // the raw body is parsed with the large-int-preserving reviver and the
+    // exact digits arrive as a string the id schemas accept.
+    let received: unknown;
+    const manager = createMcpSessionManager(() => {
+      const server = new Server(
+        { name: "test", version: "0.0.0" },
+        { capabilities: { tools: {} } },
+      );
+      server.setRequestHandler(CallToolRequestSchema, async (request) => {
+        received = request.params.arguments?.route_id;
+        return { content: [] };
+      });
+      return server;
+    });
+    const sessionId = await initializeSession(manager);
+
+    const response = await manager.handleRequest(
+      post(
+        `{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"view-route-map","arguments":{"route_id":3516039180561708486}}}`,
+        { "mcp-session-id": sessionId },
+      ),
+    );
+    await response.body?.cancel();
+
+    expect(received).toBe("3516039180561708486");
   });
 
   it("parse errors do not create sessions", async () => {

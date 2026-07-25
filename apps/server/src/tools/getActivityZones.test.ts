@@ -54,19 +54,19 @@ describe("getActivityZonesTool.execute", () => {
   it("returns a formatted summary plus raw data", async () => {
     mockedClient.mockResolvedValue(activityZones);
 
-    const result = await getActivityZonesTool.execute({ id: 12345 });
+    const result = await getActivityZonesTool.execute({ id: "12345" });
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("Activity Zones (ID: 12345)");
     expect(result.content[0]?.text).toContain("54.1%");
     expect(result.content[1]?.text).toContain("Complete Zone Data:");
-    expect(mockedClient).toHaveBeenCalledWith("test-token", 12345);
+    expect(mockedClient).toHaveBeenCalledWith("test-token", "12345");
   });
 
   it("returns a graceful message when there is no zone data", async () => {
     mockedClient.mockResolvedValue([]);
 
-    const result = await getActivityZonesTool.execute({ id: 999 });
+    const result = await getActivityZonesTool.execute({ id: "999" });
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("No zone data found");
@@ -77,7 +77,7 @@ describe("getActivityZonesTool.execute", () => {
       { type: "heartrate", distribution_buckets: [] },
     ]);
 
-    const result = await getActivityZonesTool.execute({ id: 999 });
+    const result = await getActivityZonesTool.execute({ id: "999" });
 
     expect(result.content[0]?.text).toContain("No zone data found");
   });
@@ -85,7 +85,7 @@ describe("getActivityZonesTool.execute", () => {
   it("errors when the access token is missing", async () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
 
-    const result = await getActivityZonesTool.execute({ id: 1 });
+    const result = await getActivityZonesTool.execute({ id: "1" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Missing Strava access token");
@@ -94,7 +94,7 @@ describe("getActivityZonesTool.execute", () => {
   it("maps a not-found error to a friendly message", async () => {
     mockedClient.mockRejectedValue(new Error("Record Not Found"));
 
-    const result = await getActivityZonesTool.execute({ id: 42 });
+    const result = await getActivityZonesTool.execute({ id: "42" });
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Activity with ID 42 not found");

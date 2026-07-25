@@ -5,6 +5,7 @@ import {
 } from "../stravaClient";
 import { formatDuration } from "../utils";
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 
 const name = "get-activity-zones";
 
@@ -33,9 +34,7 @@ Notes:
 `;
 
 const inputSchema = z.object({
-  id: z
-    .union([z.number(), z.string()])
-    .describe("The identifier of the activity to fetch zones for."),
+  id: stravaIdInput("The identifier of the activity to fetch zones for."),
 });
 
 type GetActivityZonesInput = z.infer<typeof inputSchema>;
