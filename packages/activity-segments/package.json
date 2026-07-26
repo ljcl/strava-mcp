@@ -15,13 +15,13 @@
   },
   "dependencies": {
     "@base-ui/react": "1.6.0",
-    "@modelcontextprotocol/ext-apps": "1.7.4",
+    "@modelcontextprotocol/ext-apps": "1.7.5",
     "@modelcontextprotocol/sdk": "1.29.0",
     "@strava-mcp/data": "workspace:*",
     "@strava-mcp/design-system": "workspace:*",
     "@strava-mcp/ui": "workspace:*",
-    "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
     "@strava-mcp/tsconfig": "workspace:*",
