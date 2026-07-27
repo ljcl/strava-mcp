@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.8.0](https://github.com/ljcl/strava-mcp/compare/v2.7.2...v2.8.0) (2026-07-27)
+
+
+### Features
+
+* add view-segment-progress MCP App for effort history on a segment ([#234](https://github.com/ljcl/strava-mcp/issues/234)) ([e7e2842](https://github.com/ljcl/strava-mcp/commit/e7e2842f25b2e11763f660e0dbc244a4c30bff34))
+* keyboard zoom and pan for the route-map grid view ([#228](https://github.com/ljcl/strava-mcp/issues/228)) ([99804f6](https://github.com/ljcl/strava-mcp/commit/99804f62e1ba29f6d0f7f96941f843f17cc98ff5))
+* keyboard-accessible run selection in cadence-trends ([#230](https://github.com/ljcl/strava-mcp/issues/230)) ([9583c78](https://github.com/ljcl/strava-mcp/commit/9583c78bcde993b58f8f85340d574ed3cfa41789))
+
+
+### Bug Fixes
+
+* advertise Strava ids as digit strings so 64-bit route ids survive the host JSON round-trip ([#282](https://github.com/ljcl/strava-mcp/issues/282)) ([a47929c](https://github.com/ljcl/strava-mcp/commit/a47929c00c6bc67e938c20894593b4a24c62397c))
+* **deps:** bump the production-minor-patch group with 5 updates ([#292](https://github.com/ljcl/strava-mcp/issues/292)) ([c40e6f4](https://github.com/ljcl/strava-mcp/commit/c40e6f4f5d77d1000881c1de535977075f4c4bbd))
+
 ## [2.7.2](https://github.com/ljcl/strava-mcp/compare/v2.7.1...v2.7.2) (2026-07-18)
 
 
