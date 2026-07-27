@@ -608,22 +608,54 @@ by session type:
   Discover item/field/option ids with `gh project item-list 1 --owner ljcl --format json`
   and `gh project field-list 1 --owner ljcl --format json`.
 - **Cloud and iOS sessions** (no gh, no project scope on the built-in GitHub
-  credential): use the `github-projects` MCP server from `.mcp.json` (hosted
-  GitHub MCP, projects + issues toolsets, auth via the `GH_MCP_PAT` environment
-  variable configured in the cloud environment). `projects_list` /
-  `projects_get` / `projects_write` cover items and fields; `issue_write` /
-  `search_issues` cover issue filing and edits.
+  credential): use the hosted GitHub MCP server with `GH_MCP_PAT`. The projects
+  tools are **path-scoped**: they live at
+  `https://api.githubcopilot.com/mcp/x/projects`, which serves exactly
+  `projects_list` / `projects_get` / `projects_write` (use
+  `/x/projects/readonly` for the read-only pair). The base `/mcp/` endpoint does
+  **not** expose them, and an `X-MCP-Toolsets: projects` header does not add
+  them — it returns the same ~44 issue/PR/actions tools either way. That is the
+  trap: the base endpoint initializes fine and looks like it worked. Issue
+  filing and edits go through the ordinary `issue_write` / `search_issues`
+  tools.
 
-Hosted-build caveats for the MCP tools (as of 2026-07): pass numeric field ids
-via `fields` (the `field_names` parameter is not deployed yet), and
-`projects_write.update_project_item` needs the numeric `item_id` plus the
-option id (not the option name) as the value for single-select fields. Field
-and option ids are discoverable at runtime via `list_project_fields`. Constants
-for this board: project number 1, owner `ljcl`; field ids: Status 355919451,
-Priority 355919475, Effort 355919489; Status options: Backlog f75ad846, Ready
-a057814c, In progress 47fc9ee4, In review 2ba31d84, Done 98236657; Priority
-options: P1 fc38b480, P2 d2ef2472, P3 5197fbf4; Effort options: S ed6278ac,
-M c5c30106, L 7270adf2.
+If the `github-projects` entry in `.mcp.json` is not connected in the session,
+drive the endpoint directly over JSON-RPC with curl: POST `initialize`, capture
+the `Mcp-Session-Id` **response header**, POST the `notifications/initialized`
+notification, then POST `tools/call`. Every later request must carry that
+session header. Responses come back as SSE, so parse the `data:` line rather
+than the whole body. A CONNECT-level 403 to `api.githubcopilot.com` is not
+necessarily a standing policy denial — the proxy reports "policy denial **or**
+upstream failure" for both, so retry once before concluding the host is
+blocked.
+
+Hosted-build notes (verified 2026-07-27): `field_names` **is** deployed — pass
+`["Status","Priority","Effort"]` to `list_project_items` / `get_project_item`
+instead of numeric ids. `projects_write.update_project_item` takes one field per
+call via `updated_field`, accepts the by-name shape
+(`{"name":"Priority","value":"P1"}` — option *name*, not option id), and
+resolves the target from `item_owner` + `item_repo` + `issue_number`, so item
+ids are no longer needed. Ids stay discoverable via `list_project_fields`.
+Constants for this board: project number 1, owner `ljcl`; field ids: Status
+355919451, Priority 355919475, Effort 355919489; Status options: Backlog
+f75ad846, Ready a057814c, In progress 47fc9ee4, In review 2ba31d84, Done
+98236657; Priority options: P1 fc38b480, P2 d2ef2472, P3 5197fbf4; Effort
+options: S ed6278ac, M c5c30106, L 7270adf2.
+
+### Reading issue bodies before rewriting them
+
+`issue_read` and `list_issues` return issue bodies through a sanitizer that
+strips anything shaped like an HTML tag. `Promise<string>` comes back as
+`Promise`, and a body containing an unclosed-looking construct can lose
+everything after it — #257 read back as 97 of its 1221 characters, because the
+`` `<h1|<h2` `` grep string in its Context section ate the remainder.
+Round-tripping a body read that way silently destroys content.
+
+`search_issues` returns bodies **unsanitized**. Use it as the source whenever a
+body is going to be written back — appending a triage footer, editing an
+approach section, any `issue_write` update. Verifying by reading back afterwards
+does not catch this: both sides pass through the same sanitizer, so a damaged
+body compares equal to itself.
 
 ## Releases
 
