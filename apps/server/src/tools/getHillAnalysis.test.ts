@@ -5,7 +5,7 @@
  * degradation paths, and text shape.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { stravaApi } from "../fetchClient";
+import { HttpError, RateLimitError, stravaApi } from "../fetchClient";
 import { getActivityById, type StravaDetailedActivity } from "../stravaClient";
 import { HillAnalysisOutputSchema } from "./outputs";
 
@@ -172,7 +172,14 @@ describe("get-hill-analysis", () => {
 
   it("errors cleanly for a manual activity with no streams", async () => {
     mockedById.mockResolvedValueOnce(activity({ name: "Manual Entry" }));
-    mockedApiGet.mockRejectedValueOnce(new Error("Resource Not Found"));
+    // Strava answers 404 for an activity that recorded nothing.
+    mockedApiGet.mockRejectedValueOnce(
+      new HttpError("HTTP 404: Record Not Found", {
+        status: 404,
+        statusText: "Not Found",
+        data: "Record Not Found",
+      }),
+    );
 
     const result = await dispatchToolCall("get-hill-analysis", {
       activityId: "123",
@@ -180,6 +187,48 @@ describe("get-hill-analysis", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("No data streams");
+  });
+
+  it("reports an exhausted rate limit instead of claiming there are no streams", async () => {
+    // #237: the bare `catch {}` used to turn any stream failure into "manual
+    // activities have no recorded samples", which told the user their
+    // GPS-recorded run was a manual entry and hid the actual one-line fix.
+    mockedById.mockResolvedValueOnce(activity());
+    mockedApiGet.mockRejectedValueOnce(
+      new RateLimitError(
+        "15-minute rate limit reached (100/100 requests).",
+        { status: 429, statusText: "Too Many Requests", data: "" },
+        { observedAt: Date.now(), shortTerm: { limit: 100, usage: 100 } },
+        60,
+      ),
+    );
+
+    const result = await dispatchToolCall("get-hill-analysis", {
+      activityId: "123",
+    });
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("rate limit");
+    expect(text).not.toContain("No data streams");
+  });
+
+  it("surfaces an auth failure instead of claiming there are no streams", async () => {
+    mockedById.mockResolvedValueOnce(activity());
+    mockedApiGet.mockRejectedValue(
+      new HttpError("HTTP 401: Unauthorized", {
+        status: 401,
+        statusText: "Unauthorized",
+        data: '{"message":"Authorization Error"}',
+      }),
+    );
+
+    const result = await dispatchToolCall("get-hill-analysis", {
+      activityId: "123",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).not.toContain("No data streams");
   });
 
   it("surfaces analysis errors as actionable messages", async () => {

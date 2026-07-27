@@ -4,8 +4,12 @@ import {
   computeAerobicAnalysis,
   interpretDecoupling,
 } from "../aerobicAnalysis";
-import { stravaApi } from "../fetchClient";
-import { getActivityById, getAuthenticatedAthlete } from "../stravaClient";
+import {
+  getActivityById,
+  getActivityStreams,
+  getAuthenticatedAthlete,
+  StreamsUnavailableError,
+} from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
 import { AerobicAnalysisOutputSchema, warnOnSchemaDrift } from "./outputs";
@@ -73,27 +77,23 @@ async function fetchStreams(
   activityId: number | string,
 ): Promise<AerobicStreamData> {
   const types = ["time", "heartrate", "watts", "velocity_smooth", "moving"];
+  let streams: Awaited<ReturnType<typeof getActivityStreams>>;
   try {
-    const endpoint = `/activities/${activityId}/streams/${types.join(",")}`;
-    const response = await stravaApi.get<
-      Array<{ type: string; data: unknown[] }>
-    >(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-
-    const result: AerobicStreamData = {};
-    for (const stream of response.data) {
-      if (stream.type === "time") result.time = stream.data as number[];
-      if (stream.type === "heartrate")
-        result.heartrate = stream.data as number[];
-      if (stream.type === "watts") result.watts = stream.data as number[];
-      if (stream.type === "velocity_smooth")
-        result.velocity_smooth = stream.data as number[];
-      if (stream.type === "moving") result.moving = stream.data as boolean[];
-    }
-    return result;
-  } catch {
-    // Missing streams surface as an actionable analysis error below.
-    return {};
+    streams = await getActivityStreams(token, activityId, types);
+  } catch (error) {
+    // Only a genuinely sample-less activity degrades to the no-streams message
+    // below; auth and rate-limit failures propagate (#237).
+    if (error instanceof StreamsUnavailableError) return {};
+    throw error;
   }
+
+  return {
+    time: streams.get("time") as number[] | undefined,
+    heartrate: streams.get("heartrate") as number[] | undefined,
+    watts: streams.get("watts") as number[] | undefined,
+    velocity_smooth: streams.get("velocity_smooth") as number[] | undefined,
+    moving: streams.get("moving") as boolean[] | undefined,
+  };
 }
 
 const round = (value: number, dp = 2) =>

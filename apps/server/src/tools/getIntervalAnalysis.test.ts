@@ -5,7 +5,7 @@
  * `moving` stream type and the lap fetch), degradation paths, and text shape.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { stravaApi } from "../fetchClient";
+import { HttpError, stravaApi } from "../fetchClient";
 import {
   getActivityById,
   getActivityLaps,
@@ -257,7 +257,14 @@ describe("get-interval-analysis", () => {
 
   it("errors cleanly for a manual activity with no streams", async () => {
     mockedById.mockResolvedValueOnce(activity({ name: "Manual Entry" }));
-    mockedApiGet.mockRejectedValueOnce(new Error("Resource Not Found"));
+    // Strava answers 404 for an activity that recorded nothing.
+    mockedApiGet.mockRejectedValueOnce(
+      new HttpError("HTTP 404: Record Not Found", {
+        status: 404,
+        statusText: "Not Found",
+        data: "Record Not Found",
+      }),
+    );
 
     const result = await dispatchToolCall("get-interval-analysis", {
       activityId: "123",

@@ -17,7 +17,6 @@ import {
   dominantBucket,
   mapActivityZones,
 } from "./activityZones";
-import { stravaApi } from "./fetchClient";
 import { formatDuration } from "./formatters";
 import {
   cumulativeDistances,
@@ -37,12 +36,14 @@ import {
   getActivityById,
   getActivityLaps,
   getActivityPhotos,
+  getActivityStreams,
   getActivityZones,
   getAllActivities as getAllActivitiesFn,
   getRouteById,
   getSegmentById,
   listSegmentEfforts,
   type StravaDetailedActivity,
+  StreamsUnavailableError,
 } from "./stravaClient";
 import { getStravaToken } from "./tokenManager";
 import { READ_ONLY } from "./tools/_annotations";
@@ -687,18 +688,15 @@ async function handleGetActivityStreamsRaw(
   const activityId = String(args.activity_id);
   const activity = await getActivityById(token, Number(activityId));
 
-  const endpoint = `/activities/${activityId}/streams/${RAW_STREAM_TYPES.join(",")}?series_type=time&resolution=medium`;
-  const [response, stravaLaps] = await Promise.all([
-    stravaApi.get<Array<{ type: string; data: unknown[] }>>(endpoint, {
-      headers: { Authorization: `Bearer ${token}` },
+  const [streamSet, stravaLaps] = await Promise.all([
+    getActivityStreams(token, activityId, RAW_STREAM_TYPES, {
+      seriesType: "time",
+      resolution: "medium",
     }),
     getActivityLaps(token, activityId),
   ]);
 
-  const streams: Record<string, unknown[]> = {};
-  for (const stream of response.data) {
-    streams[stream.type] = stream.data;
-  }
+  const streams: Record<string, unknown[]> = Object.fromEntries(streamSet);
 
   const laps = stravaLaps.map((lap) => ({
     name: lap.name,
@@ -1042,32 +1040,35 @@ async function loadActivityMapStreams(
   coordinates: Array<[number, number]>;
   streams: RouteMapStreams;
 } | null> {
+  let byType: Awaited<ReturnType<typeof getActivityStreams>>;
   try {
-    const types = ["latlng", ...ROUTE_MAP_METRIC_STREAM_KEYS].join(",");
-    const endpoint = `/activities/${activityId}/streams/${types}?series_type=time&resolution=medium`;
-    const response = await stravaApi.get<
-      Array<{ type: string; data: unknown[] }>
-    >(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-
-    const byType = new Map(response.data.map((s) => [s.type, s.data]));
-    const latlng = byType.get("latlng") as Array<[number, number]> | undefined;
-    if (!latlng || latlng.length === 0) return null;
-
-    const streams: RouteMapStreams = {};
-    for (const key of ROUTE_MAP_METRIC_STREAM_KEYS) {
-      const data = byType.get(key);
-      // Only forward streams that align with the coordinates; a mismatched
-      // length would color the wrong part of the track.
-      if (Array.isArray(data) && data.length === latlng.length) {
-        streams[key] = data as number[];
-      }
-    }
-    return { coordinates: latlng, streams };
-  } catch {
-    // Streams are an enhancement: activities without GPS (or transient stream
-    // errors) still render from the polyline.
-    return null;
+    byType = await getActivityStreams(
+      token,
+      activityId,
+      ["latlng", ...ROUTE_MAP_METRIC_STREAM_KEYS],
+      { seriesType: "time", resolution: "medium" },
+    );
+  } catch (error) {
+    // Streams are an enhancement: an activity that recorded none still renders
+    // from the polyline. An expired token or an exhausted rate limit is not
+    // that, and must not be silently downgraded to a metric-less map (#237).
+    if (error instanceof StreamsUnavailableError) return null;
+    throw error;
   }
+
+  const latlng = byType.get("latlng") as Array<[number, number]> | undefined;
+  if (!latlng || latlng.length === 0) return null;
+
+  const streams: RouteMapStreams = {};
+  for (const key of ROUTE_MAP_METRIC_STREAM_KEYS) {
+    const data = byType.get(key);
+    // Only forward streams that align with the coordinates; a mismatched
+    // length would color the wrong part of the track.
+    if (Array.isArray(data) && data.length === latlng.length) {
+      streams[key] = data as number[];
+    }
+  }
+  return { coordinates: latlng, streams };
 }
 
 /** 1 = ride, 2 = run in Strava's route `type` enum. */

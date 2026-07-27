@@ -1,29 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { basicRunActivity, rideActivity } from "../__fixtures__";
-import { stravaApi } from "../fetchClient";
 import {
   getActivityById,
   getActivityLaps,
+  getActivityStreams,
   getAthleteZones,
   type StravaDetailedActivity,
   type StravaLap,
+  StreamsUnavailableError,
 } from "../stravaClient";
 import { getRunningSummaryTool } from "./getRunningSummary";
 
-vi.mock("../stravaClient", () => ({
-  getActivityById: vi.fn(),
-  getActivityLaps: vi.fn(),
-  getAthleteZones: vi.fn(),
-}));
-
-vi.mock("../fetchClient", () => ({
-  stravaApi: { get: vi.fn() },
-}));
+vi.mock("../stravaClient", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../stravaClient")>();
+  return {
+    ...actual,
+    getActivityById: vi.fn(),
+    getActivityLaps: vi.fn(),
+    getActivityStreams: vi.fn(),
+    getAthleteZones: vi.fn(),
+  };
+});
 
 const mockedById = vi.mocked(getActivityById);
 const mockedLaps = vi.mocked(getActivityLaps);
 const mockedZones = vi.mocked(getAthleteZones);
-const mockedApiGet = vi.mocked(stravaApi.get);
+const mockedStreams = vi.mocked(getActivityStreams);
 
 const asDetail = (a: unknown) => a as unknown as StravaDetailedActivity;
 
@@ -45,9 +47,9 @@ describe("getRunningSummaryTool.execute", () => {
     mockedById.mockReset();
     mockedLaps.mockReset();
     mockedZones.mockReset();
-    mockedApiGet.mockReset();
-    // Default: no stream data and no zones available.
-    mockedApiGet.mockRejectedValue(new Error("no streams"));
+    mockedStreams.mockReset();
+    // Default: no recorded samples and no zones available.
+    mockedStreams.mockRejectedValue(new StreamsUnavailableError("12345678"));
     mockedZones.mockRejectedValue(new Error("no zones"));
     mockedLaps.mockResolvedValue([]);
   });
@@ -103,12 +105,12 @@ describe("getRunningSummaryTool.execute", () => {
 
   it("computes HR zone distribution when streams and zones are present", async () => {
     mockedById.mockResolvedValueOnce(asDetail(basicRunActivity));
-    mockedApiGet.mockResolvedValueOnce({
-      data: [
-        { type: "time", data: [0, 1, 2, 3] },
-        { type: "heartrate", data: [120, 120, 160, 160] },
-      ],
-    } as never);
+    mockedStreams.mockResolvedValueOnce(
+      new Map<string, unknown[]>([
+        ["time", [0, 1, 2, 3]],
+        ["heartrate", [120, 120, 160, 160]],
+      ]),
+    );
     mockedZones.mockResolvedValueOnce({
       heart_rate: {
         zones: [

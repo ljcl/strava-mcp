@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { stravaApi } from "../fetchClient";
 import { formatDuration } from "../formatters";
 import {
   computeIntervalAnalysis,
@@ -10,7 +9,9 @@ import {
 import {
   getActivityById,
   getActivityLaps as getActivityLapsClient,
+  getActivityStreams,
   type StravaLap,
+  StreamsUnavailableError,
 } from "../stravaClient";
 import { isRunningActivity } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
@@ -71,26 +72,26 @@ async function fetchStreams(
   token: string,
   activityId: number | string,
 ): Promise<Partial<IntervalStreams>> {
+  let streams: Awaited<ReturnType<typeof getActivityStreams>>;
   try {
-    const endpoint = `/activities/${activityId}/streams/${STREAM_TYPES.join(",")}`;
-    const response = await stravaApi.get<
-      Array<{ type: string; data: unknown[] }>
-    >(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-
-    const result: Partial<IntervalStreams> = {};
-    for (const stream of response.data) {
-      if (stream.type === "moving") {
-        result.moving = stream.data as boolean[];
-      } else if ((STREAM_TYPES as readonly string[]).includes(stream.type)) {
-        result[stream.type as Exclude<keyof IntervalStreams, "moving">] =
-          stream.data as number[];
-      }
-    }
-    return result;
-  } catch {
-    // Missing streams surface as an actionable analysis error below.
-    return {};
+    streams = await getActivityStreams(token, activityId, STREAM_TYPES);
+  } catch (error) {
+    // Only a genuinely sample-less activity degrades to the no-streams message
+    // below; auth and rate-limit failures propagate (#237).
+    if (error instanceof StreamsUnavailableError) return {};
+    throw error;
   }
+
+  const result: Partial<IntervalStreams> = {};
+  for (const [type, data] of streams) {
+    if (type === "moving") {
+      result.moving = data as boolean[];
+    } else if ((STREAM_TYPES as readonly string[]).includes(type)) {
+      result[type as Exclude<keyof IntervalStreams, "moving">] =
+        data as number[];
+    }
+  }
+  return result;
 }
 
 function toIntervalLap(lap: StravaLap): IntervalLap {

@@ -1,9 +1,12 @@
 import * as fs from "node:fs";
 import { z } from "zod";
-import { stravaApi } from "../fetchClient";
 import { buildGpx } from "../gpxBuilder";
 import { decodePolyline } from "../polyline";
-import { getActivityById } from "../stravaClient";
+import {
+  getActivityById,
+  getActivityStreams,
+  StreamsUnavailableError,
+} from "../stravaClient";
 import { WRITE_IDEMPOTENT } from "./_annotations";
 import { resolveContainedPath } from "./exportPath";
 
@@ -36,30 +39,35 @@ async function fetchGpxStreams(
   token: string,
   activityId: string,
 ): Promise<GpxStreams | null> {
+  let byType: Awaited<ReturnType<typeof getActivityStreams>>;
   try {
-    const types = ["latlng", ...GPX_STREAM_KEYS].join(",");
-    const endpoint = `/activities/${activityId}/streams/${types}?series_type=time`;
-    const response = await stravaApi.get<
-      Array<{ type: string; data: unknown[] }>
-    >(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-
-    const byType = new Map(response.data.map((s) => [s.type, s.data]));
-    const latlng = byType.get("latlng") as Array<[number, number]> | undefined;
-    if (!latlng || latlng.length === 0) return null;
-
-    const streams: GpxStreams = { coordinates: latlng };
-    for (const key of GPX_STREAM_KEYS) {
-      const data = byType.get(key);
-      // Only index-aligned streams are usable; a mismatched length would
-      // attach the wrong timestamp/sensor value to a point.
-      if (Array.isArray(data) && data.length === latlng.length) {
-        streams[key] = data as number[];
-      }
-    }
-    return streams;
-  } catch {
-    return null;
+    byType = await getActivityStreams(
+      token,
+      activityId,
+      ["latlng", ...GPX_STREAM_KEYS],
+      { seriesType: "time" },
+    );
+  } catch (error) {
+    // A sample-less activity falls back to the polyline; an expired token or
+    // an exhausted rate limit is a real failure and must not masquerade as
+    // one (#237).
+    if (error instanceof StreamsUnavailableError) return null;
+    throw error;
   }
+
+  const latlng = byType.get("latlng") as Array<[number, number]> | undefined;
+  if (!latlng || latlng.length === 0) return null;
+
+  const streams: GpxStreams = { coordinates: latlng };
+  for (const key of GPX_STREAM_KEYS) {
+    const data = byType.get(key);
+    // Only index-aligned streams are usable; a mismatched length would
+    // attach the wrong timestamp/sensor value to a point.
+    if (Array.isArray(data) && data.length === latlng.length) {
+      streams[key] = data as number[];
+    }
+  }
+  return streams;
 }
 
 export const exportActivityGpx = {

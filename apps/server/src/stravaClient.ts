@@ -793,6 +793,108 @@ export async function getActivityById(
 }
 
 /**
+ * The activity genuinely has no recorded samples: Strava answered 404, or
+ * returned an empty stream set. Distinct from every other failure so callers
+ * can degrade (a manual activity really has nothing to analyse) without also
+ * swallowing an expired token or an exhausted rate limit.
+ */
+export class StreamsUnavailableError extends Error {
+  activityId: string;
+
+  constructor(activityId: number | string) {
+    super(`No data streams are recorded for activity ${activityId}.`);
+    this.name = "StreamsUnavailableError";
+    this.activityId = String(activityId);
+  }
+}
+
+/** Strava's stream response: one entry per requested type. */
+const StravaStreamSetSchema = z.array(
+  z.object({ type: z.string(), data: z.array(z.unknown()) }).loose(),
+);
+
+/** Requested stream type → its raw sample array. */
+export type StravaStreamSet = Map<string, unknown[]>;
+
+/**
+ * Fetches an activity's data streams.
+ *
+ * This is the single stream-fetch path (#237). Seven near-identical fetchers
+ * used to call `stravaApi.get()` directly behind a bare `catch {}`, so a 401
+ * got no refresh-and-retry and a 429 got no structured message — both surfaced
+ * to the user as "this activity has no samples", which is wrong and hides the
+ * one-line fix. Only a genuine 404 or empty response yields
+ * {@link StreamsUnavailableError}; auth, rate-limit, and subscription failures
+ * go through {@link handleApiError} like every other client call.
+ *
+ * @param accessToken - The Strava API access token.
+ * @param activityId - The activity whose streams to fetch.
+ * @param types - Stream keys to request (e.g. `["time", "heartrate"]`).
+ * @param options - `series_type` / `resolution` query parameters.
+ * @throws {StreamsUnavailableError} when the activity has no recorded samples.
+ */
+export async function getActivityStreams(
+  accessToken: string,
+  activityId: number | string,
+  types: readonly string[],
+  options: {
+    seriesType?: "time" | "distance";
+    resolution?: "low" | "medium" | "high";
+  } = {},
+): Promise<StravaStreamSet> {
+  if (!accessToken) {
+    throw new Error("Strava access token is required.");
+  }
+  if (!activityId) {
+    throw new Error("Activity ID is required to fetch streams.");
+  }
+
+  const query = new URLSearchParams();
+  if (options.seriesType) query.set("series_type", options.seriesType);
+  if (options.resolution) query.set("resolution", options.resolution);
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  const endpoint = `/activities/${activityId}/streams/${types.join(",")}${suffix}`;
+
+  try {
+    const response = await stravaApi.get<unknown>(endpoint, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const validationResult = StravaStreamSetSchema.safeParse(response.data);
+    if (!validationResult.success) {
+      console.error(
+        `Strava API validation failed (getActivityStreams: ${activityId}):`,
+        validationResult.error,
+      );
+      throw new Error(
+        `Invalid data format received from Strava API: ${validationResult.error.message}`,
+      );
+    }
+    if (validationResult.data.length === 0) {
+      throw new StreamsUnavailableError(activityId);
+    }
+
+    return new Map(validationResult.data.map((s) => [s.type, s.data]));
+  } catch (error) {
+    if (error instanceof StreamsUnavailableError) {
+      throw error;
+    }
+    // Strava answers 404 for an activity that recorded nothing (a manual
+    // entry). That is the only status that means "no samples" — everything
+    // else is a real failure and must not be reported as an empty activity.
+    if (error instanceof HttpError && error.response.status === 404) {
+      throw new StreamsUnavailableError(activityId);
+    }
+    return await handleApiError<StravaStreamSet>(
+      error,
+      `getActivityStreams for ID ${activityId}`,
+      async (newToken) =>
+        getActivityStreams(newToken, activityId, types, options),
+    );
+  }
+}
+
+/**
  * Lists the segments starred by the authenticated athlete.
  *
  * @param accessToken - The Strava API access token.

@@ -1,10 +1,11 @@
 import { z } from "zod";
-import { stravaApi } from "../fetchClient";
 import { formatDuration } from "../formatters";
 import {
   getActivityById,
   getActivityLaps,
+  getActivityStreams,
   getAthleteZones,
+  StreamsUnavailableError,
 } from "../stravaClient";
 import {
   assessCadence,
@@ -66,28 +67,23 @@ async function fetchStreams(
 ): Promise<StreamData> {
   const streamTypes = ["time", "heartrate", "cadence", "velocity_smooth"];
 
+  let streams: Awaited<ReturnType<typeof getActivityStreams>>;
   try {
-    const endpoint = `/activities/${activityId}/streams/${streamTypes.join(",")}`;
-    const response = await stravaApi.get(endpoint, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-
-    const streams = response.data as Array<{ type: string; data: number[] }>;
-    const result: StreamData = {};
-
-    for (const stream of streams) {
-      if (stream.type === "time") result.time = stream.data;
-      if (stream.type === "heartrate") result.heartrate = stream.data;
-      if (stream.type === "cadence") result.cadence = stream.data;
-      if (stream.type === "velocity_smooth")
-        result.velocity_smooth = stream.data;
-    }
-
-    return result;
-  } catch {
-    // Streams may not be available for all activities
-    return {};
+    streams = await getActivityStreams(token, activityId, streamTypes);
+  } catch (error) {
+    // Streams may not be available for all activities — but only a genuinely
+    // sample-less one degrades silently; auth and rate-limit failures
+    // propagate so the summary does not claim the run had no samples (#237).
+    if (error instanceof StreamsUnavailableError) return {};
+    throw error;
   }
+
+  return {
+    time: streams.get("time") as number[] | undefined,
+    heartrate: streams.get("heartrate") as number[] | undefined,
+    cadence: streams.get("cadence") as number[] | undefined,
+    velocity_smooth: streams.get("velocity_smooth") as number[] | undefined,
+  };
 }
 
 export const getRunningSummaryTool = {

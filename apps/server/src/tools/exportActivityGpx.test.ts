@@ -2,24 +2,25 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { stravaApi } from "../fetchClient";
-import { getActivityById, type StravaDetailedActivity } from "../stravaClient";
+import {
+  getActivityById,
+  getActivityStreams,
+  type StravaDetailedActivity,
+  StreamsUnavailableError,
+} from "../stravaClient";
 import { exportActivityGpx } from "./exportActivityGpx";
 
-vi.mock("../stravaClient", () => ({
-  getActivityById: vi.fn(),
-}));
-
-vi.mock("../fetchClient", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../fetchClient")>();
+vi.mock("../stravaClient", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../stravaClient")>();
   return {
     ...actual,
-    stravaApi: { get: vi.fn() },
+    getActivityById: vi.fn(),
+    getActivityStreams: vi.fn(),
   };
 });
 
 const mockedById = vi.mocked(getActivityById);
-const mockedGet = vi.mocked(stravaApi.get);
+const mockedGet = vi.mocked(getActivityStreams);
 
 const asDetail = (a: unknown) => a as unknown as StravaDetailedActivity;
 
@@ -32,20 +33,18 @@ const baseActivity = {
   map: { id: "m1", polyline: "_p~iF~ps|U_ulLnnqC", resource_state: 3 },
 };
 
-const streamsResponse = {
-  data: [
-    {
-      type: "latlng",
-      data: [
-        [-37.8136, 144.9631],
-        [-37.8137, 144.9635],
-      ],
-    },
-    { type: "time", data: [0, 5] },
-    { type: "altitude", data: [30, 31] },
-    { type: "heartrate", data: [140, 142] },
+const streamsResponse = new Map<string, unknown[]>([
+  [
+    "latlng",
+    [
+      [-37.8136, 144.9631],
+      [-37.8137, 144.9635],
+    ],
   ],
-};
+  ["time", [0, 5]],
+  ["altitude", [30, 31]],
+  ["heartrate", [140, 142]],
+]);
 
 describe("exportActivityGpx.execute", () => {
   let exportDir: string;
@@ -89,8 +88,8 @@ describe("exportActivityGpx.execute", () => {
 
   it("falls back to the polyline for stream-less activities and says so", async () => {
     mockedById.mockResolvedValueOnce(asDetail(baseActivity));
-    // No latlng stream (e.g. trainer ride) → fetch helper returns null.
-    mockedGet.mockResolvedValueOnce({ data: [] });
+    // No recorded samples (e.g. a manual entry) → the client says so.
+    mockedGet.mockRejectedValueOnce(new StreamsUnavailableError("12345"));
 
     const result = await exportActivityGpx.execute(
       { activityId: "12345" },
@@ -110,7 +109,7 @@ describe("exportActivityGpx.execute", () => {
 
   it("errors when the activity has neither streams nor a polyline", async () => {
     mockedById.mockResolvedValueOnce(asDetail({ ...baseActivity, map: null }));
-    mockedGet.mockResolvedValueOnce({ data: [] });
+    mockedGet.mockRejectedValueOnce(new StreamsUnavailableError("12345"));
 
     const result = await exportActivityGpx.execute(
       { activityId: "12345" },
@@ -126,18 +125,18 @@ describe("exportActivityGpx.execute", () => {
 
   it("drops misaligned streams instead of writing wrong values", async () => {
     mockedById.mockResolvedValueOnce(asDetail(baseActivity));
-    mockedGet.mockResolvedValueOnce({
-      data: [
-        {
-          type: "latlng",
-          data: [
+    mockedGet.mockResolvedValueOnce(
+      new Map<string, unknown[]>([
+        [
+          "latlng",
+          [
             [-37.8136, 144.9631],
             [-37.8137, 144.9635],
           ],
-        },
-        { type: "heartrate", data: [140] }, // length mismatch
-      ],
-    });
+        ],
+        ["heartrate", [140]], // length mismatch
+      ]),
+    );
 
     await exportActivityGpx.execute({ activityId: "12345" }, "test-token");
 

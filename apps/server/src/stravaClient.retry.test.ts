@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError, stravaApi } from "./fetchClient";
-import { exploreSegments, getSegmentEffort } from "./stravaClient";
+import {
+  exploreSegments,
+  getActivityStreams,
+  getSegmentEffort,
+} from "./stravaClient";
 import { refreshAccessToken } from "./tokenManager";
 
 vi.mock("./fetchClient", async (importOriginal) => {
@@ -84,6 +88,22 @@ describe("401 refresh-retry", () => {
 
     expect(mockedRefresh).toHaveBeenCalledTimes(1);
     expect(mockedGet).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes and retries a stream fetch, which used to swallow the 401", async () => {
+    // #237: the seven local stream fetchers called stravaApi.get behind a bare
+    // `catch {}`, so an expired token never reached the refresh path at all.
+    mockedGet.mockRejectedValueOnce(unauthorized()).mockResolvedValueOnce({
+      data: [{ type: "time", data: [0, 1, 2] }],
+    });
+
+    const streams = await getActivityStreams("stale-token", "123", ["time"]);
+
+    expect(streams.get("time")).toEqual([0, 1, 2]);
+    expect(mockedRefresh).toHaveBeenCalledTimes(1);
+    expect(mockedGet).toHaveBeenLastCalledWith("/activities/123/streams/time", {
+      headers: { Authorization: "Bearer refreshed-token" },
+    });
   });
 
   it("passes a string effort id above 2^53 through to the request untouched", async () => {

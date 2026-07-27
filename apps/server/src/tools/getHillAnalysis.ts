@@ -1,12 +1,15 @@
 import { z } from "zod";
-import { stravaApi } from "../fetchClient";
 import {
   computeHillAnalysis,
   HillAnalysisError,
   type HillSegment,
   type HillStreams,
 } from "../hillAnalysis";
-import { getActivityById } from "../stravaClient";
+import {
+  getActivityById,
+  getActivityStreams,
+  StreamsUnavailableError,
+} from "../stravaClient";
 import { isRunningActivity } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
@@ -64,26 +67,26 @@ async function fetchStreams(
   token: string,
   activityId: number | string,
 ): Promise<Partial<HillStreams>> {
+  let streams: Awaited<ReturnType<typeof getActivityStreams>>;
   try {
-    const endpoint = `/activities/${activityId}/streams/${STREAM_TYPES.join(",")}`;
-    const response = await stravaApi.get<
-      Array<{ type: string; data: unknown[] }>
-    >(endpoint, { headers: { Authorization: `Bearer ${token}` } });
-
-    const result: Partial<HillStreams> = {};
-    for (const stream of response.data) {
-      if (stream.type === "moving") {
-        result.moving = stream.data as boolean[];
-      } else if ((STREAM_TYPES as readonly string[]).includes(stream.type)) {
-        result[stream.type as Exclude<keyof HillStreams, "moving">] =
-          stream.data as number[];
-      }
-    }
-    return result;
-  } catch {
-    // Missing streams surface as an actionable analysis error below.
-    return {};
+    streams = await getActivityStreams(token, activityId, STREAM_TYPES);
+  } catch (error) {
+    // Only a genuinely sample-less activity degrades to the no-streams message
+    // below; auth and rate-limit failures propagate so the user is told what to
+    // fix instead of being told their GPS run is a manual entry (#237).
+    if (error instanceof StreamsUnavailableError) return {};
+    throw error;
   }
+
+  const result: Partial<HillStreams> = {};
+  for (const [type, data] of streams) {
+    if (type === "moving") {
+      result.moving = data as boolean[];
+    } else if ((STREAM_TYPES as readonly string[]).includes(type)) {
+      result[type as Exclude<keyof HillStreams, "moving">] = data as number[];
+    }
+  }
+  return result;
 }
 
 const formatPace = (secPerKm: number | null) => {

@@ -5,7 +5,7 @@
  * those early returns lacked `isError: true` and surfaced as ordinary content.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { stravaApi } from "./fetchClient";
+import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
 import {
   getActivityById,
   getActivityLaps,
@@ -554,9 +554,16 @@ describe("route map handlers", () => {
     ]);
   });
 
-  it("get-route-map-data falls back to the polyline when streams fail", async () => {
+  it("get-route-map-data falls back to the polyline for a stream-less activity", async () => {
     mockedById.mockResolvedValueOnce(detailedActivity());
-    mockedApiGet.mockRejectedValueOnce(new Error("no streams"));
+    // Strava answers 404 for an activity that recorded no samples.
+    mockedApiGet.mockRejectedValueOnce(
+      new HttpError("HTTP 404: Record Not Found", {
+        status: 404,
+        statusText: "Not Found",
+        data: "Record Not Found",
+      }),
+    );
 
     const result = await dispatchToolCall("get-route-map-data", {
       activity_id: "123",
@@ -566,6 +573,27 @@ describe("route map handlers", () => {
     const parsed = JSON.parse(result.content[0]?.text ?? "");
     expect(parsed.coordinates).toHaveLength(3);
     expect(parsed.streams).toBeUndefined();
+  });
+
+  it("get-route-map-data reports a rate limit rather than silently dropping streams", async () => {
+    // #237: an exhausted quota used to be swallowed into the polyline path,
+    // so the user got a metric-less map with no hint that waiting would fix it.
+    mockedById.mockResolvedValueOnce(detailedActivity());
+    mockedApiGet.mockRejectedValueOnce(
+      new RateLimitError(
+        "15-minute rate limit reached (100/100 requests).",
+        { status: 429, statusText: "Too Many Requests", data: "" },
+        { observedAt: Date.now(), shortTerm: { limit: 100, usage: 100 } },
+        60,
+      ),
+    );
+
+    const result = await dispatchToolCall("get-route-map-data", {
+      activity_id: "123",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("rate limit");
   });
 
   it("get-route-map-data anchors waypoints on the distance stream and drops out-of-range ones", async () => {
