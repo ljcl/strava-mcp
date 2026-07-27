@@ -49,20 +49,7 @@ export const updateActivityTool = {
     "Requires the activity:write scope. Assign gear by passing a Strava gear id.",
   inputSchema: UpdateActivityInputSchema,
   annotations: WRITE_DESTRUCTIVE,
-  execute: async (input: UpdateActivityInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-    if (!token) {
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async (input: UpdateActivityInput, token: string) => {
     const {
       activityId,
       name,

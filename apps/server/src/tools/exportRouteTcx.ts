@@ -22,7 +22,7 @@ export const exportRouteTcx = {
     "Exports a specific Strava route in TCX format and saves it to a pre-configured local directory.",
   inputSchema: ExportRouteTcxInputSchema,
   annotations: WRITE_IDEMPOTENT,
-  execute: async ({ routeId }: ExportRouteTcxInput) => {
+  execute: async ({ routeId }: ExportRouteTcxInput, token: string) => {
     // Dispatch does not enforce the zod schema yet (#107), and the id is
     // interpolated into both the API URL and the output filename — reject
     // anything non-numeric before any fetch or write.
@@ -32,20 +32,6 @@ export const exportRouteTcx = {
           {
             type: "text" as const,
             text: `❌ Error: Invalid route ID "${routeId}". Route ID must contain only digits.`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-    if (!token) {
-      // Strict return structure
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "❌ Error: Missing STRAVA_ACCESS_TOKEN in .env file.",
           },
         ],
         isError: true,

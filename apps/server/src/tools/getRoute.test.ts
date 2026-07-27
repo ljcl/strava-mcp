@@ -43,7 +43,7 @@ describe("get-route execute", () => {
   it("formats the route summary", async () => {
     mockedGetRoute.mockResolvedValueOnce(route);
 
-    const result = await getRouteTool.execute({ routeId: "42" });
+    const result = await getRouteTool.execute({ routeId: "42" }, "test-token");
 
     expect(result.isError).toBeUndefined();
     expect(mockedGetRoute).toHaveBeenCalledWith("test-token", "42");
@@ -57,7 +57,7 @@ describe("get-route execute", () => {
   it("maps a 404 to a route-not-found message", async () => {
     mockedGetRoute.mockRejectedValueOnce(new Error("Record Not Found"));
 
-    const result = await getRouteTool.execute({ routeId: "42" });
+    const result = await getRouteTool.execute({ routeId: "42" }, "test-token");
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Route with ID 42 not found");
@@ -66,19 +66,9 @@ describe("get-route execute", () => {
   it("reports other failures with details", async () => {
     mockedGetRoute.mockRejectedValueOnce(new Error("Service unavailable"));
 
-    const result = await getRouteTool.execute({ routeId: "42" });
+    const result = await getRouteTool.execute({ routeId: "42" }, "test-token");
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Service unavailable");
-  });
-
-  it("returns a configuration error without a token", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getRouteTool.execute({ routeId: "42" });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-    expect(mockedGetRoute).not.toHaveBeenCalled();
   });
 });

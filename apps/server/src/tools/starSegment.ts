@@ -21,22 +21,7 @@ export const starSegment = {
     "Stars or unstars a specific segment for the authenticated athlete.",
   inputSchema: StarSegmentInputSchema,
   annotations: WRITE_IDEMPOTENT,
-  execute: async ({ segmentId, starred }: StarSegmentInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token || token === "YOUR_STRAVA_ACCESS_TOKEN_HERE") {
-      console.error("Missing or placeholder STRAVA_ACCESS_TOKEN in .env");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "❌ Configuration Error: STRAVA_ACCESS_TOKEN is missing or not set in the .env file.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async ({ segmentId, starred }: StarSegmentInput, token: string) => {
     try {
       const action = starred ? "starring" : "unstarring";
       console.error(`Attempting to ${action} segment ID: ${segmentId}...`);

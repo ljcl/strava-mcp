@@ -432,13 +432,13 @@ const authRetryContext = new AsyncLocalStorage<true>();
  * Helper function to handle API errors with token refresh capability
  * @param error - The caught error
  * @param context - The context in which the error occurred
- * @param retryFn - Optional function to retry after token refresh
+ * @param retryFn - Optional retry, called with the freshly-refreshed token
  * @returns Never returns normally, always throws an error or returns via retryFn
  */
 async function handleApiError<T>(
   error: unknown,
   context: string,
-  retryFn?: () => Promise<T>,
+  retryFn?: (accessToken: string) => Promise<T>,
 ): Promise<T> {
   // Check if it's a fetch error with response data
   const isHttpError = error instanceof HttpError;
@@ -446,13 +446,12 @@ async function handleApiError<T>(
 
   // Check if it's an authentication error (401) that might be fixed by refreshing the token
   if (status === 401 && retryFn && !authRetryContext.getStore()) {
-    let refreshed = false;
+    let refreshedToken: string | null = null;
     try {
       console.error(
         `🔑 Authentication error in ${context}. Attempting to refresh token...`,
       );
-      await refreshAccessToken();
-      refreshed = true;
+      refreshedToken = (await refreshAccessToken()).access_token;
     } catch (refreshError) {
       // A revoked refresh token can never recover by retrying — surface the
       // actionable re-auth instruction instead of the original 401.
@@ -471,9 +470,10 @@ async function handleApiError<T>(
       );
       // Fall through to normal error handling if refresh fails
     }
-    if (refreshed) {
+    if (refreshedToken) {
       console.error(`🔄 Retrying ${context} after token refresh...`);
-      return await authRetryContext.run(true, retryFn);
+      const token = refreshedToken;
+      return await authRetryContext.run(true, () => retryFn(token));
     }
   }
 
@@ -630,8 +630,7 @@ export async function getAllActivities(
       return await handleApiError<StravaSummaryActivity[]>(
         error,
         "getAllActivities",
-        async () => {
-          const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+        async (newToken) => {
           return getAllActivities(newToken, params);
         },
       );
@@ -683,9 +682,7 @@ export async function getAuthenticatedAthlete(
     return await handleApiError<StravaAthlete>(
       error,
       "getAuthenticatedAthlete",
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getAuthenticatedAthlete(newToken);
       },
     );
@@ -735,9 +732,7 @@ export async function getAthleteStats(
     return await handleApiError<StravaStats>(
       error,
       `getAthleteStats for ID ${athleteId}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getAthleteStats(newToken, athleteId);
       },
     );
@@ -790,11 +785,111 @@ export async function getActivityById(
     return await handleApiError<StravaDetailedActivity>(
       error,
       `getActivityById for ID ${activityId}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getActivityById(newToken, activityId, options);
       },
+    );
+  }
+}
+
+/**
+ * The activity genuinely has no recorded samples: Strava answered 404, or
+ * returned an empty stream set. Distinct from every other failure so callers
+ * can degrade (a manual activity really has nothing to analyse) without also
+ * swallowing an expired token or an exhausted rate limit.
+ */
+export class StreamsUnavailableError extends Error {
+  activityId: string;
+
+  constructor(activityId: number | string) {
+    super(`No data streams are recorded for activity ${activityId}.`);
+    this.name = "StreamsUnavailableError";
+    this.activityId = String(activityId);
+  }
+}
+
+/** Strava's stream response: one entry per requested type. */
+const StravaStreamSetSchema = z.array(
+  z.object({ type: z.string(), data: z.array(z.unknown()) }).loose(),
+);
+
+/** Requested stream type → its raw sample array. */
+export type StravaStreamSet = Map<string, unknown[]>;
+
+/**
+ * Fetches an activity's data streams.
+ *
+ * This is the single stream-fetch path (#237). Seven near-identical fetchers
+ * used to call `stravaApi.get()` directly behind a bare `catch {}`, so a 401
+ * got no refresh-and-retry and a 429 got no structured message — both surfaced
+ * to the user as "this activity has no samples", which is wrong and hides the
+ * one-line fix. Only a genuine 404 or empty response yields
+ * {@link StreamsUnavailableError}; auth, rate-limit, and subscription failures
+ * go through {@link handleApiError} like every other client call.
+ *
+ * @param accessToken - The Strava API access token.
+ * @param activityId - The activity whose streams to fetch.
+ * @param types - Stream keys to request (e.g. `["time", "heartrate"]`).
+ * @param options - `series_type` / `resolution` query parameters.
+ * @throws {StreamsUnavailableError} when the activity has no recorded samples.
+ */
+export async function getActivityStreams(
+  accessToken: string,
+  activityId: number | string,
+  types: readonly string[],
+  options: {
+    seriesType?: "time" | "distance";
+    resolution?: "low" | "medium" | "high";
+  } = {},
+): Promise<StravaStreamSet> {
+  if (!accessToken) {
+    throw new Error("Strava access token is required.");
+  }
+  if (!activityId) {
+    throw new Error("Activity ID is required to fetch streams.");
+  }
+
+  const query = new URLSearchParams();
+  if (options.seriesType) query.set("series_type", options.seriesType);
+  if (options.resolution) query.set("resolution", options.resolution);
+  const suffix = query.size > 0 ? `?${query.toString()}` : "";
+  const endpoint = `/activities/${activityId}/streams/${types.join(",")}${suffix}`;
+
+  try {
+    const response = await stravaApi.get<unknown>(endpoint, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const validationResult = StravaStreamSetSchema.safeParse(response.data);
+    if (!validationResult.success) {
+      console.error(
+        `Strava API validation failed (getActivityStreams: ${activityId}):`,
+        validationResult.error,
+      );
+      throw new Error(
+        `Invalid data format received from Strava API: ${validationResult.error.message}`,
+      );
+    }
+    if (validationResult.data.length === 0) {
+      throw new StreamsUnavailableError(activityId);
+    }
+
+    return new Map(validationResult.data.map((s) => [s.type, s.data]));
+  } catch (error) {
+    if (error instanceof StreamsUnavailableError) {
+      throw error;
+    }
+    // Strava answers 404 for an activity that recorded nothing (a manual
+    // entry). That is the only status that means "no samples" — everything
+    // else is a real failure and must not be reported as an empty activity.
+    if (error instanceof HttpError && error.response.status === 404) {
+      throw new StreamsUnavailableError(activityId);
+    }
+    return await handleApiError<StravaStreamSet>(
+      error,
+      `getActivityStreams for ID ${activityId}`,
+      async (newToken) =>
+        getActivityStreams(newToken, activityId, types, options),
     );
   }
 }
@@ -838,9 +933,7 @@ export async function listStarredSegments(
     return await handleApiError<StravaSegment[]>(
       error,
       "listStarredSegments",
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return listStarredSegments(newToken);
       },
     );
@@ -887,9 +980,7 @@ export async function getSegmentById(
     return await handleApiError<StravaDetailedSegment>(
       error,
       `getSegmentById for ID ${segmentId}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getSegmentById(newToken, segmentId);
       },
     );
@@ -955,9 +1046,7 @@ export async function exploreSegments(
     return await handleApiError<StravaExplorerResponse>(
       error,
       `exploreSegments with bounds ${bounds}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return exploreSegments(newToken, bounds, activityType, minCat, maxCat);
       },
     );
@@ -1017,9 +1106,7 @@ export async function starSegment(
     return await handleApiError<StravaDetailedSegment>(
       error,
       `starSegment for ID ${segmentId} with starred=${starred}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return starSegment(newToken, segmentId, starred);
       },
     );
@@ -1071,9 +1158,7 @@ export async function getSegmentEffort(
     return await handleApiError<StravaDetailedSegmentEffort>(
       error,
       `getSegmentEffort for ID ${effortId}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getSegmentEffort(newToken, effortId);
       },
     );
@@ -1137,9 +1222,7 @@ export async function listSegmentEfforts(
     return await handleApiError<StravaDetailedSegmentEffort[]>(
       error,
       `listSegmentEfforts for segment ID ${segmentId}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return listSegmentEfforts(newToken, segmentId, params);
       },
     );
@@ -1220,9 +1303,7 @@ export async function listAthleteRoutes(
     return await handleApiError<StravaRoute[]>(
       error,
       "listAthleteRoutes",
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return listAthleteRoutes(newToken, page, perPage);
       },
     );
@@ -1253,9 +1334,7 @@ export async function getRouteById(
     return await handleApiError<StravaRoute>(
       error,
       `fetching route ${routeId}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getRouteById(newToken, routeId);
       },
     );
@@ -1291,9 +1370,7 @@ export async function exportRouteGpx(
     return await handleApiError<string>(
       error,
       `exporting route ${routeId} as GPX`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return exportRouteGpx(newToken, routeId);
       },
     );
@@ -1329,9 +1406,7 @@ export async function exportRouteTcx(
     return await handleApiError<string>(
       error,
       `exporting route ${routeId} as TCX`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return exportRouteTcx(newToken, routeId);
       },
     );
@@ -1438,9 +1513,7 @@ export async function getActivityLaps(
     return await handleApiError<StravaLap[]>(
       error,
       `getActivityLaps(${activityId})`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getActivityLaps(newToken, activityId);
       },
     );
@@ -1522,9 +1595,7 @@ export async function getAthleteZones(
     return await handleApiError<StravaAthleteZones>(
       error,
       "getAthleteZones",
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getAthleteZones(newToken);
       },
     );
@@ -1596,9 +1667,7 @@ export async function getActivityZones(
     return await handleApiError<StravaActivityZone[]>(
       error,
       `getActivityZones(${activityId})`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getActivityZones(newToken, activityId);
       },
     );
@@ -1661,9 +1730,7 @@ export async function getActivityPhotos(
     return await handleApiError<StravaPhoto[]>(
       error,
       `getActivityPhotos for ID ${activityId}`,
-      async () => {
-        // Use new token from environment after refresh
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return getActivityPhotos(newToken, activityId, size);
       },
     );
@@ -1724,8 +1791,7 @@ export async function updateActivity(
     return await handleApiError<StravaDetailedActivity>(
       error,
       `updateActivity for ID ${activityId}`,
-      async () => {
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return updateActivity(newToken, activityId, updates);
       },
     );
@@ -1777,8 +1843,7 @@ export async function createActivity(
     return await handleApiError<StravaDetailedActivity>(
       error,
       `createActivity "${params.name}"`,
-      async () => {
-        const newToken = process.env.STRAVA_ACCESS_TOKEN!;
+      async (newToken) => {
         return createActivity(newToken, params);
       },
     );

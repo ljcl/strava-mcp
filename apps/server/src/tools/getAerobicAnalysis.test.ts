@@ -4,7 +4,7 @@
  * these pin the fetch wiring, FTP fallback, degradation paths, and text shape.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { stravaApi } from "../fetchClient";
+import { HttpError, stravaApi } from "../fetchClient";
 import {
   getActivityById,
   getAuthenticatedAthlete,
@@ -27,6 +27,11 @@ vi.mock("../fetchClient", async (importOriginal) => {
     ...actual,
     stravaApi: { get: vi.fn() },
   };
+});
+
+vi.mock("../tokenManager", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../tokenManager")>();
+  return { ...actual, getStravaToken: vi.fn(async () => "test-token") };
 });
 
 const { dispatchToolCall } = await import("../server");
@@ -166,7 +171,14 @@ describe("get-aerobic-analysis", () => {
 
   it("errors cleanly for a manual activity with no streams", async () => {
     mockedById.mockResolvedValueOnce(activity({ name: "Manual Yoga" }));
-    mockedApiGet.mockRejectedValueOnce(new Error("Resource Not Found"));
+    // Strava answers 404 for an activity that recorded nothing.
+    mockedApiGet.mockRejectedValueOnce(
+      new HttpError("HTTP 404: Record Not Found", {
+        status: 404,
+        statusText: "Not Found",
+        data: "Record Not Found",
+      }),
+    );
     mockedAthlete.mockResolvedValueOnce(null as unknown as StravaAthlete);
 
     const result = await dispatchToolCall("get-aerobic-analysis", {

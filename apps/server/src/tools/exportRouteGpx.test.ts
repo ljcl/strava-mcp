@@ -30,7 +30,10 @@ describe("exportRouteGpx.execute", () => {
   it("writes the GPX file into the export directory", async () => {
     mockedFetch.mockResolvedValue("<gpx>data</gpx>");
 
-    const result = await exportRouteGpx.execute({ routeId: "12345" });
+    const result = await exportRouteGpx.execute(
+      { routeId: "12345" },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const expectedPath = path.join(exportDir, "route-12345.gpx");
@@ -39,9 +42,12 @@ describe("exportRouteGpx.execute", () => {
   });
 
   it("rejects a non-numeric route id before any fetch or write", async () => {
-    const result = await exportRouteGpx.execute({
-      routeId: "../../tmp/evil",
-    });
+    const result = await exportRouteGpx.execute(
+      {
+        routeId: "../../tmp/evil",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("must contain only digits");

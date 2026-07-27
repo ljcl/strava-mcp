@@ -68,8 +68,37 @@ export class RateLimitError extends HttpError {
   }
 }
 
+/**
+ * Thrown when a request exceeds its timeout and could not be recovered by a
+ * retry. Distinct from a generic network fault so callers can say "Strava did
+ * not answer in time" rather than surfacing an opaque `TimeoutError`.
+ */
+export class RequestTimeoutError extends Error {
+  timeoutMs: number;
+
+  constructor(url: string, timeoutMs: number) {
+    super(`Request to ${url} timed out after ${timeoutMs}ms.`);
+    this.name = "RequestTimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 /** HTTP statuses we treat as transient and retry on safe (GET) requests. */
 const TRANSIENT_STATUSES = new Set([500, 502, 503, 504]);
+
+/** Default per-request timeout. Strava's slowest reads land well inside this. */
+export const DEFAULT_TIMEOUT_MS = 20_000;
+
+/**
+ * Recognises an aborted request. `AbortSignal.timeout()` rejects `fetch` with a
+ * `DOMException` named `TimeoutError`; a manual abort uses `AbortError`. Neither
+ * is an `Error` subclass we can `instanceof`, so match on the name.
+ */
+export function isAbortError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const name = (error as { name?: unknown }).name;
+  return name === "TimeoutError" || name === "AbortError";
+}
 
 /** Parses Strava's comma-separated `"<15-min>,<daily>"` header pair. */
 function parsePair(
@@ -238,6 +267,12 @@ export interface ResponseCacheOptions {
 export interface RetryOptions {
   /** Max retry attempts beyond the initial request (default 2). */
   maxRetries?: number;
+  /**
+   * Per-attempt timeout in ms (default {@link DEFAULT_TIMEOUT_MS}). A hung
+   * connection would otherwise pin an MCP tool call open indefinitely. The
+   * budget is per attempt, not per call, so each retry gets a fresh window.
+   */
+  timeoutMs?: number;
   /** Base delay for exponential backoff, in ms (default 500). */
   baseDelayMs?: number;
   /** Cap on any single backoff delay, in ms (default 8000). */
@@ -301,6 +336,7 @@ export class FetchClient {
   private readonly baseDelayMs: number;
   private readonly maxDelayMs: number;
   private readonly maxRetryAfterMs: number;
+  private readonly timeoutMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
 
   /** Response cache + its policy, or `null` when caching is disabled. */
@@ -313,6 +349,7 @@ export class FetchClient {
     this.baseDelayMs = options.baseDelayMs ?? 500;
     this.maxDelayMs = options.maxDelayMs ?? 8000;
     this.maxRetryAfterMs = options.maxRetryAfterMs ?? 15000;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.sleep =
       options.sleep ??
       ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -419,21 +456,34 @@ export class FetchClient {
       }
     }
 
-    // Retry loop: transient (5xx / network) faults back off exponentially; a 429
-    // honours Retry-After. All backoff lives here so every tool benefits.
+    // Retry loop: transient (5xx / network / timeout) faults back off
+    // exponentially; a 429 honours Retry-After. All backoff lives here so every
+    // tool benefits.
     let attempt = 0;
     while (true) {
       let response: Response;
       try {
-        response = await fetch(requestConfig.url, fetchOptions);
+        // A fresh signal per attempt: AbortSignal.timeout starts counting the
+        // moment it is created, so a shared one would leave later retries with
+        // whatever was left of the first attempt's budget.
+        response = await fetch(requestConfig.url, {
+          ...fetchOptions,
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
       } catch (networkError) {
-        // fetch rejects on network faults (ECONNRESET, DNS, aborted, etc.).
+        // fetch rejects on network faults (ECONNRESET, DNS, etc.) and on our
+        // own timeout. Both are transient, so safe reads back off and retry.
         if (isRetriable && attempt < this.maxRetries) {
           await this.sleep(this.backoffDelay(attempt));
           attempt += 1;
           continue;
         }
-        throw networkError;
+        // A write that times out is NOT retried: the request may still have
+        // mutated state on Strava's side. Surface it as a timeout so the caller
+        // can say so rather than reporting an opaque failure.
+        throw isAbortError(networkError)
+          ? new RequestTimeoutError(requestConfig.url, this.timeoutMs)
+          : networkError;
       }
 
       // Capture rate-limit headers from every response, success or error.
@@ -508,14 +558,25 @@ export class FetchClient {
         if (cacheTtl !== null) {
           this.responseCache.set(cacheKey, data, cacheTtl);
         }
-        // A successful write invalidates every cached read under the same
-        // resource path (e.g. updating an activity drops its cached detail,
-        // streams, zones and laps so the next read re-fetches fresh).
+        // A successful write invalidates every cached read on the same branch
+        // of the resource tree — descendants and ancestors alike.
+        //
+        // Descendants: updating an activity drops its cached detail, streams,
+        // zones and laps so the next read re-fetches fresh.
+        //
+        // Ancestors: a write to a sub-resource changes how its parent reads.
+        // `PUT /segments/{id}/starred` is exactly that — it flips
+        // `segment.starred`, so a descendants-only rule would leave the cached
+        // `/segments/{id}` claiming the old value.
         if (!isRetriable) {
           const writePath = this.toPath(requestConfig.url);
           this.responseCache.deleteMatching((key) => {
             const keyPath = this.toPath(key);
-            return keyPath === writePath || keyPath.startsWith(`${writePath}/`);
+            return (
+              keyPath === writePath ||
+              keyPath.startsWith(`${writePath}/`) ||
+              writePath.startsWith(`${keyPath}/`)
+            );
           });
         }
       }
@@ -555,24 +616,41 @@ const HOUR_MS = 60 * MINUTE_MS;
 /**
  * Cache TTL policy for Strava GET endpoints, keyed by request path. Returns a
  * TTL in ms for cacheable resources, or `null` to never cache (the default for
- * anything not listed — lists, segments, routes, exports, etc., which are
- * mutable or paginated).
+ * anything not listed — collection listings and exports, which are paginated,
+ * parameterised, or produce a file).
  *
- * Immutable-once-recorded resources (a completed activity's detail and its data
- * streams) get long TTLs; identity/aggregate resources that drift (profile,
- * stats) get short ones. Activity detail is additionally invalidated whenever
- * the activity is written (see {@link updateActivity}), so its TTL only bounds
- * staleness from edits made outside this server.
+ * Immutable-once-recorded resources (a completed activity's detail, its data
+ * streams, and its laps/zones/photos) get long TTLs; identity and aggregate
+ * resources that drift (profile, stats, a segment's effort counts) get short
+ * ones. Everything under `/activities/{id}` is additionally invalidated
+ * whenever the activity is written (see {@link updateActivity}), so those TTLs
+ * only bound staleness from edits made outside this server.
+ *
+ * The short TTLs exist mainly to stop each MCP App paying twice: every app is a
+ * `view-` tool plus a `get-…-data` tool running the same loader, so an uncached
+ * path costs double the Strava requests for one app open (#238).
  */
 export function stravaCacheTtl(path: string): number | null {
   // Activity data streams — immutable once the activity is recorded.
   if (/^\/activities\/\d+\/streams\//.test(path)) return 6 * HOUR_MS;
   // Detailed activity — immutable-ish; invalidated on update-activity writes.
   if (/^\/activities\/\d+$/.test(path)) return HOUR_MS;
+  // Laps, zones, and photos of a recorded activity — same immutability as the
+  // activity itself, and each is fetched twice per app open.
+  if (/^\/activities\/\d+\/(laps|zones|photos)$/.test(path)) return HOUR_MS;
   // Authenticated athlete profile — short; name/weight/gear can change.
   if (path === "/athlete") return 5 * MINUTE_MS;
   // Athlete stats — short; totals accumulate with each new activity.
   if (/^\/athletes\/\d+\/stats$/.test(path)) return 5 * MINUTE_MS;
+  // A segment's geometry is fixed but its effort/star counts drift, and
+  // star-segment writes invalidate it outright — so a short TTL is enough.
+  if (/^\/segments\/\d+$/.test(path)) return 5 * MINUTE_MS;
+  // A saved route changes only when the athlete edits it.
+  if (/^\/routes\/\d+$/.test(path)) return 5 * MINUTE_MS;
+  // Effort history grows as the athlete re-runs the segment; short enough that
+  // a new effort shows up promptly, long enough to cover one app open. The
+  // cache key carries the query string, so each date window stays distinct.
+  if (path === "/segment_efforts") return 2 * MINUTE_MS;
   return null;
 }
 

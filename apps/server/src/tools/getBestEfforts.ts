@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RateLimitError } from "../fetchClient";
 import { formatDuration } from "../formatters";
 import {
   getActivityById,
@@ -28,15 +29,27 @@ Parameters:
 - distance (optional): Filter to a specific distance (e.g., "5K", "1 mile")
 - limit (optional): Maximum number of efforts to return per distance (default: 3, max: 50)
 - maxActivities (optional): Maximum number of activities to scan (default: 100, max: 200)
+- after / before (optional): Scope the scan to a date window (ISO date or date-time)
 
 Notes:
 - This tool fetches details for each activity, which can be slow for large histories
-- Use maxActivities to limit API calls for faster results
+- Prefer after/before to scope a season; it is cheaper and more precise than raising maxActivities
 - Times use elapsed time (includes stops), matching Strava's Best Efforts behavior
 - Only activities with best_efforts data from Strava are included
+- If the Strava rate limit is reached part-way, the scan stops and the response says how many activities were skipped rather than presenting a truncated table as complete
 
 Note: this scans recent running activities and fetches each activity's detail to read its best efforts, so it makes one API call per activity and can be slow over long histories; the maxActivities parameter (default 100) bounds the work.
 `;
+
+/** ISO date (`2026-01-31`) or full date-time, converted to an epoch second. */
+const isoDateInput = (what: string) =>
+  z
+    .string()
+    .refine((value) => !Number.isNaN(Date.parse(value)), {
+      message: "Must be an ISO date (2026-01-31) or date-time",
+    })
+    .optional()
+    .describe(what);
 
 const inputSchema = z.object({
   distance: z
@@ -61,6 +74,10 @@ const inputSchema = z.object({
     .max(200)
     .default(100)
     .describe("Maximum number of activities to scan (default: 100, max: 200)"),
+  after: isoDateInput(
+    "Only scan activities on or after this date — scope a season instead of scanning by count.",
+  ),
+  before: isoDateInput("Only scan activities on or before this date."),
 });
 
 type GetBestEffortsInput = z.infer<typeof inputSchema>;
@@ -87,6 +104,46 @@ const RUNNING_TYPES = ["Run", "TrailRun", "VirtualRun"];
 const isRunningActivity = (a: StravaSummaryActivity) =>
   RUNNING_TYPES.includes(a.type ?? a.sport_type ?? "");
 
+/**
+ * Activity detail fetches in flight at once. The scan is one request per
+ * activity, so a serial loop of the default 100 spent 100 sequential
+ * round-trips; a small pool cuts the wall clock without spiking Strava's
+ * 15-minute quota faster than the rate-limit backoff can react.
+ */
+const FETCH_CONCURRENCY = 5;
+
+/**
+ * Runs `worker` over `items` with at most `concurrency` in flight, stopping
+ * early once `shouldStop` reports true. Returns what completed; the caller
+ * reports the remainder as skipped rather than presenting a partial scan as a
+ * complete one.
+ */
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  worker: (item: T) => Promise<R>,
+  shouldStop: () => boolean,
+): Promise<R[]> {
+  const results: R[] = [];
+  let next = 0;
+
+  const runners = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    async () => {
+      while (true) {
+        if (shouldStop()) return;
+        const index = next++;
+        const item = items[index];
+        if (item === undefined) return;
+        results.push(await worker(item));
+      }
+    },
+  );
+
+  await Promise.all(runners);
+  return results;
+}
+
 interface BestEffort {
   activity_id: string;
   activity_name: string;
@@ -105,22 +162,10 @@ export const getBestEffortsTool = {
   inputSchema,
   annotations: READ_ONLY,
   outputSchema: BestEffortsOutputSchema,
-  execute: async ({ distance, limit, maxActivities }: GetBestEffortsInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async (
+    { distance, limit, maxActivities, after, before }: GetBestEffortsInput,
+    token: string,
+  ) => {
     try {
       console.error(
         `Fetching best efforts (scanning up to ${maxActivities} activities)...`,
@@ -132,6 +177,8 @@ export const getBestEffortsTool = {
         perPage: Math.min(maxActivities, 200),
         maxItems: maxActivities,
         countActivity: isRunningActivity,
+        ...(after ? { after: Math.floor(Date.parse(after) / 1000) } : {}),
+        ...(before ? { before: Math.floor(Date.parse(before) / 1000) } : {}),
       });
 
       // Filter to running activities
@@ -146,13 +193,39 @@ export const getBestEffortsTool = {
       // Collect best efforts from each activity
       const allEfforts = new Map<string, BestEffort[]>();
       let activitiesWithEfforts = 0;
+      let activitiesRead = 0;
+      let failedFetches = 0;
+      // A 429 means the quota is genuinely exhausted (the fetch layer has
+      // already honoured Retry-After where it could). Continuing would spend
+      // the rest of the scan on requests that cannot succeed and would starve
+      // every other tool, so the scan stops and reports what it missed.
+      // Held in an object so TypeScript does not narrow it to `null` for the
+      // reporting below — it is only ever assigned inside the worker closure.
+      const abort: { rateLimit: RateLimitError | null } = { rateLimit: null };
 
-      for (const activitySummary of runningActivities) {
-        try {
-          const activity = await getActivityById(token, activitySummary.id);
+      await mapWithConcurrency(
+        runningActivities,
+        FETCH_CONCURRENCY,
+        async (activitySummary) => {
+          let activity: Awaited<ReturnType<typeof getActivityById>>;
+          try {
+            activity = await getActivityById(token, activitySummary.id);
+          } catch (err) {
+            if (err instanceof RateLimitError) {
+              abort.rateLimit ??= err;
+            } else {
+              failedFetches += 1;
+              console.error(
+                `Failed to fetch activity ${activitySummary.id}: ${err}`,
+              );
+            }
+            return;
+          }
+
+          activitiesRead += 1;
 
           if (!activity.best_efforts || activity.best_efforts.length === 0) {
-            continue;
+            return;
           }
 
           activitiesWithEfforts += 1;
@@ -193,13 +266,9 @@ export const getBestEffortsTool = {
             }
             allEfforts.get(distanceName)!.push(bestEffort);
           }
-        } catch (err) {
-          // Skip activities that fail to fetch
-          console.error(
-            `Failed to fetch activity ${activitySummary.id}: ${err}`,
-          );
-        }
-      }
+        },
+        () => abort.rateLimit !== null,
+      );
 
       // Sort and limit each distance
       const results: Record<string, BestEffort[]> = {};
@@ -225,16 +294,38 @@ export const getBestEffortsTool = {
         }
       }
 
+      // Activities whose efforts are missing from the table: those the scan
+      // never reached because it aborted, plus individual failed fetches.
+      const analyzed = activitiesRead;
+      const skipped = runningActivities.length - analyzed;
+
+      const warnings: string[] = [];
+      if (abort.rateLimit) {
+        warnings.push(
+          `Strava's rate limit was reached part-way through the scan, so ${skipped} of ${runningActivities.length} activities were not read and their efforts are missing below. ${abort.rateLimit.message} Retry after the window resets, or narrow the scan with after/before.`,
+        );
+      } else if (failedFetches > 0) {
+        warnings.push(
+          `${failedFetches} activit${failedFetches === 1 ? "y" : "ies"} could not be fetched, so their efforts are missing below.`,
+        );
+      }
+
       const response = {
         best_efforts: orderedResults,
-        activities_analyzed: runningActivities.length,
+        activities_analyzed: analyzed,
         activities_with_efforts: activitiesWithEfforts,
+        activities_skipped: skipped,
+        warnings,
         note: "Times use elapsed time (includes stops), matching Strava's Best Efforts behavior",
       };
 
       // Format as readable text
       let output = `🏆 **Best Efforts Summary**\n`;
-      output += `📊 Analyzed ${runningActivities.length} activities (${activitiesWithEfforts} with best efforts)\n\n`;
+      output += `📊 Analyzed ${analyzed} activities (${activitiesWithEfforts} with best efforts)\n`;
+      if (skipped > 0) {
+        output += `⚠️ ${skipped} activit${skipped === 1 ? "y" : "ies"} skipped — the results below are incomplete\n`;
+      }
+      output += `\n`;
 
       if (Object.keys(orderedResults).length === 0) {
         output += `No best efforts found.`;

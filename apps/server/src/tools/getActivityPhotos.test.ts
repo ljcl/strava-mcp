@@ -34,10 +34,13 @@ describe("get-activity-photos execute", () => {
   it("summarises photos and appends the raw JSON payload", async () => {
     mockedFetch.mockResolvedValueOnce([photo]);
 
-    const result = await getActivityPhotosTool.execute({
-      id: "123",
-      size: 600,
-    });
+    const result = await getActivityPhotosTool.execute(
+      {
+        id: "123",
+        size: 600,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(mockedFetch).toHaveBeenCalledWith("test-token", "123", 600);
@@ -55,7 +58,7 @@ describe("get-activity-photos execute", () => {
     mockedFetch.mockResolvedValueOnce([photo]);
 
     const big = "3516039180561708486";
-    await getActivityPhotosTool.execute({ id: big });
+    await getActivityPhotosTool.execute({ id: big }, "test-token");
 
     expect(mockedFetch).toHaveBeenCalledWith("test-token", big, undefined);
   });
@@ -78,7 +81,10 @@ describe("get-activity-photos execute", () => {
   it("reports an empty photo list without an error flag", async () => {
     mockedFetch.mockResolvedValueOnce([]);
 
-    const result = await getActivityPhotosTool.execute({ id: "123" });
+    const result = await getActivityPhotosTool.execute(
+      { id: "123" },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain(
@@ -89,19 +95,12 @@ describe("get-activity-photos execute", () => {
   it("maps a 404 to an activity-not-found message", async () => {
     mockedFetch.mockRejectedValueOnce(new Error("Record Not Found"));
 
-    const result = await getActivityPhotosTool.execute({ id: "123" });
+    const result = await getActivityPhotosTool.execute(
+      { id: "123" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Activity with ID 123 not found");
-  });
-
-  it("returns a configuration error without a token", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getActivityPhotosTool.execute({ id: "123" });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-    expect(mockedFetch).not.toHaveBeenCalled();
   });
 });

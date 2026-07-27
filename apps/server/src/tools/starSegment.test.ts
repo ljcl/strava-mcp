@@ -30,10 +30,13 @@ describe("star-segment execute", () => {
   it("stars a segment and reports the new starred state", async () => {
     mockedStar.mockResolvedValueOnce(segment);
 
-    const result = await starSegment.execute({
-      segmentId: "789",
-      starred: true,
-    });
+    const result = await starSegment.execute(
+      {
+        segmentId: "789",
+        starred: true,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(mockedStar).toHaveBeenCalledWith("test-token", "789", true);
@@ -48,10 +51,13 @@ describe("star-segment execute", () => {
       starred: false,
     } as unknown as StravaDetailedSegment);
 
-    const result = await starSegment.execute({
-      segmentId: "789",
-      starred: false,
-    });
+    const result = await starSegment.execute(
+      {
+        segmentId: "789",
+        starred: false,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(mockedStar).toHaveBeenCalledWith("test-token", "789", false);
@@ -61,38 +67,16 @@ describe("star-segment execute", () => {
   it("returns isError when the write fails", async () => {
     mockedStar.mockRejectedValueOnce(new Error("Forbidden"));
 
-    const result = await starSegment.execute({
-      segmentId: "789",
-      starred: true,
-    });
+    const result = await starSegment.execute(
+      {
+        segmentId: "789",
+        starred: true,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Failed to star segment 789");
     expect(result.content[0]?.text).toContain("Forbidden");
-  });
-
-  it("returns a configuration error without a token, before any write", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await starSegment.execute({
-      segmentId: "789",
-      starred: true,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Configuration Error");
-    expect(mockedStar).not.toHaveBeenCalled();
-  });
-
-  it("rejects a placeholder token without calling Strava", async () => {
-    process.env.STRAVA_ACCESS_TOKEN = "YOUR_STRAVA_ACCESS_TOKEN_HERE";
-
-    const result = await starSegment.execute({
-      segmentId: "789",
-      starred: true,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(mockedStar).not.toHaveBeenCalled();
   });
 });

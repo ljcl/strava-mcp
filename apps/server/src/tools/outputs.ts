@@ -405,6 +405,17 @@ export const BestEffortsOutputSchema = z.object({
   best_efforts: z.record(z.string(), z.array(BestEffortEntrySchema)),
   activities_analyzed: z.number().int(),
   activities_with_efforts: z.number().int(),
+  activities_skipped: z
+    .number()
+    .int()
+    .describe(
+      "Activities whose detail could not be fetched, so their efforts are absent from the table",
+    ),
+  warnings: z
+    .array(z.string())
+    .describe(
+      "Reasons the scan is incomplete (e.g. rate limit reached part-way)",
+    ),
   note: z.string(),
 });
 

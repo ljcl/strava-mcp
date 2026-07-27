@@ -38,18 +38,11 @@ describe("updateActivityTool.execute", () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
-  it("errors when the access token is missing", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await updateActivityTool.execute({ activityId: "555" });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-    expect(mockedPut).not.toHaveBeenCalled();
-  });
-
   it("rejects a call with no mutating fields", async () => {
-    const result = await updateActivityTool.execute({ activityId: "555" });
+    const result = await updateActivityTool.execute(
+      { activityId: "555" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Nothing to update");
@@ -62,12 +55,15 @@ describe("updateActivityTool.execute", () => {
       updatedActivity({ name: "Evening Ride", sport_type: "Ride" }),
     );
 
-    await updateActivityTool.execute({
-      activityId: "555",
-      name: "Evening Ride",
-      sportType: "Ride",
-      commute: true,
-    });
+    await updateActivityTool.execute(
+      {
+        activityId: "555",
+        name: "Evening Ride",
+        sportType: "Ride",
+        commute: true,
+      },
+      "test-token",
+    );
 
     expect(mockedPut).toHaveBeenCalledWith("test-token", "555", {
       name: "Evening Ride",
@@ -88,10 +84,13 @@ describe("updateActivityTool.execute", () => {
     );
     mockedPut.mockResolvedValueOnce(updatedActivity());
 
-    const result = await updateActivityTool.execute({
-      activityId: "555",
-      description: "New line",
-    });
+    const result = await updateActivityTool.execute(
+      {
+        activityId: "555",
+        description: "New line",
+      },
+      "test-token",
+    );
 
     // The append read bypasses the cache so it never appends onto stale notes.
     expect(mockedFetch).toHaveBeenCalledWith("test-token", "555", {
@@ -108,11 +107,14 @@ describe("updateActivityTool.execute", () => {
   it("replaces the description without fetching the current value", async () => {
     mockedPut.mockResolvedValueOnce(updatedActivity());
 
-    const result = await updateActivityTool.execute({
-      activityId: "555",
-      description: "Fresh text",
-      descriptionMode: "replace",
-    });
+    const result = await updateActivityTool.execute(
+      {
+        activityId: "555",
+        description: "Fresh text",
+        descriptionMode: "replace",
+      },
+      "test-token",
+    );
 
     expect(mockedFetch).not.toHaveBeenCalled();
     expect(mockedPut).toHaveBeenCalledWith(
@@ -132,14 +134,17 @@ describe("updateActivityTool.execute", () => {
       }),
     );
 
-    const result = await updateActivityTool.execute({
-      activityId: "555",
-      name: "Tempo",
-      sportType: "TrailRun",
-      gearId: "g1",
-      trainer: true,
-      hideFromHome: true,
-    });
+    const result = await updateActivityTool.execute(
+      {
+        activityId: "555",
+        name: "Tempo",
+        sportType: "TrailRun",
+        gearId: "g1",
+        trainer: true,
+        hideFromHome: true,
+      },
+      "test-token",
+    );
 
     const text = result.content[0]?.text ?? "";
     expect(text).toContain('name to "Tempo"');
@@ -152,10 +157,13 @@ describe("updateActivityTool.execute", () => {
   it("adds a scope hint on a 401 error", async () => {
     mockedPut.mockRejectedValueOnce(new Error("Request failed with 401"));
 
-    const result = await updateActivityTool.execute({
-      activityId: "555",
-      name: "x",
-    });
+    const result = await updateActivityTool.execute(
+      {
+        activityId: "555",
+        name: "x",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain(
@@ -166,10 +174,13 @@ describe("updateActivityTool.execute", () => {
   it("reports other failures without the scope hint", async () => {
     mockedPut.mockRejectedValueOnce(new Error("server exploded"));
 
-    const result = await updateActivityTool.execute({
-      activityId: "555",
-      name: "x",
-    });
+    const result = await updateActivityTool.execute(
+      {
+        activityId: "555",
+        name: "x",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("server exploded");

@@ -21,23 +21,8 @@ export const getRouteTool = {
     "Fetch full detail for one saved route by id: name, distance, elevation gain, estimated moving time, and segment count. Use when the user wants details of a route from list-athlete-routes, or before exporting it with export-route-gpx or export-route-tcx.",
   inputSchema: GetRouteInputSchema,
   annotations: READ_ONLY,
-  execute: async (input: GetRouteInput) => {
+  execute: async (input: GetRouteInput, token: string) => {
     const { routeId } = input;
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
     try {
       console.error(`Fetching route details for ID: ${routeId}...`);
       const route = await getRouteById(token, routeId);

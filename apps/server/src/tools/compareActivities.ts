@@ -192,22 +192,10 @@ export const compareActivitiesTool = {
   inputSchema,
   annotations: READ_ONLY,
   outputSchema: CompareActivitiesOutputSchema,
-  execute: async ({ activityId1, activityId2 }: CompareActivitiesInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async (
+    { activityId1, activityId2 }: CompareActivitiesInput,
+    token: string,
+  ) => {
     try {
       console.error(
         `Comparing activities ${activityId1} and ${activityId2}...`,

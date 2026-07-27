@@ -12,22 +12,8 @@ export const listStarredSegments = {
   // No input schema needed
   inputSchema: undefined,
   annotations: READ_ONLY,
-  execute: async () => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token || token === "YOUR_STRAVA_ACCESS_TOKEN_HERE") {
-      console.error("Missing or placeholder STRAVA_ACCESS_TOKEN in .env");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "❌ Configuration Error: STRAVA_ACCESS_TOKEN is missing or not set in the .env file.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  // Takes no arguments, but dispatch passes (args, token) uniformly.
+  execute: async (_args: Record<string, unknown>, token: string) => {
     try {
       console.error("Fetching starred segments...");
       // Need athlete measurement preference for formatting distance

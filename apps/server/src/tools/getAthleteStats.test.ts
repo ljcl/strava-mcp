@@ -69,7 +69,7 @@ describe("getAthleteStatsTool.execute", () => {
     >);
     mockedStats.mockResolvedValue(stats);
 
-    const result = await getAthleteStatsTool.execute({});
+    const result = await getAthleteStatsTool.execute({}, "test-token");
 
     expect(result.isError).toBeUndefined();
     expect(mockedAthlete).toHaveBeenCalledWith("test-token");
@@ -82,7 +82,10 @@ describe("getAthleteStatsTool.execute", () => {
   it("uses an explicit athleteId without resolving the authenticated athlete", async () => {
     mockedStats.mockResolvedValue(stats);
 
-    const result = await getAthleteStatsTool.execute({ athleteId: "12345" });
+    const result = await getAthleteStatsTool.execute(
+      { athleteId: "12345" },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(mockedAthlete).not.toHaveBeenCalled();
@@ -90,19 +93,13 @@ describe("getAthleteStatsTool.execute", () => {
     expect(result.structuredContent).toBeDefined();
   });
 
-  it("errors when the access token is missing", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getAthleteStatsTool.execute({});
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-  });
-
   it("maps a not-found error for an explicit athleteId to a friendly message", async () => {
     mockedStats.mockRejectedValue(new Error("Record Not Found"));
 
-    const result = await getAthleteStatsTool.execute({ athleteId: "42" });
+    const result = await getAthleteStatsTool.execute(
+      { athleteId: "42" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Athlete with ID 42 not found");
@@ -111,7 +108,7 @@ describe("getAthleteStatsTool.execute", () => {
   it("reports the authenticated athlete in error messages when id was omitted", async () => {
     mockedAthlete.mockRejectedValue(new Error("network down"));
 
-    const result = await getAthleteStatsTool.execute({});
+    const result = await getAthleteStatsTool.execute({}, "test-token");
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("the authenticated athlete");

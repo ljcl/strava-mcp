@@ -6,6 +6,7 @@ import {
   parseJsonWithLargeInts,
   parseRateLimitHeaders,
   RateLimitError,
+  RequestTimeoutError,
   stravaCacheTtl,
 } from "./fetchClient";
 
@@ -375,6 +376,85 @@ describe("FetchClient retry and rate-limit behaviour", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("sends an AbortSignal on every attempt", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await newClient().get("/thing");
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("retries a timed-out GET and then succeeds", async () => {
+    const timeout = new DOMException(
+      "The operation timed out.",
+      "TimeoutError",
+    );
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce(makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await newClient().get<{ ok: boolean }>("/thing");
+
+    expect(result.data.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // A fresh deadline per attempt, not one shared budget across the call.
+    const first = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const second = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(second.signal).not.toBe(first.signal);
+  });
+
+  it("surfaces a RequestTimeoutError once a GET exhausts its retries", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(
+        new DOMException("The operation timed out.", "TimeoutError"),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new FetchClient("https://example.test", {
+      maxRetries: 2,
+      baseDelayMs: 1,
+      timeoutMs: 1234,
+      sleep: async () => {},
+    });
+
+    const error = await client.get("/thing").catch((e) => e);
+    expect(error).toBeInstanceOf(RequestTimeoutError);
+    expect(error.timeoutMs).toBe(1234);
+    expect(error.message).toContain("timed out after 1234ms");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry a timed-out write", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(
+        new DOMException("The operation timed out.", "TimeoutError"),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    // A POST may have mutated state before the deadline, so it is never resent.
+    await expect(newClient().post("/thing", { a: 1 })).rejects.toBeInstanceOf(
+      RequestTimeoutError,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a plain network fault as-is once retries are exhausted", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("ECONNRESET"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const error = await newClient()
+      .get("/thing")
+      .catch((e) => e);
+    expect(error).not.toBeInstanceOf(RequestTimeoutError);
+    expect(error.message).toBe("ECONNRESET");
+  });
+
   it("does not retry a non-transient 4xx", async () => {
     const fetchMock = vi
       .fn()
@@ -404,13 +484,28 @@ describe("stravaCacheTtl policy", () => {
     expect(stravaCacheTtl("/athletes/999/stats")).toBe(5 * 60_000);
   });
 
-  it("does not cache list, segment, or sub-resource endpoints", () => {
+  it("caches an activity's laps, zones, and photos like the activity", () => {
+    // #238: each is fetched once by a `view-` tool and again by its
+    // `get-…-data` twin, so an uncached path doubled the cost of one app open.
+    expect(stravaCacheTtl("/activities/123/laps")).toBe(60 * 60_000);
+    expect(stravaCacheTtl("/activities/123/zones")).toBe(60 * 60_000);
+    expect(stravaCacheTtl("/activities/123/photos")).toBe(60 * 60_000);
+  });
+
+  it("caches single segments, routes, and effort history briefly", () => {
+    expect(stravaCacheTtl("/segments/55")).toBe(5 * 60_000);
+    expect(stravaCacheTtl("/routes/77")).toBe(5 * 60_000);
+    expect(stravaCacheTtl("/segment_efforts")).toBe(2 * 60_000);
+  });
+
+  it("does not cache listings, exports, or ad-hoc queries", () => {
     expect(stravaCacheTtl("/athlete/activities")).toBeNull();
     expect(stravaCacheTtl("/athlete/clubs")).toBeNull();
-    expect(stravaCacheTtl("/activities/123/zones")).toBeNull();
-    expect(stravaCacheTtl("/activities/123/laps")).toBeNull();
-    expect(stravaCacheTtl("/segments/55")).toBeNull();
-    expect(stravaCacheTtl("/routes/77")).toBeNull();
+    expect(stravaCacheTtl("/athlete/routes")).toBeNull();
+    expect(stravaCacheTtl("/segments/starred")).toBeNull();
+    expect(stravaCacheTtl("/segments/explore")).toBeNull();
+    expect(stravaCacheTtl("/routes/77/export_gpx")).toBeNull();
+    expect(stravaCacheTtl("/segment_efforts/3503400000123456789")).toBeNull();
   });
 });
 
@@ -535,6 +630,44 @@ describe("FetchClient response cache", () => {
     await client.get("/activities/12"); // still cached
 
     // 1 initial GET + 1 write; the second GET is a cache hit (no extra fetch).
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("invalidates a parent resource when a sub-resource is written", async () => {
+    // #238: `star-segment` PUTs /segments/{id}/starred, which flips
+    // `segment.starred` on the parent. A descendants-only rule left the cached
+    // /segments/{id} claiming the pre-star value for its whole TTL.
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"starred":false}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new FetchClient("https://example.test", {
+      maxRetries: 0,
+      sleep: async () => {},
+      cache: { ttlForPath: stravaCacheTtl },
+    });
+
+    await client.get("/segments/55");
+    await client.put("/segments/55/starred", { starred: true });
+    await client.get("/segments/55");
+
+    // 1 initial GET + 1 write + 1 re-fetch: the write dropped the parent.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not invalidate an unrelated ancestor branch on a write", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    await client.get("/activities/1");
+    // /activities/12 is not an ancestor of /activities/1 despite the prefix.
+    await client.put("/activities/12/kudos", { ok: true });
+    await client.get("/activities/1");
+
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 

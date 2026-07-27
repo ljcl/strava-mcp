@@ -47,20 +47,7 @@ export const createActivityTool = {
     "scope. Not idempotent: calling it twice creates two activities.",
   inputSchema: CreateActivityInputSchema,
   annotations: WRITE_CREATE,
-  execute: async (input: CreateActivityInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-    if (!token) {
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async (input: CreateActivityInput, token: string) => {
     const params: CreateActivityParams = {
       name: input.name,
       sportType: input.sportType,

@@ -45,7 +45,7 @@ describe("list-starred-segments execute", () => {
     mockedAthlete.mockResolvedValueOnce(athlete("meters"));
     mockedSegments.mockResolvedValueOnce([segment]);
 
-    const result = await listStarredSegments.execute();
+    const result = await listStarredSegments.execute({}, "test-token");
 
     expect(result.isError).toBeUndefined();
     const text = result.content[0]?.text ?? "";
@@ -58,7 +58,7 @@ describe("list-starred-segments execute", () => {
     mockedAthlete.mockResolvedValueOnce(athlete("feet"));
     mockedSegments.mockResolvedValueOnce([segment]);
 
-    const result = await listStarredSegments.execute();
+    const result = await listStarredSegments.execute({}, "test-token");
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("1.55 mi");
@@ -68,7 +68,7 @@ describe("list-starred-segments execute", () => {
     mockedAthlete.mockResolvedValueOnce(athlete("meters"));
     mockedSegments.mockResolvedValueOnce([]);
 
-    const result = await listStarredSegments.execute();
+    const result = await listStarredSegments.execute({}, "test-token");
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("No starred segments found");
@@ -78,19 +78,9 @@ describe("list-starred-segments execute", () => {
     mockedAthlete.mockResolvedValueOnce(athlete("meters"));
     mockedSegments.mockRejectedValueOnce(new Error("Server error"));
 
-    const result = await listStarredSegments.execute();
+    const result = await listStarredSegments.execute({}, "test-token");
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Server error");
-  });
-
-  it("returns a configuration error without a token", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await listStarredSegments.execute();
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Configuration Error");
-    expect(mockedSegments).not.toHaveBeenCalled();
   });
 });

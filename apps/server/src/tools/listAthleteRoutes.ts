@@ -55,22 +55,10 @@ export const listAthleteRoutesTool = {
     "Lists the routes created by the authenticated athlete, with pagination.",
   inputSchema: ListAthleteRoutesInputSchema,
   annotations: READ_ONLY,
-  execute: async ({ page = 1, perPage = 20 }: ListAthleteRoutesInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN in .env");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "❌ Configuration Error: STRAVA_ACCESS_TOKEN is missing or not set in the .env file.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async (
+    { page = 1, perPage = 20 }: ListAthleteRoutesInput,
+    token: string,
+  ) => {
     try {
       console.error(`Fetching routes (page ${page}, per_page: ${perPage})...`);
 

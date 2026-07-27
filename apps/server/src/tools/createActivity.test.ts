@@ -40,20 +40,10 @@ describe("createActivityTool.execute", () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
-  it("errors when the access token is missing", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await createActivityTool.execute(baseInput);
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-    expect(mockedPost).not.toHaveBeenCalled();
-  });
-
   it("creates a manual activity from the required fields", async () => {
     mockedPost.mockResolvedValueOnce(createdActivity());
 
-    const result = await createActivityTool.execute(baseInput);
+    const result = await createActivityTool.execute(baseInput, "test-token");
 
     expect(mockedPost).toHaveBeenCalledWith("test-token", {
       name: "Morning Yoga",
@@ -77,16 +67,19 @@ describe("createActivityTool.execute", () => {
       createdActivity({ id: "42", name: "Treadmill 5k", sport_type: "Run" }),
     );
 
-    const result = await createActivityTool.execute({
-      name: "Treadmill 5k",
-      sportType: "Run",
-      startDateLocal: "2026-07-13T06:00:00",
-      elapsedTimeSeconds: 1500,
-      distanceMeters: 5000,
-      description: "Easy effort",
-      trainer: true,
-      commute: false,
-    });
+    const result = await createActivityTool.execute(
+      {
+        name: "Treadmill 5k",
+        sportType: "Run",
+        startDateLocal: "2026-07-13T06:00:00",
+        elapsedTimeSeconds: 1500,
+        distanceMeters: 5000,
+        description: "Easy effort",
+        trainer: true,
+        commute: false,
+      },
+      "test-token",
+    );
 
     expect(mockedPost).toHaveBeenCalledWith("test-token", {
       name: "Treadmill 5k",
@@ -104,7 +97,7 @@ describe("createActivityTool.execute", () => {
   it("adds a scope hint on a 401 error", async () => {
     mockedPost.mockRejectedValueOnce(new Error("Request failed with 401"));
 
-    const result = await createActivityTool.execute(baseInput);
+    const result = await createActivityTool.execute(baseInput, "test-token");
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain(
@@ -115,7 +108,7 @@ describe("createActivityTool.execute", () => {
   it("adds a duplicate hint on a 409 conflict", async () => {
     mockedPost.mockRejectedValueOnce(new Error("Strava API Error (409)"));
 
-    const result = await createActivityTool.execute(baseInput);
+    const result = await createActivityTool.execute(baseInput, "test-token");
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("likely a duplicate");
@@ -124,7 +117,7 @@ describe("createActivityTool.execute", () => {
   it("reports other failures without a hint", async () => {
     mockedPost.mockRejectedValueOnce(new Error("server exploded"));
 
-    const result = await createActivityTool.execute(baseInput);
+    const result = await createActivityTool.execute(baseInput, "test-token");
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("server exploded");

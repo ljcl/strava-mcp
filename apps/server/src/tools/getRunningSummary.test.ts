@@ -1,29 +1,31 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { basicRunActivity, rideActivity } from "../__fixtures__";
-import { stravaApi } from "../fetchClient";
 import {
   getActivityById,
   getActivityLaps,
+  getActivityStreams,
   getAthleteZones,
   type StravaDetailedActivity,
   type StravaLap,
+  StreamsUnavailableError,
 } from "../stravaClient";
 import { getRunningSummaryTool } from "./getRunningSummary";
 
-vi.mock("../stravaClient", () => ({
-  getActivityById: vi.fn(),
-  getActivityLaps: vi.fn(),
-  getAthleteZones: vi.fn(),
-}));
-
-vi.mock("../fetchClient", () => ({
-  stravaApi: { get: vi.fn() },
-}));
+vi.mock("../stravaClient", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../stravaClient")>();
+  return {
+    ...actual,
+    getActivityById: vi.fn(),
+    getActivityLaps: vi.fn(),
+    getActivityStreams: vi.fn(),
+    getAthleteZones: vi.fn(),
+  };
+});
 
 const mockedById = vi.mocked(getActivityById);
 const mockedLaps = vi.mocked(getActivityLaps);
 const mockedZones = vi.mocked(getAthleteZones);
-const mockedApiGet = vi.mocked(stravaApi.get);
+const mockedStreams = vi.mocked(getActivityStreams);
 
 const asDetail = (a: unknown) => a as unknown as StravaDetailedActivity;
 
@@ -45,9 +47,9 @@ describe("getRunningSummaryTool.execute", () => {
     mockedById.mockReset();
     mockedLaps.mockReset();
     mockedZones.mockReset();
-    mockedApiGet.mockReset();
-    // Default: no stream data and no zones available.
-    mockedApiGet.mockRejectedValue(new Error("no streams"));
+    mockedStreams.mockReset();
+    // Default: no recorded samples and no zones available.
+    mockedStreams.mockRejectedValue(new StreamsUnavailableError("12345678"));
     mockedZones.mockRejectedValue(new Error("no zones"));
     mockedLaps.mockResolvedValue([]);
   });
@@ -56,19 +58,13 @@ describe("getRunningSummaryTool.execute", () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
-  it("errors when the access token is missing", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getRunningSummaryTool.execute({ activityId: "1" });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-  });
-
   it("rejects non-running activities", async () => {
     mockedById.mockResolvedValueOnce(asDetail(rideActivity));
 
-    const result = await getRunningSummaryTool.execute({ activityId: "999" });
+    const result = await getRunningSummaryTool.execute(
+      { activityId: "999" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("is not a running activity");
@@ -83,9 +79,12 @@ describe("getRunningSummaryTool.execute", () => {
     );
     mockedLaps.mockResolvedValueOnce([sampleLap]);
 
-    const result = await getRunningSummaryTool.execute({
-      activityId: "12345678",
-    });
+    const result = await getRunningSummaryTool.execute(
+      {
+        activityId: "12345678",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const text = result.content[0]?.text ?? "";
@@ -106,12 +105,12 @@ describe("getRunningSummaryTool.execute", () => {
 
   it("computes HR zone distribution when streams and zones are present", async () => {
     mockedById.mockResolvedValueOnce(asDetail(basicRunActivity));
-    mockedApiGet.mockResolvedValueOnce({
-      data: [
-        { type: "time", data: [0, 1, 2, 3] },
-        { type: "heartrate", data: [120, 120, 160, 160] },
-      ],
-    } as never);
+    mockedStreams.mockResolvedValueOnce(
+      new Map<string, unknown[]>([
+        ["time", [0, 1, 2, 3]],
+        ["heartrate", [120, 120, 160, 160]],
+      ]),
+    );
     mockedZones.mockResolvedValueOnce({
       heart_rate: {
         zones: [
@@ -121,9 +120,12 @@ describe("getRunningSummaryTool.execute", () => {
       },
     } as never);
 
-    const result = await getRunningSummaryTool.execute({
-      activityId: "12345678",
-    });
+    const result = await getRunningSummaryTool.execute(
+      {
+        activityId: "12345678",
+      },
+      "test-token",
+    );
 
     expect(result.content[0]?.text).toContain("Zone Distribution");
     expect(result.structuredContent?.heart_rate?.zones).not.toBeNull();
@@ -132,7 +134,10 @@ describe("getRunningSummaryTool.execute", () => {
   it("maps a not-found error to a friendly message", async () => {
     mockedById.mockRejectedValueOnce(new Error("Record Not Found"));
 
-    const result = await getRunningSummaryTool.execute({ activityId: "42" });
+    const result = await getRunningSummaryTool.execute(
+      { activityId: "42" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Activity with ID 42 not found");

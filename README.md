@@ -378,7 +378,7 @@ The server exposes the following MCP tools:
 | `get-training-load` | Training load summary with trend analysis |
 | `get-fitness-trend` | Fitness/fatigue/form (CTL/ATL/TSB) from relative effort, with rest projection |
 | `compare-activities` | Compare two running activities side-by-side |
-| `get-best-efforts` | Personal best efforts across all running activities |
+| `get-best-efforts` | Personal best efforts across all running activities, optionally scoped to a date window |
 
 ### Athlete Tools
 

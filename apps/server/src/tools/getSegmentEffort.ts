@@ -60,22 +60,7 @@ export const getSegmentEffortTool = {
     "Fetch one specific segment effort by its effort id, including elapsed and moving time, PR rank, and KOM/QOM rank. Use when the user asks about a single recorded attempt on a segment. For all of an athlete's efforts on a segment use list-segment-efforts; for the segment's static stats use get-segment.",
   inputSchema: GetSegmentEffortInputSchema,
   annotations: READ_ONLY,
-  execute: async ({ effortId }: GetSegmentEffortInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async ({ effortId }: GetSegmentEffortInput, token: string) => {
     try {
       console.error(`Fetching details for segment effort ID: ${effortId}...`);
       // Removed getAuthenticatedAthlete call

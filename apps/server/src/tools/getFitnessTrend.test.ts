@@ -43,7 +43,10 @@ describe("get-fitness-trend execute", () => {
   it("computes CTL/ATL/TSB and valid structured output", async () => {
     mockedList.mockResolvedValueOnce([run(1), run(3), run(5), run(8)]);
 
-    const result = await getFitnessTrendTool.execute(DEFAULT_INPUT);
+    const result = await getFitnessTrendTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const structured = result.structuredContent as {
@@ -75,17 +78,20 @@ describe("get-fitness-trend execute", () => {
     ];
     mockedList.mockResolvedValueOnce(activities);
 
-    const all = await getFitnessTrendTool.execute(DEFAULT_INPUT);
+    const all = await getFitnessTrendTool.execute(DEFAULT_INPUT, "test-token");
     expect(
       (all.structuredContent as { activities_included: number })
         .activities_included,
     ).toBe(2);
 
     mockedList.mockResolvedValueOnce(activities);
-    const runsOnly = await getFitnessTrendTool.execute({
-      ...DEFAULT_INPUT,
-      activityTypes: ["Run"],
-    });
+    const runsOnly = await getFitnessTrendTool.execute(
+      {
+        ...DEFAULT_INPUT,
+        activityTypes: ["Run"],
+      },
+      "test-token",
+    );
     expect(
       (runsOnly.structuredContent as { activities_included: number })
         .activities_included,
@@ -98,7 +104,10 @@ describe("get-fitness-trend execute", () => {
       run(4, { id: "no-hr", suffer_score: null }),
     ]);
 
-    const result = await getFitnessTrendTool.execute(DEFAULT_INPUT);
+    const result = await getFitnessTrendTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
 
     const structured = result.structuredContent as {
       activities_missing_load: number;
@@ -116,10 +125,13 @@ describe("get-fitness-trend execute", () => {
       run(4, { suffer_score: 150 }),
     ]);
 
-    const result = await getFitnessTrendTool.execute({
-      days: 90,
-      projectDays: 30,
-    });
+    const result = await getFitnessTrendTool.execute(
+      {
+        days: 90,
+        projectDays: 30,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const structured = result.structuredContent as {
@@ -134,10 +146,13 @@ describe("get-fitness-trend execute", () => {
   it("warns on a short window", async () => {
     mockedList.mockResolvedValueOnce([run(2)]);
 
-    const result = await getFitnessTrendTool.execute({
-      days: 28,
-      projectDays: 0,
-    });
+    const result = await getFitnessTrendTool.execute(
+      {
+        days: 28,
+        projectDays: 0,
+      },
+      "test-token",
+    );
 
     const structured = result.structuredContent as { warnings: string[] };
     expect(structured.warnings.join(" ")).toContain("runway");
@@ -146,7 +161,10 @@ describe("get-fitness-trend execute", () => {
   it("handles an empty window without erroring", async () => {
     mockedList.mockResolvedValueOnce([]);
 
-    const result = await getFitnessTrendTool.execute(DEFAULT_INPUT);
+    const result = await getFitnessTrendTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const structured = result.structuredContent as {
@@ -157,19 +175,13 @@ describe("get-fitness-trend execute", () => {
     expect(FitnessTrendOutputSchema.safeParse(structured).success).toBe(true);
   });
 
-  it("errors without a token", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getFitnessTrendTool.execute(DEFAULT_INPUT);
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-  });
-
   it("surfaces API failures as tool errors", async () => {
     mockedList.mockRejectedValueOnce(new Error("Strava API blew up"));
 
-    const result = await getFitnessTrendTool.execute(DEFAULT_INPUT);
+    const result = await getFitnessTrendTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Strava API blew up");
