@@ -1,8 +1,8 @@
+import { formatClock } from "@strava-mcp/data";
 import { Tooltip, TooltipEntry } from "@strava-mcp/ui";
 import {
   type ChartRow,
   cadenceUnit,
-  formatClock,
   formatEffortSpeed,
   formatSecondsDelta,
 } from "./normalize";

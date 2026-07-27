@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { formatDuration } from "../formatters";
 import { getAllActivities } from "../stravaClient";
 import { computeWeekWarnings, getWeekStart } from "../trainingLoad";
-import { formatDuration } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
 import { TrainingLoadOutputSchema, warnOnSchemaDrift } from "./outputs";
 

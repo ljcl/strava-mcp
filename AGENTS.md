@@ -25,6 +25,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `packages/activity-zones/` — React + Recharts MCP App for per-activity HR/power time-in-zone distribution
 - `packages/segment-progress/` — React + Recharts MCP App charting the athlete's own effort history on one segment
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
+  - **Formatters live here, once.** MCP App packages cannot import each other, so a formatter two apps need has exactly one home: `formatting.ts` (`formatClock`, `formatShortDate`, `formatDurationShort`, `formatTime`, `formatPace`, `formatDistance`), alongside the `ramp.ts` precedent. #216 fixed a pace-rollover bug in one of two copies and left the other wrong — neither knip nor Biome can see a genuinely-imported duplicate, so the only defence is not making the copy. Server-side, `apps/server/src/formatters.ts` is the equivalent single home; `utils/running.ts` holds sport-specific transforms only
 - `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar, AppShell, CardHeader, EmptyState, ErrorState, LoadingState, Skeleton)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
 - `packages/vite-config/` — Shared Vite config for MCP App single-file builds

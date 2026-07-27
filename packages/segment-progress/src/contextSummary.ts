@@ -1,4 +1,5 @@
-import { formatClock, formatSecondsDelta, formatShortDate } from "./normalize";
+import { formatClock, formatShortDate } from "@strava-mcp/data";
+import { formatSecondsDelta } from "./normalize";
 import { type SegmentProgressData } from "./types";
 
 /**
@@ -18,8 +19,8 @@ export function buildSegmentProgressContextSummary(
   }
 
   const parts = [
-    `Segment progress for ${segment.name}: ${summary.effortCount} effort${summary.effortCount === 1 ? "" : "s"} from ${formatShortDate(summary.firstDate!, true)} to ${formatShortDate(summary.lastDate!, true)}.`,
-    `Best ${formatClock(summary.bestSeconds!)} on ${formatShortDate(summary.bestDate!, true)}, latest ${formatClock(summary.latestSeconds!)} (${formatSecondsDelta(summary.latestVsBestSeconds!)} vs best).`,
+    `Segment progress for ${segment.name}: ${summary.effortCount} effort${summary.effortCount === 1 ? "" : "s"} from ${formatShortDate(summary.firstDate!, "short")} to ${formatShortDate(summary.lastDate!, "short")}.`,
+    `Best ${formatClock(summary.bestSeconds!)} on ${formatShortDate(summary.bestDate!, "short")}, latest ${formatClock(summary.latestSeconds!)} (${formatSecondsDelta(summary.latestVsBestSeconds!)} vs best).`,
   ];
 
   if (summary.avgSecondsDelta != null) {
@@ -40,7 +41,7 @@ export function buildSegmentProgressContextSummary(
       ? ` from activity ${selected.activityId}`
       : "";
     parts.push(
-      `Effort open in the list: ${formatShortDate(selected.date, true)}, ${formatClock(selected.elapsedSeconds)}${activity}.`,
+      `Effort open in the list: ${formatShortDate(selected.date, "short")}, ${formatClock(selected.elapsedSeconds)}${activity}.`,
     );
   }
 

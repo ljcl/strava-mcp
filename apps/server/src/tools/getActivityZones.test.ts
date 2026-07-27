@@ -25,12 +25,14 @@ describe("formatActivityZones", () => {
 
     // HR total = 2220s; zone 2 (1200s) = 54.1%.
     expect(text).toContain("Z2 (115–152 bpm): 20:00 (54.1%)");
-    // Final HR bucket uses the "+" notation and shows 0%.
-    expect(text).toContain("Z5 (190+ bpm): 00:00 (0.0%)");
+    // Final HR bucket uses the "+" notation and shows 0%. Durations come from
+    // the one server-side formatDuration, which does not zero-pad the leading
+    // unit — so "0:00" and "8:40", not "00:00" and "08:40" (#277).
+    expect(text).toContain("Z5 (190+ bpm): 0:00 (0.0%)");
 
     // Power total = 2220s; zone 2 (1500s) = 67.6%.
     expect(text).toContain("Z2 (100–250 W): 25:00 (67.6%)");
-    expect(text).toContain("Z3 (250+ W): 08:40 (23.4%)");
+    expect(text).toContain("Z3 (250+ W): 8:40 (23.4%)");
   });
 
   it("notes when a zone set has no distribution buckets", () => {

@@ -1,38 +1,23 @@
+import { formatShortDate } from "@strava-mcp/data";
 import { type WeekSummary } from "./types";
+
+/**
+ * Narration spells the year out: "14 Sep 2025". Week keys are date-only ISO
+ * strings, which parse as UTC midnight; `formatShortDate` reads them in UTC
+ * so the narrated day never shifts by the viewer's (or CI's) timezone.
+ */
+const fullDate = (iso: string) => formatShortDate(iso, "full");
 
 /**
  * Screen-reader narration for the training-load chart (#28). Recharts'
  * accessibilityLayer provides keyboard focus and arrow-key tooltip stepping,
  * but the SVG carries no accessible name or content summary of its own; this
  * builder feeds the chart's `title`/`desc` props (rendered as SVG
- * <title>/<desc>), mirroring cadence-trends' a11y.ts. Month names are
- * hardcoded so the text (and its tests) never depend on the runtime locale.
+ * <title>/<desc>), mirroring cadence-trends' a11y.ts.
  */
 export interface ChartA11y {
   title: string;
   desc: string;
-}
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-function shortDate(iso: string): string {
-  // UTC getters: week keys are date-only ISO strings, which parse as UTC
-  // midnight; local getters would shift the narrated day by timezone.
-  const date = new Date(iso);
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
 /** Weekly volume bars with a rolling trend line and warning highlights. */
@@ -50,14 +35,14 @@ export function buildLoadA11y(weeks: WeekSummary[]): ChartA11y {
   }
 
   const parts = [
-    `${weeks.length} week${weeks.length === 1 ? "" : "s"} of running volume from ${shortDate(first.weekStarting)} to ${shortDate(last.weekStarting)}.`,
+    `${weeks.length} week${weeks.length === 1 ? "" : "s"} of running volume from ${fullDate(first.weekStarting)} to ${fullDate(last.weekStarting)}.`,
     `Weekly distance ranges from ${min} to ${max} km; a line shows the 3-week rolling average.`,
   ];
 
   const flagged = weeks.filter((week) => week.warning);
   if (flagged.length > 0) {
     const names = flagged
-      .map((week) => `week of ${shortDate(week.weekStarting)}`)
+      .map((week) => `week of ${fullDate(week.weekStarting)}`)
       .join(", ");
     parts.push(
       `${flagged.length} week${flagged.length === 1 ? " is" : "s are"} highlighted for injury risk: ${names}.`,

@@ -1,7 +1,7 @@
 import { z } from "zod";
+import { formatDuration } from "../formatters";
 import { getActivityById, type StravaDetailedActivity } from "../stravaClient";
 import {
-  formatDuration,
   isRunningActivity,
   metersPerSecToPace,
   transformCadence,

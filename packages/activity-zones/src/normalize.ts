@@ -1,3 +1,4 @@
+import { formatDurationShort } from "@strava-mcp/data";
 import { type SummaryStat } from "@strava-mcp/ui";
 import { type ZoneBucket, type ZoneSet } from "./types";
 
@@ -15,15 +16,6 @@ export function formatZoneRange(bucket: ZoneBucket, unit: string): string {
   return bucket.max == null
     ? `${bucket.min}+ ${unit}`
     : `${bucket.min}–${bucket.max} ${unit}`;
-}
-
-/** "1h 05m", "45m", "3m" — durations on the summary bar. */
-export function formatDurationShort(seconds: number): string {
-  const totalMinutes = Math.round(seconds / 60);
-  if (totalMinutes < 60) return `${totalMinutes}m`;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${hours}h ${minutes.toString().padStart(2, "0")}m`;
 }
 
 export function buildZoneRows(set: ZoneSet): ZoneRow[] {

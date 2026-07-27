@@ -1,5 +1,5 @@
 import { Collapsible } from "@base-ui/react/collapsible";
-import { isRunning } from "@strava-mcp/data";
+import { formatClock, isRunning } from "@strava-mcp/data";
 import {
   CardHeader,
   EmptyState,
@@ -13,7 +13,6 @@ import {
   buildHeatDomain,
   type Domain,
   effortKey,
-  formatClock,
   formatEffortPace,
   heatColor,
   runOrder,

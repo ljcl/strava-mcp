@@ -1,4 +1,5 @@
-import { formatClock, formatSecondsDelta, formatShortDate } from "./normalize";
+import { formatClock, formatShortDate } from "@strava-mcp/data";
+import { formatSecondsDelta } from "./normalize";
 import { type ProgressSummary, type SegmentSummary } from "./types";
 
 /**
@@ -25,8 +26,8 @@ export function buildProgressA11y(
   }
 
   const parts = [
-    `${summary.effortCount} effort${summary.effortCount === 1 ? "" : "s"} on ${segment.name} from ${formatShortDate(summary.firstDate, true)} to ${formatShortDate(summary.lastDate!, true)}, plotted as elapsed time with faster efforts higher.`,
-    `Personal best ${formatClock(summary.bestSeconds!)} on ${formatShortDate(summary.bestDate!, true)}; most recent ${formatClock(summary.latestSeconds!)} on ${formatShortDate(summary.latestDate!, true)}, ${formatSecondsDelta(summary.latestVsBestSeconds!)} against the best.`,
+    `${summary.effortCount} effort${summary.effortCount === 1 ? "" : "s"} on ${segment.name} from ${formatShortDate(summary.firstDate, "short")} to ${formatShortDate(summary.lastDate!, "short")}, plotted as elapsed time with faster efforts higher.`,
+    `Personal best ${formatClock(summary.bestSeconds!)} on ${formatShortDate(summary.bestDate!, "short")}; most recent ${formatClock(summary.latestSeconds!)} on ${formatShortDate(summary.latestDate!, "short")}, ${formatSecondsDelta(summary.latestVsBestSeconds!)} against the best.`,
   ];
 
   if (summary.avgSecondsDelta != null) {

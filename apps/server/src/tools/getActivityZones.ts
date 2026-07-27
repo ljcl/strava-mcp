@@ -1,9 +1,9 @@
 import { z } from "zod";
+import { formatDuration } from "../formatters";
 import {
   getActivityZones as getActivityZonesClient,
   type StravaActivityZone,
 } from "../stravaClient";
-import { formatDuration } from "../utils";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { stravaApi } from "../fetchClient";
+import { formatDuration } from "../formatters";
 import {
   getActivityById,
   getActivityLaps,
@@ -8,7 +9,6 @@ import {
 import {
   assessCadence,
   computeTimeInZones,
-  formatDuration,
   isRunningActivity,
   metersPerSecToPace,
   transformCadence,

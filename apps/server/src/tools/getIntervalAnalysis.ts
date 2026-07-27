@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { stravaApi } from "../fetchClient";
+import { formatDuration } from "../formatters";
 import {
   computeIntervalAnalysis,
   IntervalAnalysisError,
@@ -11,7 +12,7 @@ import {
   getActivityLaps as getActivityLapsClient,
   type StravaLap,
 } from "../stravaClient";
-import { formatDuration, isRunningActivity } from "../utils/running";
+import { isRunningActivity } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
 import { IntervalAnalysisOutputSchema, warnOnSchemaDrift } from "./outputs";

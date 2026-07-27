@@ -8,8 +8,6 @@ import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
 import { AthleteStatsOutputSchema, buildAthleteStatsOutput } from "./outputs";
 
-// formatDuration is now local or in utils, not imported from server.ts
-
 // Input schema: athleteId is optional and defaults to the authenticated athlete.
 const GetAthleteStatsInputSchema = z.object({
   athleteId: stravaIdInput(
@@ -19,27 +17,6 @@ const GetAthleteStatsInputSchema = z.object({
 
 // Define type alias for input
 type GetAthleteStatsInput = z.infer<typeof GetAthleteStatsInputSchema>;
-
-// Remove unused formatDuration function
-/*
-function formatDuration(seconds: number): string {
-    if (isNaN(seconds) || seconds < 0) {
-        return 'N/A';
-    }
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
-    const secs = Math.floor(seconds % 60);
-
-    const parts: string[] = [];
-    if (hours > 0) {
-        parts.push(hours.toString().padStart(2, '0'));
-    }
-    parts.push(minutes.toString().padStart(2, '0'));
-    parts.push(secs.toString().padStart(2, '0'));
-
-    return parts.join(':');
-}
-*/
 
 // Helper function to format numbers as strings with labels (metric)
 function formatStat(

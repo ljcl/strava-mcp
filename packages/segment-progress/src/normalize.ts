@@ -1,4 +1,9 @@
-import { formatPace, isRunning } from "@strava-mcp/data";
+import {
+  formatClock,
+  formatPace,
+  formatShortDate,
+  isRunning,
+} from "@strava-mcp/data";
 import { type SummaryStat } from "@strava-mcp/ui";
 import {
   type ProgressSummary,
@@ -8,44 +13,6 @@ import {
 
 /** Efforts ranked this well get a highlight dot on the chart. */
 export const TOP_RANK = 3;
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-/**
- * "5 Jan" (or "5 Jan 25" when the history spans new-year). Month names are
- * hardcoded, and the date parts read in UTC, so labels and their tests never
- * depend on the runtime locale or timezone.
- */
-export function formatShortDate(iso: string, withYear = false): string {
-  const date = new Date(iso);
-  const day = `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]}`;
-  return withYear ? `${day} ${String(date.getUTCFullYear()).slice(2)}` : day;
-}
-
-/** "4:10" / "1:02:30" — segment efforts are usually minutes, sometimes not. */
-export function formatClock(seconds: number): string {
-  const total = Math.round(seconds);
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const secs = total % 60;
-  const mm = hours > 0 ? String(minutes).padStart(2, "0") : String(minutes);
-  return hours > 0
-    ? `${hours}:${mm}:${String(secs).padStart(2, "0")}`
-    : `${mm}:${String(secs).padStart(2, "0")}`;
-}
 
 /** Signed second delta as "-6s" / "+12s" / "same". */
 export function formatSecondsDelta(delta: number): string {
@@ -126,7 +93,7 @@ export function buildChartRows(efforts: SegmentEffort[]): ChartRow[] {
   const withYear = spansMultipleYears(efforts);
   return efforts.map((effort) => ({
     id: effort.id,
-    label: formatShortDate(effort.date, withYear),
+    label: formatShortDate(effort.date, withYear ? "short" : "none"),
     date: effort.date,
     elapsedSeconds: effort.elapsedSeconds,
     averageHeartrate: effort.averageHeartrate,

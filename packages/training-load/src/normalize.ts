@@ -1,14 +1,13 @@
+import { formatDurationShort } from "@strava-mcp/data";
 import { type SummaryStat } from "@strava-mcp/ui";
 import { type TrainingLoadData, type WeekSummary } from "./types";
 
-/** Format fractional hours as "27h 45m" (or "45m" under an hour). */
+/**
+ * Weekly totals arrive as fractional hours; the shared formatter takes
+ * seconds. "27h 45m", "3h", "45m".
+ */
 export function formatHours(timeHours: number): string {
-  const totalMinutes = Math.round(timeHours * 60);
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  if (hours === 0) return `${minutes}m`;
-  if (minutes === 0) return `${hours}h`;
-  return `${hours}h ${minutes}m`;
+  return formatDurationShort(timeHours * 3600);
 }
 
 /** SummaryBar totals row: runs, distance, time, elevation. */

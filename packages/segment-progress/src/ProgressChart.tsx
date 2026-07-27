@@ -1,3 +1,4 @@
+import { formatClock } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import { EmptyState } from "@strava-mcp/ui";
 import { type ReactNode, useCallback, useMemo } from "react";
@@ -13,7 +14,7 @@ import {
 } from "recharts";
 import { buildProgressA11y } from "./a11y";
 import styles from "./chartView.module.css";
-import { buildChartRows, type ChartRow, formatClock } from "./normalize";
+import { buildChartRows, type ChartRow } from "./normalize";
 import { ProgressTooltip } from "./ProgressTooltip";
 import {
   type ProgressSummary,
