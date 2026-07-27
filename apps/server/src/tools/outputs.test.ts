@@ -158,6 +158,8 @@ describe("schemas align with the real tool rawObjects", () => {
       },
       activities_analyzed: 42,
       activities_with_efforts: 30,
+      activities_skipped: 0,
+      warnings: [],
       note: "Times use elapsed time (includes stops), matching Strava's Best Efforts behavior",
     };
     expect(BestEffortsOutputSchema.safeParse(response).success).toBe(true);
