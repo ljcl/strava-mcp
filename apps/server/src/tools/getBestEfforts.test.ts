@@ -34,23 +34,13 @@ describe("getBestEffortsTool.execute", () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
-  it("errors when the access token is missing", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getBestEffortsTool.execute({
-      limit: 3,
-      maxActivities: 100,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-    expect(mockedList).not.toHaveBeenCalled();
-  });
-
   it("caps perPage at 200 and bounds pagination to running activities", async () => {
     mockedList.mockResolvedValueOnce([]);
 
-    await getBestEffortsTool.execute({ limit: 3, maxActivities: 1000 });
+    await getBestEffortsTool.execute(
+      { limit: 3, maxActivities: 1000 },
+      "test-token",
+    );
 
     expect(mockedList).toHaveBeenCalledWith("test-token", {
       perPage: 200,
@@ -72,7 +62,10 @@ describe("getBestEffortsTool.execute", () => {
     ]);
     mockedById.mockResolvedValueOnce(asDetail(activityWithBestEfforts));
 
-    await getBestEffortsTool.execute({ limit: 3, maxActivities: 100 });
+    await getBestEffortsTool.execute(
+      { limit: 3, maxActivities: 100 },
+      "test-token",
+    );
 
     // Ride is filtered out; only the run triggers a detail fetch.
     expect(mockedById).toHaveBeenCalledTimes(1);
@@ -83,10 +76,13 @@ describe("getBestEffortsTool.execute", () => {
     mockedList.mockResolvedValueOnce([asSummary(activityWithBestEfforts)]);
     mockedById.mockResolvedValueOnce(asDetail(activityWithBestEfforts));
 
-    const result = await getBestEffortsTool.execute({
-      limit: 3,
-      maxActivities: 100,
-    });
+    const result = await getBestEffortsTool.execute(
+      {
+        limit: 3,
+        maxActivities: 100,
+      },
+      "test-token",
+    );
 
     const text = result.content[0]?.text ?? "";
     expect(text).toContain("Best Efforts Summary");
@@ -123,10 +119,13 @@ describe("getBestEffortsTool.execute", () => {
       .mockResolvedValueOnce(asDetail(fast))
       .mockResolvedValueOnce(asDetail(slow));
 
-    const result = await getBestEffortsTool.execute({
-      limit: 1,
-      maxActivities: 100,
-    });
+    const result = await getBestEffortsTool.execute(
+      {
+        limit: 1,
+        maxActivities: 100,
+      },
+      "test-token",
+    );
 
     const efforts = result.structuredContent?.best_efforts?.["400m"];
     expect(efforts).toHaveLength(1); // limit applied
@@ -137,11 +136,14 @@ describe("getBestEffortsTool.execute", () => {
     mockedList.mockResolvedValueOnce([asSummary(activityWithBestEfforts)]);
     mockedById.mockResolvedValueOnce(asDetail(activityWithBestEfforts));
 
-    const result = await getBestEffortsTool.execute({
-      distance: "400m",
-      limit: 3,
-      maxActivities: 100,
-    });
+    const result = await getBestEffortsTool.execute(
+      {
+        distance: "400m",
+        limit: 3,
+        maxActivities: 100,
+      },
+      "test-token",
+    );
 
     const efforts = result.structuredContent?.best_efforts;
     expect(Object.keys(efforts ?? {})).toEqual(["400m"]);
@@ -151,10 +153,13 @@ describe("getBestEffortsTool.execute", () => {
     mockedList.mockResolvedValueOnce([asSummary(basicRunActivity)]);
     mockedById.mockResolvedValueOnce(asDetail({ ...basicRunActivity }));
 
-    const result = await getBestEffortsTool.execute({
-      limit: 3,
-      maxActivities: 100,
-    });
+    const result = await getBestEffortsTool.execute(
+      {
+        limit: 3,
+        maxActivities: 100,
+      },
+      "test-token",
+    );
 
     expect(result.content[0]?.text).toContain("No best efforts found");
   });
@@ -168,10 +173,13 @@ describe("getBestEffortsTool.execute", () => {
       .mockRejectedValueOnce(new Error("boom"))
       .mockResolvedValueOnce(asDetail(activityWithBestEfforts));
 
-    const result = await getBestEffortsTool.execute({
-      limit: 3,
-      maxActivities: 100,
-    });
+    const result = await getBestEffortsTool.execute(
+      {
+        limit: 3,
+        maxActivities: 100,
+      },
+      "test-token",
+    );
 
     // One failed fetch is skipped; the other still contributes efforts.
     expect(result.structuredContent?.activities_with_efforts).toBe(1);
@@ -181,10 +189,13 @@ describe("getBestEffortsTool.execute", () => {
   it("returns an error result when the listing call throws", async () => {
     mockedList.mockRejectedValueOnce(new Error("network down"));
 
-    const result = await getBestEffortsTool.execute({
-      limit: 3,
-      maxActivities: 100,
-    });
+    const result = await getBestEffortsTool.execute(
+      {
+        limit: 3,
+        maxActivities: 100,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("network down");

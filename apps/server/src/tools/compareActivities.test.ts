@@ -111,10 +111,13 @@ describe("compare-activities execute", () => {
     mockedById.mockResolvedValueOnce(fakeActivity({}));
     mockedById.mockResolvedValueOnce(faster);
 
-    const result = await compareActivitiesTool.execute({
-      activityId1: "100",
-      activityId2: "200",
-    });
+    const result = await compareActivitiesTool.execute(
+      {
+        activityId1: "100",
+        activityId2: "200",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(mockedById).toHaveBeenCalledWith("test-token", "100");
@@ -132,27 +135,17 @@ describe("compare-activities execute", () => {
   it("maps a 404 to a not-found message", async () => {
     mockedById.mockRejectedValue(new Error("Record Not Found"));
 
-    const result = await compareActivitiesTool.execute({
-      activityId1: "100",
-      activityId2: "200",
-    });
+    const result = await compareActivitiesTool.execute(
+      {
+        activityId1: "100",
+        activityId2: "200",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain(
       "One or both activities not found",
     );
-  });
-
-  it("returns a configuration error without a token", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await compareActivitiesTool.execute({
-      activityId1: "100",
-      activityId2: "200",
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-    expect(mockedById).not.toHaveBeenCalled();
   });
 });

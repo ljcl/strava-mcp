@@ -3,7 +3,7 @@
  * time, so zod defaults apply when args are omitted and invalid args return
  * a structured error instead of flowing into Strava requests as NaN.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getActivityById,
   getAllActivities,
@@ -20,8 +20,16 @@ vi.mock("./stravaClient", async (importOriginal) => {
   };
 });
 
+// dispatchToolCall resolves the access token once per call (#240).
+vi.mock("./tokenManager", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./tokenManager")>();
+  return { ...actual, getStravaToken: vi.fn() };
+});
+
 // Import after the mock so server.ts's tool modules see the mocked client.
 const { dispatchToolCall } = await import("./server");
+const { getStravaToken } = await import("./tokenManager");
+const mockedToken = vi.mocked(getStravaToken);
 
 const mockedList = vi.mocked(getAllActivities);
 const mockedById = vi.mocked(getActivityById);
@@ -29,14 +37,11 @@ const mockedStats = vi.mocked(getAthleteStats);
 
 describe("dispatchToolCall input validation", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
+    mockedToken.mockReset();
+    mockedToken.mockResolvedValue("test-token");
     mockedList.mockReset();
     mockedById.mockReset();
     mockedStats.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("applies zod defaults when optional args are omitted (get-best-efforts)", async () => {

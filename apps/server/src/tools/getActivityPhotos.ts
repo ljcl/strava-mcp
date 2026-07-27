@@ -51,22 +51,7 @@ export const getActivityPhotosTool = {
   description,
   inputSchema,
   annotations: READ_ONLY,
-  execute: async ({ id, size }: GetActivityPhotosInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async ({ id, size }: GetActivityPhotosInput, token: string) => {
     try {
       // `id` arrives already validated and normalised to a digit string by
       // `stravaIdInput`; parsing it back to a number here (as this handler

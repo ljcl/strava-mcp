@@ -56,19 +56,13 @@ describe("getRunningSummaryTool.execute", () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
-  it("errors when the access token is missing", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getRunningSummaryTool.execute({ activityId: "1" });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-  });
-
   it("rejects non-running activities", async () => {
     mockedById.mockResolvedValueOnce(asDetail(rideActivity));
 
-    const result = await getRunningSummaryTool.execute({ activityId: "999" });
+    const result = await getRunningSummaryTool.execute(
+      { activityId: "999" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("is not a running activity");
@@ -83,9 +77,12 @@ describe("getRunningSummaryTool.execute", () => {
     );
     mockedLaps.mockResolvedValueOnce([sampleLap]);
 
-    const result = await getRunningSummaryTool.execute({
-      activityId: "12345678",
-    });
+    const result = await getRunningSummaryTool.execute(
+      {
+        activityId: "12345678",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const text = result.content[0]?.text ?? "";
@@ -121,9 +118,12 @@ describe("getRunningSummaryTool.execute", () => {
       },
     } as never);
 
-    const result = await getRunningSummaryTool.execute({
-      activityId: "12345678",
-    });
+    const result = await getRunningSummaryTool.execute(
+      {
+        activityId: "12345678",
+      },
+      "test-token",
+    );
 
     expect(result.content[0]?.text).toContain("Zone Distribution");
     expect(result.structuredContent?.heart_rate?.zones).not.toBeNull();
@@ -132,7 +132,10 @@ describe("getRunningSummaryTool.execute", () => {
   it("maps a not-found error to a friendly message", async () => {
     mockedById.mockRejectedValueOnce(new Error("Record Not Found"));
 
-    const result = await getRunningSummaryTool.execute({ activityId: "42" });
+    const result = await getRunningSummaryTool.execute(
+      { activityId: "42" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Activity with ID 42 not found");

@@ -51,26 +51,10 @@ export const exploreSegments = {
     "Search for popular segments inside a geographic bounding box (south-west and north-east lat/lng). Optionally filter by climb category. Returns matching segments with id, name, distance, and average grade. Use when the user wants to discover segments in an area rather than look up one they already know.",
   inputSchema: ExploreSegmentsInputSchema,
   annotations: READ_ONLY,
-  execute: async ({
-    bounds,
-    activityType,
-    minCat,
-    maxCat,
-  }: ExploreSegmentsInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token || token === "YOUR_STRAVA_ACCESS_TOKEN_HERE") {
-      console.error("Missing or placeholder STRAVA_ACCESS_TOKEN in .env");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "❌ Configuration Error: STRAVA_ACCESS_TOKEN is missing or not set in the .env file.",
-          },
-        ],
-        isError: true,
-      };
-    }
+  execute: async (
+    { bounds, activityType, minCat, maxCat }: ExploreSegmentsInput,
+    token: string,
+  ) => {
     if (
       (minCat !== undefined || maxCat !== undefined) &&
       activityType !== "riding"

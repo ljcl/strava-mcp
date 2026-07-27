@@ -46,7 +46,10 @@ describe("get-training-load execute", () => {
   it("aggregates runs into weekly totals and structured output", async () => {
     mockedList.mockResolvedValueOnce([run(2), run(9), run(9.5)]);
 
-    const result = await getTrainingLoadTool.execute(DEFAULT_INPUT);
+    const result = await getTrainingLoadTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const structured = result.structuredContent as {
@@ -70,7 +73,10 @@ describe("get-training-load execute", () => {
       run(3, { id: "ride", type: "Ride", sport_type: "Ride" }),
     ]);
 
-    const result = await getTrainingLoadTool.execute(DEFAULT_INPUT);
+    const result = await getTrainingLoadTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
 
     const structured = result.structuredContent as {
       totals: { runs: number };
@@ -81,7 +87,10 @@ describe("get-training-load execute", () => {
   it("reports insufficient data for a short history", async () => {
     mockedList.mockResolvedValueOnce([run(2)]);
 
-    const result = await getTrainingLoadTool.execute(DEFAULT_INPUT);
+    const result = await getTrainingLoadTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
 
     const structured = result.structuredContent as { trend: string };
     expect(structured.trend).toBe("insufficient data");
@@ -90,19 +99,12 @@ describe("get-training-load execute", () => {
   it("returns isError when the fetch fails", async () => {
     mockedList.mockRejectedValueOnce(new Error("Rate limited"));
 
-    const result = await getTrainingLoadTool.execute(DEFAULT_INPUT);
+    const result = await getTrainingLoadTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content?.[0]?.text).toContain("Rate limited");
-  });
-
-  it("returns a configuration error without a token", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getTrainingLoadTool.execute(DEFAULT_INPUT);
-
-    expect(result.isError).toBe(true);
-    expect(result.content?.[0]?.text).toContain("Missing Strava access token");
-    expect(mockedList).not.toHaveBeenCalled();
   });
 });

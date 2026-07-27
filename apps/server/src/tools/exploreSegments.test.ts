@@ -53,22 +53,15 @@ describe("exploreSegments.execute", () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
-  it("errors when the access token is missing", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await exploreSegments.execute({ bounds });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("STRAVA_ACCESS_TOKEN is missing");
-    expect(mockedExplore).not.toHaveBeenCalled();
-  });
-
   it("rejects climb-category filters without riding activityType", async () => {
-    const result = await exploreSegments.execute({
-      bounds,
-      minCat: 1,
-      activityType: "running",
-    });
+    const result = await exploreSegments.execute(
+      {
+        bounds,
+        minCat: 1,
+        activityType: "running",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain(
@@ -80,12 +73,15 @@ describe("exploreSegments.execute", () => {
   it("passes bounds and filters through to the client", async () => {
     mockedExplore.mockResolvedValueOnce(explorerResponse([explorerSegment]));
 
-    await exploreSegments.execute({
-      bounds,
-      activityType: "riding",
-      minCat: 1,
-      maxCat: 5,
-    });
+    await exploreSegments.execute(
+      {
+        bounds,
+        activityType: "riding",
+        minCat: 1,
+        maxCat: 5,
+      },
+      "test-token",
+    );
 
     expect(mockedExplore).toHaveBeenCalledWith(
       "test-token",
@@ -99,7 +95,7 @@ describe("exploreSegments.execute", () => {
   it("formats segments in metric units for meters preference", async () => {
     mockedExplore.mockResolvedValueOnce(explorerResponse([explorerSegment]));
 
-    const result = await exploreSegments.execute({ bounds });
+    const result = await exploreSegments.execute({ bounds }, "test-token");
 
     const text = result.content[0]?.text ?? "";
     expect(text).toContain("Box Hill Climb");
@@ -113,7 +109,7 @@ describe("exploreSegments.execute", () => {
     mockedAthlete.mockResolvedValue(athlete("feet"));
     mockedExplore.mockResolvedValueOnce(explorerResponse([explorerSegment]));
 
-    const result = await exploreSegments.execute({ bounds });
+    const result = await exploreSegments.execute({ bounds }, "test-token");
 
     const text = result.content[0]?.text ?? "";
     expect(text).toContain("1.55 mi"); // 2500 m -> miles
@@ -123,7 +119,7 @@ describe("exploreSegments.execute", () => {
   it("returns a friendly message when no segments are found", async () => {
     mockedExplore.mockResolvedValueOnce(explorerResponse([]));
 
-    const result = await exploreSegments.execute({ bounds });
+    const result = await exploreSegments.execute({ bounds }, "test-token");
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("No segments found");
@@ -132,7 +128,7 @@ describe("exploreSegments.execute", () => {
   it("surfaces API errors", async () => {
     mockedExplore.mockRejectedValueOnce(new Error("upstream 500"));
 
-    const result = await exploreSegments.execute({ bounds });
+    const result = await exploreSegments.execute({ bounds }, "test-token");
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("API Error: upstream 500");

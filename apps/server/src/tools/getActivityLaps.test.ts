@@ -95,15 +95,6 @@ describe("getActivityLapsTool.execute", () => {
     delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
-  it("errors when the access token is missing", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getActivityLapsTool.execute({ id: "12345" });
-
-    expect(result.isError).toBe(true);
-    expect(mockedLaps).not.toHaveBeenCalled();
-  });
-
   it("renders run laps with pace and structured output", async () => {
     mockedById.mockResolvedValueOnce(
       asDetail({ id: "12345", name: "Track Tuesday", sport_type: "Run" }),
@@ -113,7 +104,10 @@ describe("getActivityLapsTool.execute", () => {
       { ...baseLap, lap_index: 2, name: "Lap 2" } as unknown as StravaLap,
     ]);
 
-    const result = await getActivityLapsTool.execute({ id: "12345" });
+    const result = await getActivityLapsTool.execute(
+      { id: "12345" },
+      "test-token",
+    );
 
     const text = result.content[0]?.text ?? "";
     expect(text).toContain('Laps for "Track Tuesday"');
@@ -139,7 +133,10 @@ describe("getActivityLapsTool.execute", () => {
       } as unknown as StravaLap,
     ]);
 
-    const result = await getActivityLapsTool.execute({ id: "555" });
+    const result = await getActivityLapsTool.execute(
+      { id: "555" },
+      "test-token",
+    );
 
     const text = result.content[0]?.text ?? "";
     expect(text).toContain("36 km/h");
@@ -155,7 +152,10 @@ describe("getActivityLapsTool.execute", () => {
     );
     mockedLaps.mockResolvedValueOnce([]);
 
-    const result = await getActivityLapsTool.execute({ id: "777" });
+    const result = await getActivityLapsTool.execute(
+      { id: "777" },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("No laps recorded");
@@ -165,7 +165,10 @@ describe("getActivityLapsTool.execute", () => {
     mockedById.mockRejectedValueOnce(new Error("Record Not Found"));
     mockedLaps.mockResolvedValueOnce([]);
 
-    const result = await getActivityLapsTool.execute({ id: "404404" });
+    const result = await getActivityLapsTool.execute(
+      { id: "404404" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("not found");

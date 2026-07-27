@@ -96,22 +96,7 @@ export const getRunningSummaryTool = {
   inputSchema,
   annotations: READ_ONLY,
   outputSchema: RunningSummaryOutputSchema,
-  execute: async ({ activityId }: GetRunningSummaryInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async ({ activityId }: GetRunningSummaryInput, token: string) => {
     try {
       console.error(
         `Fetching running summary for activity ID: ${activityId}...`,

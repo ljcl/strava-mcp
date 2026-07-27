@@ -74,9 +74,12 @@ describe("get-segment-effort execute", () => {
   it("passes a string effort id through to the client untouched", async () => {
     mockedFetch.mockResolvedValueOnce(effort);
 
-    const result = await getSegmentEffortTool.execute({
-      effortId: bigEffortId,
-    });
+    const result = await getSegmentEffortTool.execute(
+      {
+        effortId: bigEffortId,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(mockedFetch).toHaveBeenCalledWith("test-token", bigEffortId);

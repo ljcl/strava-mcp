@@ -71,7 +71,7 @@ export const exportActivityGpx = {
     "Use for importing rides/runs into Garmin, route planners, or backups.",
   inputSchema: ExportActivityGpxInputSchema,
   annotations: WRITE_IDEMPOTENT,
-  execute: async ({ activityId }: ExportActivityGpxInput) => {
+  execute: async ({ activityId }: ExportActivityGpxInput, token: string) => {
     // The id is interpolated into both the API URL and the output filename —
     // reject anything non-numeric before any fetch or write (mirrors the
     // route export tools, #141).
@@ -81,19 +81,6 @@ export const exportActivityGpx = {
           {
             type: "text" as const,
             text: `❌ Error: Invalid activity ID "${activityId}". Activity ID must contain only digits.`,
-          },
-        ],
-        isError: true,
-      };
-    }
-
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-    if (!token) {
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "❌ Error: Missing STRAVA_ACCESS_TOKEN in .env file.",
           },
         ],
         isError: true,

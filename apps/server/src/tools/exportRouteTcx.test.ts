@@ -30,7 +30,10 @@ describe("exportRouteTcx.execute", () => {
   it("writes the TCX file into the export directory", async () => {
     mockedFetch.mockResolvedValue("<tcx>data</tcx>");
 
-    const result = await exportRouteTcx.execute({ routeId: "12345" });
+    const result = await exportRouteTcx.execute(
+      { routeId: "12345" },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const expectedPath = path.join(exportDir, "route-12345.tcx");
@@ -39,9 +42,12 @@ describe("exportRouteTcx.execute", () => {
   });
 
   it("rejects a non-numeric route id before any fetch or write", async () => {
-    const result = await exportRouteTcx.execute({
-      routeId: "../../tmp/evil",
-    });
+    const result = await exportRouteTcx.execute(
+      {
+        routeId: "../../tmp/evil",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("must contain only digits");

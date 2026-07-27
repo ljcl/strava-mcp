@@ -137,21 +137,7 @@ export const getHillAnalysisTool = {
   inputSchema,
   annotations: READ_ONLY,
   outputSchema: HillAnalysisOutputSchema,
-  execute: async ({ activityId }: GetHillAnalysisInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async ({ activityId }: GetHillAnalysisInput, token: string) => {
     try {
       const [activity, streams] = await Promise.all([
         getActivityById(token, activityId),

@@ -118,21 +118,7 @@ export const getIntervalAnalysisTool = {
   inputSchema,
   annotations: READ_ONLY,
   outputSchema: IntervalAnalysisOutputSchema,
-  execute: async ({ activityId }: GetIntervalAnalysisInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async ({ activityId }: GetIntervalAnalysisInput, token: string) => {
     try {
       // Laps corrupt or go missing (rain, manual activities); their absence
       // must not fail the analysis, only remove the lap path.

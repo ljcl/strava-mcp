@@ -44,6 +44,7 @@ import {
   listSegmentEfforts,
   type StravaDetailedActivity,
 } from "./stravaClient";
+import { getStravaToken } from "./tokenManager";
 import { READ_ONLY } from "./tools/_annotations";
 import { stravaIdInput, stravaIdJsonSchemaOverride } from "./tools/_ids";
 import {
@@ -618,7 +619,10 @@ export const TOOLS = buildToolDefs();
 /** Map of tool name → execute function for existing Strava tools */
 const TOOL_EXECUTORS = new Map<
   string,
-  (args: Record<string, unknown>) => Promise<{
+  (
+    args: Record<string, unknown>,
+    token: string,
+  ) => Promise<{
     content: Array<{ type: string; text: string }>;
     structuredContent?: unknown;
     isError?: boolean;
@@ -628,7 +632,10 @@ const TOOL_EXECUTORS = new Map<
 for (const tool of STRAVA_TOOLS) {
   TOOL_EXECUTORS.set(
     tool.name,
-    tool.execute as (args: Record<string, unknown>) => Promise<{
+    tool.execute as (
+      args: Record<string, unknown>,
+      token: string,
+    ) => Promise<{
       content: Array<{ type: string; text: string }>;
       isError?: boolean;
     }>,
@@ -658,16 +665,9 @@ const RAW_STREAM_TYPES = [
 
 async function handleViewActivityChart(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
   const activityId = String(args.activity_id);
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const activity = await getActivityById(token, Number(activityId));
   const lines = [
     `Activity: ${activity.name}`,
@@ -682,16 +682,9 @@ async function handleViewActivityChart(
 
 async function handleGetActivityStreamsRaw(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
   const activityId = String(args.activity_id);
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const activity = await getActivityById(token, Number(activityId));
 
   const endpoint = `/activities/${activityId}/streams/${RAW_STREAM_TYPES.join(",")}?series_type=time&resolution=medium`;
@@ -733,16 +726,9 @@ const RUNNING_TYPES = new Set(["Run", "VirtualRun", "TrailRun"]);
 
 async function handleGetCadenceTrendData(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
   const weeks = Number(args.weeks) || 6;
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const after = Math.floor(
     (Date.now() - weeks * 7 * 24 * 60 * 60 * 1000) / 1000,
   );
@@ -778,16 +764,9 @@ async function handleGetCadenceTrendData(
 
 async function handleViewCadenceTrends(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
   const weeks = Number(args.weeks) || 6;
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const after = Math.floor(
     (Date.now() - weeks * 7 * 24 * 60 * 60 * 1000) / 1000,
   );
@@ -828,16 +807,9 @@ async function loadTrainingLoadRuns(token: string, days: number) {
 
 async function handleGetTrainingLoadData(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
   const days = Number(args.days) || 84;
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const runs = await loadTrainingLoadRuns(token, days);
   const result = buildTrainingLoadData(runs, days);
   return { content: [{ type: "text", text: JSON.stringify(result) }] };
@@ -845,16 +817,9 @@ async function handleGetTrainingLoadData(
 
 async function handleViewTrainingLoad(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
   const days = Number(args.days) || 84;
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const runs = await loadTrainingLoadRuns(token, days);
   const data = buildTrainingLoadData(runs, days);
   const warningWeeks = data.weeks.filter((w) => w.warning).length;
@@ -890,30 +855,16 @@ async function loadActivityZonesData(
 
 async function handleGetActivityZonesData(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const data = await loadActivityZonesData(token, String(args.activity_id));
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 async function handleViewActivityZones(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const data = await loadActivityZonesData(token, String(args.activity_id));
   const lines = [`Activity Zones: ${data.name} (${data.date})`];
   if (data.zoneSets.length === 0) {
@@ -980,30 +931,16 @@ function signedSeconds(delta: number): string {
 
 async function handleGetSegmentProgressData(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const data = await loadSegmentProgressData(token, args);
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 async function handleViewSegmentProgress(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
-
   const { segment, summary } = await loadSegmentProgressData(token, args);
   const grade =
     segment.averageGrade == null ? "" : `, ${segment.averageGrade.toFixed(1)}%`;
@@ -1385,28 +1322,16 @@ async function loadRouteMapAnnotations(
 
 async function handleGetRouteMapData(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
   const data = await loadRouteMapData(args, token, { includeStreams: true });
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 async function handleViewRouteMap(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
   const data = await loadRouteMapData(args, token);
   const lines = [
     `${data.source === "route" ? "Route" : "Activity"}: ${data.name}`,
@@ -1448,28 +1373,16 @@ async function loadActivitySegmentsData(
 
 async function handleGetActivitySegmentsData(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
   const data = await loadActivitySegmentsData(args, token);
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 async function handleViewActivitySegments(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
   const data = await loadActivitySegmentsData(args, token);
   const prCount = data.segments.filter((s) => s.prRank != null).length;
   const top10Count = data.segments.filter((s) => s.komRank != null).length;
@@ -1502,28 +1415,16 @@ async function loadCompareActivitiesData(
 
 async function handleGetCompareActivitiesData(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
   const data = await loadCompareActivitiesData(args, token);
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 async function handleViewCompareActivities(
   args: Record<string, unknown>,
+  token: string,
 ): Promise<ToolCallResult> {
-  const token = process.env.STRAVA_ACCESS_TOKEN;
-  if (!token) {
-    return {
-      isError: true,
-      content: [{ type: "text", text: "Missing STRAVA_ACCESS_TOKEN" }],
-    };
-  }
   const data = await loadCompareActivitiesData(args, token);
   const lines = [
     `Activity 1: ${data.activity_1.name} (${data.activity_1.date}) — ${data.activity_1.distance_km} km in ${data.activity_1.time_formatted}`,
@@ -1558,7 +1459,7 @@ interface ToolCallResult {
 /** MCP App tool name → handler (same dispatch path as the Strava tools). */
 const APP_TOOL_HANDLERS: Record<
   string,
-  (args: Record<string, unknown>) => Promise<ToolCallResult>
+  (args: Record<string, unknown>, token: string) => Promise<ToolCallResult>
 > = {
   "view-activity-chart": handleViewActivityChart,
   "get-activity-streams-raw": handleGetActivityStreamsRaw,
@@ -1583,6 +1484,12 @@ const APP_TOOL_HANDLERS: Record<
  * against the tool's zod schema BEFORE executing (#107), so defaults always
  * apply and invalid types surface as a structured error instead of flowing
  * into Strava URLs and math as `"undefined"` or NaN.
+ *
+ * It also resolves the Strava access token once per call and hands it to the
+ * handler (#240). Every tool used to read `process.env.STRAVA_ACCESS_TOKEN`
+ * behind its own guard, which produced four different not-connected messages
+ * and left expiry to be discovered by a wasted 401; resolving here gives one
+ * message, one expiry policy, and a proactive refresh at the buffer.
  */
 export async function dispatchToolCall(
   name: string,
@@ -1614,8 +1521,20 @@ export async function dispatchToolCall(
     args = parsed.data as Record<string, unknown>;
   }
 
+  let token: string;
   try {
-    return await handler(args);
+    token = await getStravaToken();
+  } catch (error) {
+    // NoTokenError and TokenRevokedError both already carry the one actionable
+    // instruction (authorize at /auth/start); anything else here is a config
+    // fault (missing client credentials) or a failed refresh, and its message
+    // is the useful part.
+    const message = error instanceof Error ? error.message : String(error);
+    return { isError: true, content: [{ type: "text", text: message }] };
+  }
+
+  try {
+    return await handler(args, token);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {

@@ -4,7 +4,7 @@
  * the Strava client mocked. The missing-token table pins the regression where
  * those early returns lacked `isError: true` and surfaced as ordinary content.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { stravaApi } from "./fetchClient";
 import {
   getActivityById,
@@ -47,8 +47,17 @@ vi.mock("./fetchClient", async (importOriginal) => {
   };
 });
 
+// dispatchToolCall resolves the access token once per call (#240), so the
+// token source is mocked here rather than the env var each handler used to read.
+vi.mock("./tokenManager", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./tokenManager")>();
+  return { ...actual, getStravaToken: vi.fn() };
+});
+
 // Import after the mocks so server.ts's modules see the mocked client.
 const { dispatchToolCall } = await import("./server");
+const { getStravaToken, NoTokenError } = await import("./tokenManager");
+const mockedToken = vi.mocked(getStravaToken);
 
 const mockedById = vi.mocked(getActivityById);
 const mockedLaps = vi.mocked(getActivityLaps);
@@ -134,12 +143,8 @@ function segmentEffort(
 }
 
 beforeEach(() => {
-  process.env.STRAVA_ACCESS_TOKEN = "test-token";
   vi.clearAllMocks();
-});
-
-afterEach(() => {
-  delete process.env.STRAVA_ACCESS_TOKEN;
+  mockedToken.mockResolvedValue("test-token");
 });
 
 /** Every app tool with args that pass its input schema. */
@@ -162,18 +167,37 @@ const APP_TOOL_CALLS: Array<[string, Record<string, unknown>]> = [
   ["get-segment-progress-data", { segment_id: "55" }],
 ];
 
-describe("app handlers without STRAVA_ACCESS_TOKEN", () => {
+describe("app handlers with no Strava token", () => {
   it.each(APP_TOOL_CALLS)(
     "%s returns isError: true instead of plain content",
     async (name, args) => {
-      delete process.env.STRAVA_ACCESS_TOKEN;
+      mockedToken.mockRejectedValueOnce(new NoTokenError());
 
       const result = await dispatchToolCall(name, args);
 
       expect(result.isError).toBe(true);
-      expect(result.content[0]?.text).toContain("Missing STRAVA_ACCESS_TOKEN");
+      // One message for every tool, naming the one recovery (#240).
+      expect(result.content[0]?.text).toContain("Not connected to Strava");
+      expect(result.content[0]?.text).toContain("/auth/start");
     },
   );
+
+  it("resolves the token once per call and hands it to the handler", async () => {
+    mockedById.mockResolvedValueOnce(detailedActivity());
+
+    await dispatchToolCall("view-activity-chart", { activity_id: "123" });
+
+    expect(mockedToken).toHaveBeenCalledTimes(1);
+    expect(mockedById).toHaveBeenCalledWith("test-token", 123);
+  });
+
+  it("does not run the handler when the token cannot be resolved", async () => {
+    mockedToken.mockRejectedValueOnce(new NoTokenError());
+
+    await dispatchToolCall("view-activity-chart", { activity_id: "123" });
+
+    expect(mockedById).not.toHaveBeenCalled();
+  });
 });
 
 describe("view-activity-chart", () => {

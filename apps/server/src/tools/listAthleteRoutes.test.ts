@@ -33,7 +33,10 @@ describe("list-athlete-routes execute", () => {
   it("lists routes with pagination args passed through", async () => {
     mockedFetch.mockResolvedValueOnce([route]);
 
-    const result = await listAthleteRoutesTool.execute({ page: 2, perPage: 5 });
+    const result = await listAthleteRoutesTool.execute(
+      { page: 2, perPage: 5 },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(mockedFetch).toHaveBeenCalledWith("test-token", 2, 5);
@@ -47,10 +50,13 @@ describe("list-athlete-routes execute", () => {
   it("reports no routes without an error flag", async () => {
     mockedFetch.mockResolvedValueOnce([]);
 
-    const result = await listAthleteRoutesTool.execute({
-      page: 1,
-      perPage: 20,
-    });
+    const result = await listAthleteRoutesTool.execute(
+      {
+        page: 1,
+        perPage: 20,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("No routes found");
@@ -59,25 +65,15 @@ describe("list-athlete-routes execute", () => {
   it("returns isError when the fetch fails", async () => {
     mockedFetch.mockRejectedValueOnce(new Error("Server error"));
 
-    const result = await listAthleteRoutesTool.execute({
-      page: 1,
-      perPage: 20,
-    });
+    const result = await listAthleteRoutesTool.execute(
+      {
+        page: 1,
+        perPage: 20,
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Server error");
-  });
-
-  it("returns a configuration error without a token", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await listAthleteRoutesTool.execute({
-      page: 1,
-      perPage: 20,
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Configuration Error");
-    expect(mockedFetch).not.toHaveBeenCalled();
   });
 });

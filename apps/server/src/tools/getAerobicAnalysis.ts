@@ -108,25 +108,14 @@ export const getAerobicAnalysisTool = {
   inputSchema,
   annotations: READ_ONLY,
   outputSchema: AerobicAnalysisOutputSchema,
-  execute: async ({
-    activityId,
-    excludeWarmupMinutes,
-    thresholdPower,
-  }: GetAerobicAnalysisInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async (
+    {
+      activityId,
+      excludeWarmupMinutes,
+      thresholdPower,
+    }: GetAerobicAnalysisInput,
+    token: string,
+  ) => {
     try {
       // The athlete profile is only needed for its FTP fallback; a failure
       // there must not fail the analysis.

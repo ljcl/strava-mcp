@@ -95,22 +95,7 @@ export const getActivityZonesTool = {
   description,
   inputSchema,
   annotations: READ_ONLY,
-  execute: async ({ id }: GetActivityZonesInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async ({ id }: GetActivityZonesInput, token: string) => {
     try {
       console.error(`Fetching zones for activity ID: ${id}...`);
 

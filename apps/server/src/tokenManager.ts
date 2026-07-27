@@ -44,6 +44,22 @@ export class TokenRevokedError extends Error {
 }
 
 /**
+ * No Strava credentials are available at all — nothing stored, nothing in the
+ * environment. Distinct from {@link TokenRevokedError}, which means we *had*
+ * credentials and Strava rejected them. Both recover the same way, so both
+ * carry an actionable message naming /auth/start.
+ */
+export class NoTokenError extends Error {
+  constructor() {
+    super(
+      "Not connected to Strava. No access token is available. " +
+        "Authorize the server by visiting /auth/start, then retry.",
+    );
+    this.name = "NoTokenError";
+  }
+}
+
+/**
  * Detects Strava's revoked / invalid-grant response to a refresh_token
  * exchange, distinct from transient failures (5xx, network). Strava answers a
  * dead refresh token with HTTP 400 and an errors array naming the
@@ -230,6 +246,9 @@ export async function saveTokens(tokens: TokenData): Promise<void> {
       mode: 0o600,
     });
     await fs.rename(tempFilePath, tokenFilePath);
+    // Both OAuth exchanges land here, so this is where the in-memory copy that
+    // getStravaToken serves stays in step with what is on disk.
+    cachedTokens = tokens;
     console.error(`[TokenManager] Tokens saved to ${tokenFilePath}`);
     console.error(
       `[TokenManager] New expiration: ${new Date(
@@ -248,6 +267,7 @@ export async function saveTokens(tokens: TokenData): Promise<void> {
  * request would reload the dead refresh token and retry a doomed exchange.
  */
 async function clearTokens(): Promise<void> {
+  cachedTokens = null;
   try {
     await fs.rm(tokenFilePath, { force: true });
   } catch (error) {
@@ -401,6 +421,43 @@ export async function refreshAccessToken(
   } finally {
     inFlightRefresh = null;
   }
+}
+
+/**
+ * The tokens most recently loaded or written, kept in memory so the common path
+ * through {@link getStravaToken} — a valid token, once per tool call — costs no
+ * filesystem read. Cleared on revocation; refreshed writes land here via
+ * {@link saveTokens}, the single choke point both OAuth exchanges pass through.
+ */
+let cachedTokens: TokenData | null = null;
+
+/**
+ * Resolves the access token for an outbound Strava call, refreshing *before* it
+ * expires rather than after a wasted 401.
+ *
+ * This is the single token entry point: tool handlers receive the resolved
+ * token rather than reading `process.env.STRAVA_ACCESS_TOKEN` themselves, so
+ * there is one expiry policy and one not-connected message across every tool.
+ *
+ * @throws {NoTokenError} when no credentials exist at all.
+ * @throws {TokenRevokedError} when the stored refresh token is dead.
+ */
+export async function getStravaToken(): Promise<string> {
+  let tokens = cachedTokens ?? (await loadTokens());
+
+  if (!tokens) {
+    throw new NoTokenError();
+  }
+
+  // Inside the expiry buffer, refresh now. refreshAccessToken coalesces
+  // concurrent callers onto one exchange, so parallel tool calls at rollover
+  // cost a single /oauth/token round-trip.
+  if (isTokenExpired(tokens)) {
+    tokens = await refreshAccessToken();
+  }
+
+  cachedTokens = tokens;
+  return tokens.access_token;
 }
 
 /**

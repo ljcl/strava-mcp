@@ -105,22 +105,10 @@ export const getBestEffortsTool = {
   inputSchema,
   annotations: READ_ONLY,
   outputSchema: BestEffortsOutputSchema,
-  execute: async ({ distance, limit, maxActivities }: GetBestEffortsInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async (
+    { distance, limit, maxActivities }: GetBestEffortsInput,
+    token: string,
+  ) => {
     try {
       console.error(
         `Fetching best efforts (scanning up to ${maxActivities} activities)...`,

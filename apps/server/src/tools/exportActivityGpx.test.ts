@@ -68,7 +68,10 @@ describe("exportActivityGpx.execute", () => {
     mockedById.mockResolvedValueOnce(asDetail(baseActivity));
     mockedGet.mockResolvedValueOnce(streamsResponse);
 
-    const result = await exportActivityGpx.execute({ activityId: "12345" });
+    const result = await exportActivityGpx.execute(
+      { activityId: "12345" },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     const text = result.content[0]?.text ?? "";
@@ -89,7 +92,10 @@ describe("exportActivityGpx.execute", () => {
     // No latlng stream (e.g. trainer ride) → fetch helper returns null.
     mockedGet.mockResolvedValueOnce({ data: [] });
 
-    const result = await exportActivityGpx.execute({ activityId: "12345" });
+    const result = await exportActivityGpx.execute(
+      { activityId: "12345" },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("geometry-only");
@@ -106,7 +112,10 @@ describe("exportActivityGpx.execute", () => {
     mockedById.mockResolvedValueOnce(asDetail({ ...baseActivity, map: null }));
     mockedGet.mockResolvedValueOnce({ data: [] });
 
-    const result = await exportActivityGpx.execute({ activityId: "12345" });
+    const result = await exportActivityGpx.execute(
+      { activityId: "12345" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("no GPS data");
@@ -130,7 +139,7 @@ describe("exportActivityGpx.execute", () => {
       ],
     });
 
-    await exportActivityGpx.execute({ activityId: "12345" });
+    await exportActivityGpx.execute({ activityId: "12345" }, "test-token");
 
     const written = fs.readFileSync(
       path.join(exportDir, "activity-12345.gpx"),
@@ -140,9 +149,12 @@ describe("exportActivityGpx.execute", () => {
   });
 
   it("rejects non-numeric activity ids before any fetch", async () => {
-    const result = await exportActivityGpx.execute({
-      activityId: "../../etc/passwd",
-    });
+    const result = await exportActivityGpx.execute(
+      {
+        activityId: "../../etc/passwd",
+      },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(mockedById).not.toHaveBeenCalled();
@@ -152,7 +164,10 @@ describe("exportActivityGpx.execute", () => {
   it("errors when ROUTE_EXPORT_PATH is not configured", async () => {
     delete process.env.ROUTE_EXPORT_PATH;
 
-    const result = await exportActivityGpx.execute({ activityId: "12345" });
+    const result = await exportActivityGpx.execute(
+      { activityId: "12345" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("ROUTE_EXPORT_PATH");

@@ -46,7 +46,10 @@ describe("get-segment execute", () => {
   it("formats the segment details", async () => {
     mockedFetch.mockResolvedValueOnce(segment);
 
-    const result = await getSegmentTool.execute({ segmentId: "789" });
+    const result = await getSegmentTool.execute(
+      { segmentId: "789" },
+      "test-token",
+    );
 
     expect(result.isError).toBeUndefined();
     expect(mockedFetch).toHaveBeenCalledWith("test-token", "789");
@@ -61,7 +64,10 @@ describe("get-segment execute", () => {
   it("maps a 404 to a segment-not-found message", async () => {
     mockedFetch.mockRejectedValueOnce(new Error("404 Not Found"));
 
-    const result = await getSegmentTool.execute({ segmentId: "789" });
+    const result = await getSegmentTool.execute(
+      { segmentId: "789" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Segment with ID 789 not found");
@@ -70,19 +76,12 @@ describe("get-segment execute", () => {
   it("reports other failures with details", async () => {
     mockedFetch.mockRejectedValueOnce(new Error("Bad Gateway"));
 
-    const result = await getSegmentTool.execute({ segmentId: "789" });
+    const result = await getSegmentTool.execute(
+      { segmentId: "789" },
+      "test-token",
+    );
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Bad Gateway");
-  });
-
-  it("returns a configuration error without a token", async () => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
-
-    const result = await getSegmentTool.execute({ segmentId: "789" });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Missing Strava access token");
-    expect(mockedFetch).not.toHaveBeenCalled();
   });
 });

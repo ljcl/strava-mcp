@@ -59,27 +59,15 @@ export const listSegmentEffortsTool = {
     "Lists the authenticated athlete's efforts on a specific segment, optionally filtering by date.",
   inputSchema: ListSegmentEffortsInputSchema,
   annotations: READ_ONLY,
-  execute: async ({
-    segmentId,
-    startDateLocal,
-    endDateLocal,
-    perPage,
-  }: ListSegmentEffortsInput) => {
-    const token = process.env.STRAVA_ACCESS_TOKEN;
-
-    if (!token) {
-      console.error("Missing STRAVA_ACCESS_TOKEN environment variable.");
-      return {
-        content: [
-          {
-            type: "text" as const,
-            text: "Configuration error: Missing Strava access token.",
-          },
-        ],
-        isError: true,
-      };
-    }
-
+  execute: async (
+    {
+      segmentId,
+      startDateLocal,
+      endDateLocal,
+      perPage,
+    }: ListSegmentEffortsInput,
+    token: string,
+  ) => {
     try {
       console.error(`Fetching segment efforts for segment ID: ${segmentId}...`);
 
