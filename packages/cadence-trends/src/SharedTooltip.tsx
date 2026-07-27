@@ -1,6 +1,5 @@
-import { formatPace } from "@strava-mcp/data";
+import { formatDurationShort, formatPace } from "@strava-mcp/data";
 import { Tooltip, TooltipEntry } from "@strava-mcp/ui";
-import { formatDuration } from "./normalize";
 import styles from "./SharedTooltip.module.css";
 
 interface RunTooltipPayloadItem {
@@ -59,7 +58,7 @@ export function SharedTooltip({ active, payload }: SharedTooltipProps) {
         <TooltipEntry
           color="var(--color-text-tertiary)"
           label="Duration"
-          value={formatDuration(run.duration)}
+          value={formatDurationShort(run.duration)}
           unit=""
         />
       )}

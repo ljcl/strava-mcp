@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { formatDuration } from "../formatters";
 import {
   getActivityById,
   getAllActivities,
   type StravaSummaryActivity,
 } from "../stravaClient";
-import { formatDuration, metersPerSecToPace } from "../utils/running";
+import { metersPerSecToPace } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
 import { BestEffortsOutputSchema, warnOnSchemaDrift } from "./outputs";
 

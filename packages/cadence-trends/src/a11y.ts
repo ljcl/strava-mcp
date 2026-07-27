@@ -1,5 +1,12 @@
-import { formatPace } from "@strava-mcp/data";
+import { formatPace, formatShortDate } from "@strava-mcp/data";
 import { type RunSummary } from "./types";
+
+/**
+ * Narration spells the year out: "14 Sep 2025". Strava dates are UTC ISO
+ * strings and `formatShortDate` reads them in UTC, so the narrated day never
+ * shifts by the viewer's (or CI's) timezone.
+ */
+const fullDate = (iso: string) => formatShortDate(iso, "full");
 
 /**
  * Screen-reader narration for the four cadence-trends charts (#28).
@@ -7,34 +14,11 @@ import { type RunSummary } from "./types";
  * tooltip stepping, but the SVG carries no accessible name or content
  * summary of its own. Each builder feeds a chart's `title`/`desc` props
  * (rendered as SVG <title>/<desc>), mirroring route-map's
- * a11yDescription.ts. Month names are hardcoded so the text (and its
- * tests) never depend on the runtime locale.
+ * a11yDescription.ts.
  */
 export interface ChartA11y {
   title: string;
   desc: string;
-}
-
-const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-
-function shortDate(iso: string): string {
-  // UTC getters: Strava dates are UTC ISO strings, and local getters would
-  // shift the narrated day by the viewer's (and CI's) timezone.
-  const date = new Date(iso);
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
 function cadenceRange(runs: RunSummary[]): { min: number; max: number } {
@@ -69,7 +53,7 @@ export function buildTrendA11y(sortedRuns: RunSummary[]): ChartA11y {
   const first = sortedRuns[0]!;
   const last = sortedRuns[sortedRuns.length - 1]!;
   const desc =
-    `${runCount(sortedRuns.length)} from ${shortDate(first.date)} to ${shortDate(last.date)}. ` +
+    `${runCount(sortedRuns.length)} from ${fullDate(first.date)} to ${fullDate(last.date)}. ` +
     `Average cadence ranges from ${Math.round(cadence.min)} to ${Math.round(cadence.max)} spm; ` +
     `a line shows the 5-run rolling average. ` +
     `Dot size reflects run distance. Pace dots are plotted on a secondary axis.`;
@@ -135,7 +119,7 @@ export function buildOverlayA11y(
   const title = "Cadence overlay comparison";
   if (runs.length === 0) return { title, desc: "No runs selected." };
   const names = runs
-    .map((run) => `"${run.name}" (${shortDate(run.date)})`)
+    .map((run) => `"${run.name}" (${fullDate(run.date)})`)
     .join(", ");
   return {
     title,

@@ -4,7 +4,6 @@ import {
   buildSummaryStats,
   buildZoneRows,
   dominantBucket,
-  formatDurationShort,
   formatZoneRange,
   intensitySplit,
 } from "./normalize";
@@ -13,14 +12,6 @@ describe("formatZoneRange", () => {
   it("formats bounded and open-ended ranges", () => {
     expect(formatZoneRange(hrZoneSet.buckets[0]!, "bpm")).toBe("0–120 bpm");
     expect(formatZoneRange(hrZoneSet.buckets[4]!, "bpm")).toBe("175+ bpm");
-  });
-});
-
-describe("formatDurationShort", () => {
-  it("uses minutes under an hour and h/mm above", () => {
-    expect(formatDurationShort(180)).toBe("3m");
-    expect(formatDurationShort(2700)).toBe("45m");
-    expect(formatDurationShort(3900)).toBe("1h 05m");
   });
 });
 

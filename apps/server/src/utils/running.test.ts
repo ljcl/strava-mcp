@@ -3,7 +3,6 @@ import {
   assessCadence,
   computeTimeInZones,
   computeWattsPerKg,
-  formatDuration,
   getZoneForHr,
   isRunningActivity,
   metersPerSecToPace,
@@ -111,36 +110,6 @@ describe("metersPerSecToPace", () => {
     // 1609.34 / 2.684 ≈ 599.6 s/mile; naive rounding would render "9:60".
     const result = metersPerSecToPace(2.684);
     expect(result?.minPerMile).toBe("10:00");
-  });
-});
-
-describe("formatDuration", () => {
-  it("formats seconds under an hour", () => {
-    expect(formatDuration(125)).toBe("2:05");
-  });
-
-  it("formats seconds over an hour", () => {
-    expect(formatDuration(3725)).toBe("1:02:05");
-  });
-
-  it("returns N/A for null", () => {
-    expect(formatDuration(null)).toBe("N/A");
-  });
-
-  it("returns N/A for undefined", () => {
-    expect(formatDuration(undefined)).toBe("N/A");
-  });
-
-  it("returns N/A for negative values", () => {
-    expect(formatDuration(-10)).toBe("N/A");
-  });
-
-  it("formats zero seconds correctly", () => {
-    expect(formatDuration(0)).toBe("0:00");
-  });
-
-  it("pads single digit seconds", () => {
-    expect(formatDuration(65)).toBe("1:05");
   });
 });
 

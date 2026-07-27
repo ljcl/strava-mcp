@@ -1,4 +1,5 @@
-import { formatClock, selectHighlights, summaryLine } from "./segments";
+import { formatClock } from "@strava-mcp/data";
+import { selectHighlights, summaryLine } from "./segments";
 import { type SegmentEffortRow } from "./types";
 
 /** Cap listed names so a segment-dense activity stays a summary, not a dump. */

@@ -18,6 +18,10 @@ describe("formatHours", () => {
   it("rounds to the nearest minute", () => {
     expect(formatHours(1.999)).toBe("2h");
   });
+
+  it("pads single-digit minutes, matching the sibling cards", () => {
+    expect(formatHours(65 / 60)).toBe("1h 05m");
+  });
 });
 
 describe("buildTotalsStats", () => {

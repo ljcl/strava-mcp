@@ -1,12 +1,11 @@
 import { Collapsible } from "@base-ui/react/collapsible";
+import { formatClock, formatShortDate } from "@strava-mcp/data";
 import { type ReactNode } from "react";
 import styles from "./EffortList.module.css";
 import {
   cadenceUnit,
-  formatClock,
   formatEffortSpeed,
   formatSecondsDelta,
-  formatShortDate,
 } from "./normalize";
 import { type SegmentEffort } from "./types";
 
@@ -117,7 +116,7 @@ function EffortRow({
         <span className={styles.body}>
           <span className={styles.line1}>
             <span className={styles.date}>
-              {formatShortDate(effort.date, withYear)}
+              {formatShortDate(effort.date, withYear ? "short" : "none")}
             </span>
             {tier && (
               <span className={styles.badge} data-tier={tier.kind}>

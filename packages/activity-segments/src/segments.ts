@@ -98,13 +98,3 @@ export function formatEffortPace(
     ? `${formatPace(1000 / speed / 60)} /km`
     : `${(speed * 3.6).toFixed(1)} km/h`;
 }
-
-/** m:ss under an hour, h:mm:ss above. */
-export function formatClock(seconds: number): string {
-  const s = Math.round(seconds);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const mm = h > 0 ? String(m).padStart(2, "0") : String(m);
-  return `${h > 0 ? `${h}:` : ""}${mm}:${String(sec).padStart(2, "0")}`;
-}

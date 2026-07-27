@@ -14,15 +14,6 @@ export const PACE_ZONES: PaceZone[] = [
   { label: "Easy", minPace: 5.5, maxPace: 20 },
 ];
 
-/** Format seconds as Mm or HhMm */
-export function formatDuration(seconds: number): string {
-  const mins = Math.floor(seconds / 60);
-  if (mins < 60) return `${mins}m`;
-  const hrs = Math.floor(mins / 60);
-  const rem = mins % 60;
-  return `${hrs}h${rem > 0 ? `${rem}m` : ""}`;
-}
-
 /** Compute a rolling average over the activities array (sorted by date ascending) */
 export function rollingAverage(
   activities: RunSummary[],

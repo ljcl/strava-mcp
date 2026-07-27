@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   effortKey,
   effortSpeed,
-  formatClock,
   formatEffortPace,
   runOrder,
   selectHighlights,
@@ -105,20 +104,6 @@ describe("formatEffortPace", () => {
       "Run",
     );
     expect(result).toBe("—");
-  });
-});
-
-describe("formatClock", () => {
-  it("formats sub-minute as m:ss", () => {
-    expect(formatClock(24)).toBe("0:24");
-  });
-
-  it("formats sub-hour as m:ss", () => {
-    expect(formatClock(770)).toBe("12:50");
-  });
-
-  it("formats over an hour as h:mm:ss", () => {
-    expect(formatClock(3924)).toBe("1:05:24");
   });
 });
 

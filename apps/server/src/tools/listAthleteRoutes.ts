@@ -107,8 +107,6 @@ export const listAthleteRoutesTool = {
   },
 };
 
-// Removed local formatRouteSummary and formatDuration functions
-
 // Removed old registration function
 /*
 export function registerListAthleteRoutesTool(server: McpServer) {

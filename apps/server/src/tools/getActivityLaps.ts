@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { formatDuration } from "../formatters";
 import {
   getActivityById,
   getActivityLaps as getActivityLapsClient,
   type StravaLap,
 } from "../stravaClient";
-import { formatDuration, metersPerSecToPace } from "../utils/running";
+import { metersPerSecToPace } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
 import { ActivityLapsOutputSchema, warnOnSchemaDrift } from "./outputs";

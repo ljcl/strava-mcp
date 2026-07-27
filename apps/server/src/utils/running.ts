@@ -295,6 +295,3 @@ export function computeTimeInZones(
     },
   };
 }
-
-// Re-export formatDuration for backwards compatibility
-export { formatDuration } from "../formatters";

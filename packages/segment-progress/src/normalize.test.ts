@@ -11,40 +11,13 @@ import {
   buildSegmentSubtitle,
   buildSummaryStats,
   cadenceUnit,
-  formatClock,
   formatEffortSpeed,
   formatSecondsDelta,
-  formatShortDate,
   hasHeartrate,
   highlightForRank,
   newestFirst,
   spansMultipleYears,
 } from "./normalize";
-
-describe("formatShortDate", () => {
-  it("formats day and month in UTC", () => {
-    expect(formatShortDate("2026-03-29T06:51:00Z")).toBe("29 Mar");
-  });
-
-  it("appends a two-digit year on request", () => {
-    expect(formatShortDate("2025-09-14T07:12:00Z", true)).toBe("14 Sep 25");
-  });
-});
-
-describe("formatClock", () => {
-  it("formats sub-hour efforts as m:ss", () => {
-    expect(formatClock(244)).toBe("4:04");
-    expect(formatClock(9)).toBe("0:09");
-  });
-
-  it("formats long efforts as h:mm:ss", () => {
-    expect(formatClock(3725)).toBe("1:02:05");
-  });
-
-  it("rounds fractional seconds", () => {
-    expect(formatClock(119.6)).toBe("2:00");
-  });
-});
 
 describe("formatSecondsDelta", () => {
   it("signs both directions and names a zero delta", () => {

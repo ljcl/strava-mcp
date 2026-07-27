@@ -1,5 +1,13 @@
 export { isRunning, isSwimming } from "./activity-types";
-export { formatDistance, formatPace, formatTime } from "./formatting";
+export {
+  formatClock,
+  formatDistance,
+  formatDurationShort,
+  formatPace,
+  formatShortDate,
+  formatTime,
+  type ShortDateYear,
+} from "./formatting";
 export {
   colorForValue,
   normalizeValue,
