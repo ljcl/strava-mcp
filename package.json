@@ -38,5 +38,8 @@
     "playwright": "1.61.1",
     "turbo": "2.10.5",
     "vitest": "4.1.10"
+  },
+  "overrides": {
+    "react-is": "19.2.8"
   }
 }

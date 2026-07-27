@@ -367,6 +367,38 @@ Supplementary checks when the change touches UI:
 - Storybook sweep: look at each affected story in desktop and the `claudeIosCard` mobile viewport. `bun run shots <story-id>…` renders them to PNGs from any session (see **Story screenshots**); the claude-in-chrome or storybook MCP tools work too when a browser is reachable.
 - MCP endpoint smoke test: `cd apps/server && bun run start`, then `curl http://localhost:3000/health` from another shell. Needs valid `STRAVA_REFRESH_TOKEN`; skip if tokens are stale and note it explicitly.
 
+### Clearing a `bun audit` failure
+
+`ci.yml`'s `audit` job is advisory on PRs and main pushes and a **hard gate on the weekly
+schedule**, so a red weekly CI run is usually `bun audit --audit-level=high`, not a test.
+
+Findings here are almost always transitive, and `bun update` will not touch them: it only moves
+dependencies within the ranges in package.json, and every direct dep is exact-pinned for
+Dependabot. So `bun update` reports "no changes" while the lockfile keeps serving whatever
+transitive versions it resolved months ago. The fix is a full re-resolution:
+
+```bash
+rm -f bun.lock && bun install    # re-resolve every transitive dep against current ranges
+bun audit --audit-level=high     # expect no output
+```
+
+That is a lockfile-only diff, but it re-resolves the whole graph at once, so run the entire
+verification sweep after it — `test:stories` especially, since it is the only gate that renders
+the MCP Apps in a real browser. Check the diff for **downgrades and dropped packages**, not just
+bumps: a refresh re-races hoisting, and the winner is whichever constraint is hard rather than
+whichever version is right.
+
+`overrides` in the root package.json pin the cases where that race picks wrong. Currently one:
+
+- **`react-is: 19.2.8`** — recharts takes `react-is` as a *peer* (`^16.8 || ^17 || ^18 || ^19`)
+  and calls `isFragment()` in `util/ReactUtils.js` to flatten children. Nothing in the repo
+  declares `react-is`, so hoisting is free to satisfy that peer with `pretty-format@27`'s hard
+  `^17.0.1` — and react-is@17 brand-checks `Symbol.for("react.element")`, which React 19 replaced
+  with `react.transitional.element`. `isFragment()` then returns `false` for *every* element and
+  recharts silently stops flattening fragment children. Keep this pinned to the React major the
+  workspace actually runs. react-is@19 exports every symbol pretty-format@27 imports, so the pin
+  is safe in the other direction.
+
 Coverage thresholds (#162): `apps/server`, `packages/data`, and `packages/design-system` set `coverage.thresholds` in their vitest.config.ts, and each `test:coverage` run **auto-ratchets** them: vitest rewrites the numbers to a fixed cushion under measured coverage (5 points for the server, 2 for the ~100% packages), so the floor rises as coverage grows and a genuine drop fails CI. If a coverage run dirties a vitest.config.ts, that's the ratchet — commit it, never hand-edit the numbers. The view-heavy packages are intentionally unthresholded — their component coverage belongs to the story render-path coverage (the browser-mode smoke tests).
 
 ## Commands
