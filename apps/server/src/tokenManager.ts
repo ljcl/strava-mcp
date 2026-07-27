@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { DEFAULT_TIMEOUT_MS, isAbortError } from "./fetchClient";
 
 // Calculate paths — monorepo root is 3 levels up from apps/server/src/
 const projectRoot = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -72,6 +73,82 @@ function isRevokedGrantResponse(status: number, bodyText: string): boolean {
     // Not JSON; fall through
   }
   return false;
+}
+
+/** Tunables for the raw OAuth token exchanges; tests inject an instant sleep. */
+export interface OAuthRequestOptions {
+  /** Per-attempt timeout in ms (default {@link DEFAULT_TIMEOUT_MS}). */
+  timeoutMs?: number;
+  /** Retry attempts beyond the initial POST, 5xx only (default 2). */
+  maxRetries?: number;
+  /** Base delay for exponential backoff, in ms (default 500). */
+  baseDelayMs?: number;
+  /** Sleep implementation; injectable so tests run instantly. */
+  sleep?: (ms: number) => Promise<void>;
+}
+
+/** The parts of an OAuth response the callers below need. */
+interface OAuthResult {
+  ok: boolean;
+  status: number;
+  bodyText: string;
+}
+
+/**
+ * POSTs to Strava's `/oauth/token` with a timeout and a 5xx-only retry.
+ *
+ * These two exchanges cannot go through {@link FetchClient} — it deliberately
+ * never retries writes, and a token exchange is a POST. The narrower rule here
+ * is deliberate: a 5xx means Strava failed the request outright, so the refresh
+ * token was not rotated and re-sending it is safe. A timeout or network fault
+ * is *not* retried, because the exchange may have succeeded server-side and
+ * rotated the refresh token — a second POST would then send a token Strava has
+ * already invalidated and lock the server out.
+ */
+async function postOAuthToken(
+  body: Record<string, string>,
+  options: OAuthRequestOptions = {},
+): Promise<OAuthResult> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxRetries = options.maxRetries ?? 2;
+  const baseDelayMs = options.baseDelayMs ?? 500;
+  const sleep =
+    options.sleep ??
+    ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+
+  let attempt = 0;
+  while (true) {
+    let response: Response;
+    try {
+      response = await fetch("https://www.strava.com/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      if (isAbortError(error)) {
+        throw new Error(
+          `Strava OAuth token exchange timed out after ${timeoutMs}ms.`,
+        );
+      }
+      throw error;
+    }
+
+    const bodyText = await response.text();
+    if (
+      !response.ok &&
+      response.status >= 500 &&
+      response.status < 600 &&
+      attempt < maxRetries
+    ) {
+      await sleep(Math.round(Math.random() * baseDelayMs * 2 ** attempt));
+      attempt += 1;
+      continue;
+    }
+
+    return { ok: response.ok, status: response.status, bodyText };
+  }
 }
 
 /**
@@ -214,7 +291,10 @@ function isTokenExpired(tokens: TokenData): boolean {
 /**
  * Refreshes the access token using the refresh token
  */
-async function refreshTokens(tokens: TokenData): Promise<TokenData> {
+async function refreshTokens(
+  tokens: TokenData,
+  options: OAuthRequestOptions = {},
+): Promise<TokenData> {
   const clientId = process.env.STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
@@ -227,21 +307,18 @@ async function refreshTokens(tokens: TokenData): Promise<TokenData> {
   console.error("[TokenManager] Refreshing access token...");
 
   try {
-    const response = await fetch("https://www.strava.com/oauth/token", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const response = await postOAuthToken(
+      {
         client_id: clientId,
         client_secret: clientSecret,
         refresh_token: tokens.refresh_token,
         grant_type: "refresh_token",
-      }),
-    });
+      },
+      options,
+    );
 
     if (!response.ok) {
-      const bodyText = await response.text();
+      const { bodyText } = response;
       if (isRevokedGrantResponse(response.status, bodyText)) {
         console.error(
           `[TokenManager] Refresh token revoked or invalid (HTTP ${response.status}): ${bodyText}`,
@@ -252,7 +329,7 @@ async function refreshTokens(tokens: TokenData): Promise<TokenData> {
       throw new Error(`HTTP ${response.status}: ${bodyText}`);
     }
 
-    const data = await response.json();
+    const data = JSON.parse(response.bodyText);
 
     const newTokens: TokenData = {
       access_token: data.access_token,
@@ -302,7 +379,9 @@ let inFlightRefresh: Promise<TokenData> | null = null;
  * athlete_id), refreshes, persists, and updates process.env. This is the single
  * refresh path; both startup expiry checks and 401 recovery route through here.
  */
-export async function refreshAccessToken(): Promise<TokenData> {
+export async function refreshAccessToken(
+  options: OAuthRequestOptions = {},
+): Promise<TokenData> {
   if (inFlightRefresh) {
     return inFlightRefresh;
   }
@@ -314,7 +393,7 @@ export async function refreshAccessToken(): Promise<TokenData> {
         "No tokens available to refresh. Authenticate at /auth/start first.",
       );
     }
-    return refreshTokens(tokens);
+    return refreshTokens(tokens, options);
   })();
 
   try {
@@ -394,7 +473,10 @@ export async function getTokenStatus(): Promise<TokenStatus> {
 /**
  * Exchanges an OAuth authorization code for tokens
  */
-export async function exchangeCodeForTokens(code: string): Promise<TokenData> {
+export async function exchangeCodeForTokens(
+  code: string,
+  options: OAuthRequestOptions = {},
+): Promise<TokenData> {
   const clientId = process.env.STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
@@ -406,27 +488,23 @@ export async function exchangeCodeForTokens(code: string): Promise<TokenData> {
 
   console.error("[TokenManager] Exchanging authorization code for tokens...");
 
-  const response = await fetch("https://www.strava.com/oauth/token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const response = await postOAuthToken(
+    {
       client_id: clientId,
       client_secret: clientSecret,
       code: code,
       grant_type: "authorization_code",
-    }),
-  });
+    },
+    options,
+  );
 
   if (!response.ok) {
-    const errorText = await response.text();
     throw new Error(
-      `OAuth token exchange failed: HTTP ${response.status}: ${errorText}`,
+      `OAuth token exchange failed: HTTP ${response.status}: ${response.bodyText}`,
     );
   }
 
-  const data = await response.json();
+  const data = JSON.parse(response.bodyText);
 
   const tokens: TokenData = {
     access_token: data.access_token,

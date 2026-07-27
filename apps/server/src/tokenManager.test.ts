@@ -28,6 +28,9 @@ async function importTokenManager() {
   return import("./tokenManager");
 }
 
+/** OAuth retry tunables that keep the 5xx backoff instant in tests. */
+const instantRetries = { sleep: async () => {} };
+
 function mockFetchOnceJson(body: unknown, status = 200) {
   const fn = vi.fn(
     async () =>
@@ -454,20 +457,108 @@ describe("refreshAccessToken (concurrency + token rotation)", () => {
       }),
     );
 
-    mockFetchOnceJson({ message: "Internal Server Error" }, 500);
+    const fetchMock = mockFetchOnceJson(
+      { message: "Internal Server Error" },
+      500,
+    );
 
     const { refreshAccessToken, TokenRevokedError } =
       await importTokenManager();
 
-    const failure = await refreshAccessToken().catch((e: unknown) => e);
+    const failure = await refreshAccessToken(instantRetries).catch(
+      (e: unknown) => e,
+    );
     expect(failure).toBeInstanceOf(Error);
     expect(failure).not.toBeInstanceOf(TokenRevokedError);
     expect((failure as Error).message).toMatch(/HTTP 500/);
+    // Initial POST plus the two 5xx retries, then it gives up.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
 
     // The refresh token may still be good — keep it for the next attempt.
     expect(fs.existsSync(tokenFile)).toBe(true);
     const kept = JSON.parse(fs.readFileSync(tokenFile, "utf-8"));
     expect(kept.refresh_token).toBe("ref");
+  });
+
+  it("survives a single transient 5xx during refresh", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "acc",
+        refresh_token: "ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+      }),
+    );
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ message: "Bad Gateway" }), {
+          status: 502,
+        }),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            access_token: "acc2",
+            refresh_token: "ref2",
+            expires_at: Math.floor(Date.now() / 1000) + 21600,
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        ),
+      );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const { refreshAccessToken } = await importTokenManager();
+    const tokens = await refreshAccessToken(instantRetries);
+
+    expect(tokens.access_token).toBe("acc2");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not resend the refresh token after a timeout", async () => {
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "acc",
+        refresh_token: "ref",
+        expires_at: Math.floor(Date.now() / 1000) - 10,
+      }),
+    );
+
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(
+        new DOMException("The operation timed out.", "TimeoutError"),
+      );
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    const { refreshAccessToken } = await importTokenManager();
+    const failure = await refreshAccessToken(instantRetries).catch(
+      (e: unknown) => e,
+    );
+
+    expect((failure as Error).message).toMatch(/timed out/);
+    // Strava may have rotated the refresh token before the deadline, so a
+    // second POST would send an already-invalidated token. One attempt only.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("carries the timeout signal on the OAuth exchange", async () => {
+    const fetchMock = mockFetchOnceJson({
+      access_token: "acc",
+      refresh_token: "ref",
+      expires_at: Math.floor(Date.now() / 1000) + 21600,
+    });
+
+    const { exchangeCodeForTokens } = await importTokenManager();
+    await exchangeCodeForTokens("code-123", instantRetries);
+
+    const [, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      RequestInit,
+    ];
+    expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("reports unauthenticated via getTokenStatus after a revocation", async () => {

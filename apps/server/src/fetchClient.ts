@@ -68,8 +68,37 @@ export class RateLimitError extends HttpError {
   }
 }
 
+/**
+ * Thrown when a request exceeds its timeout and could not be recovered by a
+ * retry. Distinct from a generic network fault so callers can say "Strava did
+ * not answer in time" rather than surfacing an opaque `TimeoutError`.
+ */
+export class RequestTimeoutError extends Error {
+  timeoutMs: number;
+
+  constructor(url: string, timeoutMs: number) {
+    super(`Request to ${url} timed out after ${timeoutMs}ms.`);
+    this.name = "RequestTimeoutError";
+    this.timeoutMs = timeoutMs;
+  }
+}
+
 /** HTTP statuses we treat as transient and retry on safe (GET) requests. */
 const TRANSIENT_STATUSES = new Set([500, 502, 503, 504]);
+
+/** Default per-request timeout. Strava's slowest reads land well inside this. */
+export const DEFAULT_TIMEOUT_MS = 20_000;
+
+/**
+ * Recognises an aborted request. `AbortSignal.timeout()` rejects `fetch` with a
+ * `DOMException` named `TimeoutError`; a manual abort uses `AbortError`. Neither
+ * is an `Error` subclass we can `instanceof`, so match on the name.
+ */
+export function isAbortError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const name = (error as { name?: unknown }).name;
+  return name === "TimeoutError" || name === "AbortError";
+}
 
 /** Parses Strava's comma-separated `"<15-min>,<daily>"` header pair. */
 function parsePair(
@@ -238,6 +267,12 @@ export interface ResponseCacheOptions {
 export interface RetryOptions {
   /** Max retry attempts beyond the initial request (default 2). */
   maxRetries?: number;
+  /**
+   * Per-attempt timeout in ms (default {@link DEFAULT_TIMEOUT_MS}). A hung
+   * connection would otherwise pin an MCP tool call open indefinitely. The
+   * budget is per attempt, not per call, so each retry gets a fresh window.
+   */
+  timeoutMs?: number;
   /** Base delay for exponential backoff, in ms (default 500). */
   baseDelayMs?: number;
   /** Cap on any single backoff delay, in ms (default 8000). */
@@ -301,6 +336,7 @@ export class FetchClient {
   private readonly baseDelayMs: number;
   private readonly maxDelayMs: number;
   private readonly maxRetryAfterMs: number;
+  private readonly timeoutMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
 
   /** Response cache + its policy, or `null` when caching is disabled. */
@@ -313,6 +349,7 @@ export class FetchClient {
     this.baseDelayMs = options.baseDelayMs ?? 500;
     this.maxDelayMs = options.maxDelayMs ?? 8000;
     this.maxRetryAfterMs = options.maxRetryAfterMs ?? 15000;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.sleep =
       options.sleep ??
       ((ms: number) => new Promise((resolve) => setTimeout(resolve, ms)));
@@ -419,21 +456,34 @@ export class FetchClient {
       }
     }
 
-    // Retry loop: transient (5xx / network) faults back off exponentially; a 429
-    // honours Retry-After. All backoff lives here so every tool benefits.
+    // Retry loop: transient (5xx / network / timeout) faults back off
+    // exponentially; a 429 honours Retry-After. All backoff lives here so every
+    // tool benefits.
     let attempt = 0;
     while (true) {
       let response: Response;
       try {
-        response = await fetch(requestConfig.url, fetchOptions);
+        // A fresh signal per attempt: AbortSignal.timeout starts counting the
+        // moment it is created, so a shared one would leave later retries with
+        // whatever was left of the first attempt's budget.
+        response = await fetch(requestConfig.url, {
+          ...fetchOptions,
+          signal: AbortSignal.timeout(this.timeoutMs),
+        });
       } catch (networkError) {
-        // fetch rejects on network faults (ECONNRESET, DNS, aborted, etc.).
+        // fetch rejects on network faults (ECONNRESET, DNS, etc.) and on our
+        // own timeout. Both are transient, so safe reads back off and retry.
         if (isRetriable && attempt < this.maxRetries) {
           await this.sleep(this.backoffDelay(attempt));
           attempt += 1;
           continue;
         }
-        throw networkError;
+        // A write that times out is NOT retried: the request may still have
+        // mutated state on Strava's side. Surface it as a timeout so the caller
+        // can say so rather than reporting an opaque failure.
+        throw isAbortError(networkError)
+          ? new RequestTimeoutError(requestConfig.url, this.timeoutMs)
+          : networkError;
       }
 
       // Capture rate-limit headers from every response, success or error.

@@ -6,6 +6,7 @@ import {
   parseJsonWithLargeInts,
   parseRateLimitHeaders,
   RateLimitError,
+  RequestTimeoutError,
   stravaCacheTtl,
 } from "./fetchClient";
 
@@ -373,6 +374,85 @@ describe("FetchClient retry and rate-limit behaviour", () => {
       RateLimitError,
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends an AbortSignal on every attempt", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await newClient().get("/thing");
+
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("retries a timed-out GET and then succeeds", async () => {
+    const timeout = new DOMException(
+      "The operation timed out.",
+      "TimeoutError",
+    );
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(timeout)
+      .mockResolvedValueOnce(makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await newClient().get<{ ok: boolean }>("/thing");
+
+    expect(result.data.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    // A fresh deadline per attempt, not one shared budget across the call.
+    const first = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    const second = fetchMock.mock.calls[1]?.[1] as RequestInit;
+    expect(second.signal).not.toBe(first.signal);
+  });
+
+  it("surfaces a RequestTimeoutError once a GET exhausts its retries", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(
+        new DOMException("The operation timed out.", "TimeoutError"),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new FetchClient("https://example.test", {
+      maxRetries: 2,
+      baseDelayMs: 1,
+      timeoutMs: 1234,
+      sleep: async () => {},
+    });
+
+    const error = await client.get("/thing").catch((e) => e);
+    expect(error).toBeInstanceOf(RequestTimeoutError);
+    expect(error.timeoutMs).toBe(1234);
+    expect(error.message).toContain("timed out after 1234ms");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry a timed-out write", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValue(
+        new DOMException("The operation timed out.", "TimeoutError"),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    // A POST may have mutated state before the deadline, so it is never resent.
+    await expect(newClient().post("/thing", { a: 1 })).rejects.toBeInstanceOf(
+      RequestTimeoutError,
+    );
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a plain network fault as-is once retries are exhausted", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("ECONNRESET"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const error = await newClient()
+      .get("/thing")
+      .catch((e) => e);
+    expect(error).not.toBeInstanceOf(RequestTimeoutError);
+    expect(error.message).toBe("ECONNRESET");
   });
 
   it("does not retry a non-transient 4xx", async () => {
