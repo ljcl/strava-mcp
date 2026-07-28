@@ -3,11 +3,13 @@
   "tags": ["app"],
   "tasks": {
     "test": {
-      "dependsOn": ["topo", "^build"]
+      "dependsOn": ["topo", "^build"],
+      "env": ["UPDATE_TOOL_SURFACE_LOCK"]
     },
     "test:coverage": {
       "dependsOn": ["topo", "^build"],
-      "outputs": ["coverage/**"]
+      "outputs": ["coverage/**"],
+      "env": ["UPDATE_TOOL_SURFACE_LOCK"]
     }
   }
 }
