@@ -714,7 +714,19 @@ Releases are automated by release-please (`.github/workflows/release-please.yml`
   The registry proves image ownership by pulling the GHCR image and checking its
   `io.modelcontextprotocol.server.name` label (set in `apps/server/Dockerfile`, must
   match `name` in `server.json`); `publish-mcp.yml` therefore polls GHCR until
-  `docker.yml`'s manifest exists before publishing.
+  `docker.yml`'s manifest exists before publishing. That poll checks **anonymous**
+  visibility, because anonymous is how the registry's verifier pulls: a package that is
+  present but private fails immediately with the "make the package public" message
+  rather than burning the 20-minute timeout and blaming `docker.yml`.
+- The published image carries attestations. `docker.yml`'s build legs set
+  `provenance: mode=max` and `sbom: true` — necessary because BuildKit's default is
+  `mode=min` provenance and no SBOM at all — and the merge job adds a Sigstore-backed
+  provenance attestation over the final index digest (`actions/attest-build-provenance`,
+  verified with `gh attestation verify`). The merge **must** keep using
+  `docker buildx imagetools create`: it copies each source index's attestation manifests
+  into the merged index, whereas `docker manifest create` rejects a manifest-list source
+  and would drop them. The "Image summary" step's `select(.platform.os != "unknown")`
+  filter exists to skip those attestation manifests when tallying per-arch sizes.
 - Manual `git tag vX.Y.Z` still works as a fallback; both `docker.yml` and
   `publish-mcp.yml` trigger on `v*` tags regardless of how they are created.
 - Commits that only touch `docs/`, `.agents/`, or `.claude/` are excluded from release
