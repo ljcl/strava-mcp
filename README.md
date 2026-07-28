@@ -279,6 +279,31 @@ can connect to the `/mcp` endpoint directly:
 - The `initialize` response includes an `Mcp-Session-Id` header; echo it on every
   subsequent request in the same session.
 
+### Tool permissions
+
+Every tool declares MCP annotations so a host can tell reads from writes. The 35
+read tools set `readOnlyHint: true` and `destructiveHint: false`, which is the
+combination clients use to offer a durable "always allow". Six tools are writes
+and are expected to keep asking:
+
+| Tool | Why it asks |
+| ---- | ----------- |
+| `create-activity` | Creates a new Strava activity |
+| `update-activity` | Overwrites an existing activity's fields |
+| `star-segment` | Changes your starred segments |
+| `export-activity-gpx`, `export-route-gpx`, `export-route-tcx` | Write a file into `ROUTE_EXPORT_PATH` |
+
+No tool sets `anthropic/requiresUserInteraction`, so nothing here opts out of
+"always allow" on purpose.
+
+If a client re-prompts for read tools after you granted them, check whether the
+server was upgraded to a version that renamed a tool or changed its input
+schema — permission grants are stored per tool identity, so that drops the
+grant. Releases that do this say so in the changelog. Beyond that, permission
+persistence lives in the client, not in this server; the connector-level and
+per-tool settings are both worth checking, since granting at the connector level
+does not always write through to every tool.
+
 ## Using alongside the official Strava MCP
 
 Strava's official MCP connector handles activity discovery and basic reads. This server supplements it with everything the official connector does not offer: writing to activities, segments, routes and GPX/TCX export, photos, derived analysis, and interactive visualizations.
