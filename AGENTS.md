@@ -71,6 +71,7 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
 | `get-fitness-trend` | Fitness/fatigue/form (CTL/ATL/TSB) from relative effort, with rest projection |
 | `compare-activities` | Compare two running activities side-by-side |
 | `get-best-efforts` | Personal best efforts across all running activities, optionally scoped to a date window |
+| `get-race-prediction` | Predicted race times from recorded best efforts (Riegel), with confidence, source effort, and km/mile goal-pace splits |
 
 ### Athlete Tools
 

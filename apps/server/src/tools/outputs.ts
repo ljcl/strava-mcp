@@ -419,6 +419,102 @@ export const BestEffortsOutputSchema = z.object({
   note: z.string(),
 });
 
+// ---------- get-race-prediction ----------
+const PredictionSourceSchema = z.object({
+  name: z.string().describe("Strava's label for the effort, e.g. '10K'"),
+  distance_m: z.number(),
+  elapsed_time_seconds: z.number().int(),
+  elapsed_time_formatted: z.string(),
+  date: z.string().describe("ISO date YYYY-MM-DD"),
+  activity_id: z.string(),
+  activity_name: z.string(),
+});
+const PredictionContributionSchema = z.object({
+  source: PredictionSourceSchema,
+  predicted_seconds: z.number().int(),
+  predicted_formatted: z.string(),
+  age_days: z.number().int(),
+  weight: z
+    .number()
+    .describe("Recency × extrapolation weight in the consensus"),
+});
+const RacePredictionEntrySchema = z.object({
+  distance: z.string(),
+  distance_m: z.number(),
+  predicted_seconds: z.number().int(),
+  predicted_formatted: z.string(),
+  pace: PaceSchema,
+  confidence: z.enum(["high", "medium", "low"]),
+  confidence_notes: z.array(z.string()),
+  primary_source: PredictionSourceSchema.describe(
+    "The effort driving the estimate",
+  ),
+  spread: z
+    .object({
+      fastest_seconds: z.number().int(),
+      slowest_seconds: z.number().int(),
+      range_seconds: z.number().int(),
+      range_pct: z.number(),
+    })
+    .nullable()
+    .describe("Disagreement across sources; null with a single source"),
+  contributions: z.array(PredictionContributionSchema),
+});
+const SplitRowSchema = z.object({
+  index: z.number().int(),
+  cumulative_m: z.number(),
+  segment_m: z
+    .number()
+    .describe("Length of this split; the last may be partial"),
+  split_seconds: z.number(),
+  split_formatted: z.string(),
+  cumulative_seconds: z.number(),
+  cumulative_formatted: z.string(),
+  pace_per_unit: z
+    .string()
+    .describe("Pace over this split, per full km or mile"),
+});
+const SplitPlanSchema = z.object({
+  unit: z.enum(["km", "mile"]),
+  strategy: z.enum(["even", "negative"]),
+  negative_split_pct: z.number(),
+  total_seconds: z.number().int(),
+  total_formatted: z.string(),
+  splits: z.array(SplitRowSchema),
+});
+export const RacePredictionOutputSchema = z.object({
+  predictions: z.array(RacePredictionEntrySchema),
+  target: z
+    .object({
+      distance: z.string(),
+      distance_m: z.number(),
+      /** "goal" when the caller supplied a goal time, else "predicted". */
+      basis: z.enum(["goal", "predicted"]),
+      total_seconds: z.number().int(),
+      total_formatted: z.string(),
+      pace: PaceSchema,
+      /** Seconds the goal is faster (negative) or slower than the prediction. */
+      goal_vs_predicted_seconds: z.number().int().nullable(),
+      goal_assessment: z.string().nullable(),
+      splits: z.array(SplitPlanSchema),
+    })
+    .nullable()
+    .describe("Set only when raceDistance was supplied"),
+  sources: z
+    .array(PredictionSourceSchema)
+    .describe("Efforts used as prediction inputs, shortest first"),
+  activities_analyzed: z.number().int(),
+  activities_with_efforts: z.number().int(),
+  activities_skipped: z
+    .number()
+    .int()
+    .describe(
+      "Activities whose detail could not be fetched, so their efforts are absent",
+    ),
+  warnings: z.array(z.string()),
+  method: z.string(),
+});
+
 // ---------- get-activity-laps ----------
 const LapEntrySchema = z.object({
   lap_index: z.number().int(),
