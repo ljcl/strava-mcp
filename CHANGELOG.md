@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.9.0](https://github.com/ljcl/strava-mcp/compare/v2.8.0...v2.9.0) (2026-07-28)
+
+
+### Features
+
+* harden the Strava request path — auth, timeouts, retries, caching ([#297](https://github.com/ljcl/strava-mcp/issues/297)) ([cf29d7e](https://github.com/ljcl/strava-mcp/commit/cf29d7e60f5351b3dc803f480bfe4b3af1655cd4))
+
+
+### Bug Fixes
+
+* **deps:** refresh the lockfile to clear 16 high advisories ([#299](https://github.com/ljcl/strava-mcp/issues/299)) ([38bf6fd](https://github.com/ljcl/strava-mcp/commit/38bf6fd6cb4ab1999cf1c1249f458ab91e533c22))
+* forward MCP_AUTH_TOKEN through compose and attest the published image ([#302](https://github.com/ljcl/strava-mcp/issues/302)) ([d9ee4c9](https://github.com/ljcl/strava-mcp/commit/d9ee4c9f4a1b483f41c55d67dbf0f2e4825fbb5e))
+
 ## [2.8.0](https://github.com/ljcl/strava-mcp/compare/v2.7.2...v2.8.0) (2026-07-27)
 
 
