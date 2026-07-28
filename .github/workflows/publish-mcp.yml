@@ -28,6 +28,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+      packages: read # credentialed view of GHCR, to tell "not pushed" from "private"
       id-token: write # OIDC token for mcp-publisher login github-oidc
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -45,20 +46,61 @@ jobs:
           mv server.json.tmp server.json
           jq . server.json
 
+      - name: Log in to GHCR
+        # Only so the wait below can see the package as *we* see it. The check
+        # that decides success is the anonymous one.
+        uses: docker/login-action@abd2ef45e78c5afb21d64d4ca52ee8550d9572c7 # v4.5.1
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Wait for the GHCR image
-        # docker.yml builds both arches and pushes the manifest on this same
-        # tag push; registry validation fails until that manifest exists.
+        # docker.yml builds both arches and pushes the manifest on this same tag
+        # push, so for the first minute or two the manifest legitimately does not
+        # exist. That is the only state worth polling through.
+        #
+        # The registry validates ownership by pulling the image *anonymously* to
+        # read its io.modelcontextprotocol.server.name label, so anonymous
+        # visibility — not ours — is what has to become true. GHCR creates new
+        # container packages private by default even under a public repo, and a
+        # private package never becomes anonymously visible on its own: polling
+        # it just burns the 20-minute timeout and then blames docker.yml, which
+        # had in fact succeeded. So each round asks both questions, and the pair
+        # separates the three states: absent (keep waiting), present but private
+        # (fail now, with the fix), present and public (proceed).
+        env:
+          ANON_DOCKER_CONFIG: ${{ runner.temp }}/anon-docker-config
         run: |
+          set -euo pipefail
           version="${GITHUB_REF#refs/tags/v}"
+          ref="$REGISTRY_IMAGE:$version"
+          # An empty config dir carries no credentials, so inspects run through
+          # it authenticate exactly the way the registry's verifier will.
+          mkdir -p "$ANON_DOCKER_CONFIG"
           for attempt in $(seq 1 40); do
-            if docker manifest inspect "$REGISTRY_IMAGE:$version" >/dev/null 2>&1; then
-              echo "$REGISTRY_IMAGE:$version is available."
+            if DOCKER_CONFIG="$ANON_DOCKER_CONFIG" docker manifest inspect "$ref" >/dev/null 2>&1; then
+              echo "$ref is published and anonymously pullable."
               exit 0
             fi
-            echo "$REGISTRY_IMAGE:$version not available yet (attempt $attempt/40); retrying in 30s..."
+            if docker manifest inspect "$ref" >/dev/null 2>&1; then
+              echo "::error::$ref exists but is not readable anonymously — the GHCR package is private."
+              {
+                echo "docker.yml succeeded; the image is pushed. The MCP registry proves"
+                echo "ownership by pulling it anonymously, so publishing cannot succeed while"
+                echo "the package is private."
+                echo
+                echo "Fix (one-time, and UI-only — GitHub exposes no REST endpoint for package"
+                echo "visibility): open"
+                echo "  https://github.com/users/${GITHUB_REPOSITORY_OWNER}/packages/container/${GITHUB_REPOSITORY#*/}/settings"
+                echo "set Package visibility to Public, then re-run this workflow."
+              } >&2
+              exit 1
+            fi
+            echo "$ref not published yet (attempt $attempt/40); retrying in 30s..."
             sleep 30
           done
-          echo "Timed out waiting for $REGISTRY_IMAGE:$version — did the Docker workflow fail?" >&2
+          echo "::error::Timed out waiting for $ref — did the Docker workflow fail?"
           exit 1
 
       - name: Install mcp-publisher
