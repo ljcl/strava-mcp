@@ -6,6 +6,7 @@ import {
   getAllActivities,
   type StravaSummaryActivity,
 } from "../stravaClient";
+import { mapWithConcurrency } from "../utils/concurrency";
 import { metersPerSecToPace } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
 import { BestEffortsOutputSchema, warnOnSchemaDrift } from "./outputs";
@@ -111,38 +112,6 @@ const isRunningActivity = (a: StravaSummaryActivity) =>
  * 15-minute quota faster than the rate-limit backoff can react.
  */
 const FETCH_CONCURRENCY = 5;
-
-/**
- * Runs `worker` over `items` with at most `concurrency` in flight, stopping
- * early once `shouldStop` reports true. Returns what completed; the caller
- * reports the remainder as skipped rather than presenting a partial scan as a
- * complete one.
- */
-async function mapWithConcurrency<T, R>(
-  items: readonly T[],
-  concurrency: number,
-  worker: (item: T) => Promise<R>,
-  shouldStop: () => boolean,
-): Promise<R[]> {
-  const results: R[] = [];
-  let next = 0;
-
-  const runners = Array.from(
-    { length: Math.min(concurrency, items.length) },
-    async () => {
-      while (true) {
-        if (shouldStop()) return;
-        const index = next++;
-        const item = items[index];
-        if (item === undefined) return;
-        results.push(await worker(item));
-      }
-    },
-  );
-
-  await Promise.all(runners);
-  return results;
-}
 
 interface BestEffort {
   activity_id: string;
