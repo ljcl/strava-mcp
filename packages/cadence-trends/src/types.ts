@@ -37,6 +37,19 @@ export interface OverlayPoint {
   pace?: number;
 }
 
+/**
+ * One selected run's overlay stream and the state of its fetch (#250). The
+ * overlay draws a run only once `points` arrives, and reports `error` with a
+ * retry rather than dropping the run silently.
+ */
+export interface RunStreamState {
+  run: RunSummary;
+  /** Resampled cadence points; null while loading or after a failure. */
+  points: OverlayPoint[] | null;
+  loading: boolean;
+  error: string | null;
+}
+
 /** Pace zone definition */
 export interface PaceZone {
   label: string;

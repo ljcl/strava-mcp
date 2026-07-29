@@ -1,10 +1,13 @@
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
   EmptyState,
+  ErrorState,
   Legend,
   LegendItem,
+  LoadingState,
   Pill,
   PillGroup,
+  Skeleton,
   TooltipEntry,
   Tooltip as UiTooltip,
 } from "@strava-mcp/ui";
@@ -21,18 +24,19 @@ import {
 import { buildOverlayA11y } from "./a11y";
 import { resampleOverlayRuns } from "./normalize";
 import styles from "./OverlayView.module.css";
-import { COMPARISON_COLORS, type OverlayPoint, type RunSummary } from "./types";
-
-interface CachedStream {
-  run: RunSummary;
-  points: OverlayPoint[];
-}
+import {
+  COMPARISON_COLORS,
+  type OverlayPoint,
+  type RunStreamState,
+  type RunSummary,
+} from "./types";
 
 interface OverlayViewProps {
   selectedRunIds: Set<number>;
-  streamCache: Map<number, CachedStream>;
-  loadingStreams: Set<number>;
-  fetchStreamForRun: (runId: number) => void;
+  /** Per-run stream state; a run absent from the map is not yet requested. */
+  streams: Map<number, RunStreamState>;
+  requestStream: (runId: number) => void;
+  retryStream: (runId: number) => void;
   mode?: "mobile" | "desktop";
 }
 
@@ -86,9 +90,9 @@ function OverlayTooltip({
 
 export function OverlayView({
   selectedRunIds,
-  streamCache,
-  loadingStreams,
-  fetchStreamForRun,
+  streams,
+  requestStream,
+  retryStream,
   mode = "desktop",
 }: OverlayViewProps) {
   const isMobile = mode === "mobile";
@@ -105,30 +109,40 @@ export function OverlayView({
   const [xMode, setXMode] = useState<XMode>("distance");
   const [hiddenRuns, setHiddenRuns] = useState<Set<number>>(new Set());
 
-  // Trigger fetch for selected runs not yet cached
+  // Request every selected run. The fetcher is idempotent per key and never
+  // re-fires a failed one, so this effect cannot loop on a failure (#250).
   useEffect(() => {
-    for (const id of selectedRunIds) {
-      if (!streamCache.has(id)) {
-        fetchStreamForRun(id);
-      }
-    }
-  }, [selectedRunIds, streamCache, fetchStreamForRun]);
+    for (const id of selectedRunIds) requestStream(id);
+  }, [selectedRunIds, requestStream]);
 
   const runs = useMemo(() => {
-    const entries: Array<CachedStream & { color: string }> = [];
+    const entries: Array<{
+      run: RunSummary;
+      points: OverlayPoint[];
+      color: string;
+    }> = [];
     let colorIdx = 0;
     for (const id of selectedRunIds) {
-      const cached = streamCache.get(id);
-      if (cached) {
+      const state = streams.get(id);
+      if (state?.points) {
         entries.push({
-          ...cached,
+          run: state.run,
+          points: state.points,
           color: COMPARISON_COLORS[colorIdx % COMPARISON_COLORS.length]!,
         });
         colorIdx += 1;
       }
     }
     return entries;
-  }, [selectedRunIds, streamCache]);
+  }, [selectedRunIds, streams]);
+
+  const failed = useMemo(
+    () =>
+      [...selectedRunIds]
+        .map((id) => streams.get(id))
+        .filter((state): state is RunStreamState => state?.error != null),
+    [selectedRunIds, streams],
+  );
 
   // Resample every run onto a shared x grid so runs at different speeds
   // stay aligned and shorter runs end at their own extent.
@@ -152,7 +166,12 @@ export function OverlayView({
     [runs, xMode],
   );
 
-  const isLoading = [...selectedRunIds].some((id) => loadingStreams.has(id));
+  // A selected run with no entry yet counts as loading: the request effect
+  // has not run for it, and a bare axis frame for one frame reads as a bug.
+  const isLoading = [...selectedRunIds].some((id) => {
+    const state = streams.get(id);
+    return state == null || state.loading;
+  });
 
   if (selectedRunIds.size === 0) {
     return (
@@ -162,12 +181,40 @@ export function OverlayView({
     );
   }
 
+  const failureMessage =
+    failed.length === 1
+      ? `Could not load stream data for ${failed[0]!.run.name}.`
+      : `Could not load stream data for ${failed.length} of the selected runs.`;
+  const retryFailed = () => {
+    for (const state of failed) retryStream(state.run.id);
+  };
+
+  // Nothing to draw yet — replace the chart rather than framing empty axes.
+  if (runs.length === 0 && isLoading) {
+    return (
+      <LoadingState label="Loading stream data">
+        <Skeleton variant="chart" />
+      </LoadingState>
+    );
+  }
+  if (runs.length === 0 && failed.length > 0) {
+    return <ErrorState message={failureMessage} onRetry={retryFailed} />;
+  }
+
   return (
     <div>
       {isLoading && (
-        <div className={styles.loading} role="status">
-          Loading stream data...
-        </div>
+        <LoadingState label="Loading stream data">
+          {/* Visible echo of the status label; the region announces once. */}
+          <div className={styles.loading} aria-hidden="true">
+            Loading stream data...
+          </div>
+        </LoadingState>
+      )}
+      {/* A failed run used to vanish from the overlay with only a
+          console.error behind it (#250). */}
+      {failed.length > 0 && (
+        <ErrorState message={failureMessage} onRetry={retryFailed} />
       )}
       <div className={styles.container}>
         <ResponsiveContainer width="100%" height="100%">

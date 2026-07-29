@@ -1,18 +1,6 @@
 import { type App } from "@modelcontextprotocol/ext-apps";
 import { useCallback, useEffect, useState } from "react";
-
-type ServerToolResult = Awaited<ReturnType<App["callServerTool"]>>;
-
-/** Extract and JSON-parse the first text content of a CallToolResult. */
-function parseTextContent<T>(result: ServerToolResult): T | null {
-  const text = result.content?.find((c) => c.type === "text")?.text;
-  if (!text) return null;
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    return null;
-  }
-}
+import { parseTextContent } from "./serverToolResult";
 
 export interface ServerToolData<T> {
   data: T | null;
