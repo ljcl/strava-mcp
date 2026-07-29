@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.10.0](https://github.com/ljcl/strava-mcp/compare/v2.9.0...v2.10.0) (2026-07-29)
+
+
+### Features
+
+* add get-race-prediction with equivalent performances and goal-pace splits ([#304](https://github.com/ljcl/strava-mcp/issues/304)) ([f530aa5](https://github.com/ljcl/strava-mcp/commit/f530aa52634960fe5eea887194f5f90e01f51f79))
+
+
+### Bug Fixes
+
+* declare destructiveHint on read-only tools and lock tool identity ([#305](https://github.com/ljcl/strava-mcp/issues/305)) ([5901b2d](https://github.com/ljcl/strava-mcp/commit/5901b2def4f3db000399c7e06df5fda56918fc6d))
+
 ## [2.9.0](https://github.com/ljcl/strava-mcp/compare/v2.8.0...v2.9.0) (2026-07-28)
 
 
