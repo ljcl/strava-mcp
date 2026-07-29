@@ -1,5 +1,4 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
-import { getHostLayout } from "@strava-mcp/data";
 import {
   type AppMode,
   AppRoot,
@@ -35,7 +34,6 @@ interface AppContentProps {
 }
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
-  const layout = getHostLayout(hostCtx, mode === "mobile");
   const {
     data: streamData,
     loading,
@@ -71,7 +69,6 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
           data={derived.data}
           meta={derived.meta}
           laps={derived.laps}
-          layout={layout}
           mode={mode}
           app={app ?? undefined}
         />

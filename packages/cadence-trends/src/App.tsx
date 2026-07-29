@@ -1,5 +1,4 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
-import { type HostLayout } from "@strava-mcp/data";
 import {
   CardHeader,
   Pill,
@@ -42,12 +41,11 @@ const MAX_COMPARE_RUNS = 4;
 interface AppProps {
   app: ReturnType<typeof useApp>["app"];
   data: CadenceTrendData;
-  layout?: HostLayout;
   mode?: "mobile" | "desktop";
 }
 
-export function App({ app, data, layout, mode = "desktop" }: AppProps) {
-  const isMobile = mode === "mobile" || layout?.mode === "mobile";
+export function App({ app, data, mode = "desktop" }: AppProps) {
+  const isMobile = mode === "mobile";
   const [activeView, setActiveView] = useState<ViewId>("trend");
   const [selectedRunIds, setSelectedRunIds] = useState<Set<number>>(new Set());
 

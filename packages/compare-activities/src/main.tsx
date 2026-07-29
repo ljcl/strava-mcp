@@ -1,5 +1,4 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
-import { getHostLayout } from "@strava-mcp/data";
 import {
   type AppMode,
   AppRoot,
@@ -36,7 +35,6 @@ interface AppContentProps {
 }
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
-  const layout = getHostLayout(hostCtx, mode === "mobile");
   const streamsA = useServerToolData<ActivityStreamData>(
     app,
     "get-activity-streams-raw",
@@ -79,7 +77,6 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
           a={streamsA.data}
           b={streamsB.data}
           compare={compare.data}
-          layout={layout}
           mode={mode}
           app={app ?? undefined}
         />

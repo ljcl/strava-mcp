@@ -9,15 +9,6 @@ import { extractMeta, toChartData, toLapData } from "./normalize";
 
 const meta = preview.meta({ component: ActivityChart });
 
-const mobileLayout = {
-  mode: "mobile" as const,
-  width: 360,
-  height: null,
-  isTouch: true,
-  chartAspect: 0.95,
-  chartHeight: 260,
-};
-
 export const TempoRun = meta.story({
   args: {
     data: toChartData(tempoRun),
@@ -99,7 +90,6 @@ export const MobileRun = meta.story({
     data: toChartData(tempoRun),
     meta: extractMeta(tempoRun),
     laps: toLapData(tempoRun),
-    layout: mobileLayout,
     mode: "mobile",
   },
   globals: {
@@ -123,7 +113,6 @@ export const MobileSwim = meta.story({
     data: toChartData(poolSwim),
     meta: extractMeta(poolSwim),
     laps: toLapData(poolSwim),
-    layout: mobileLayout,
     mode: "mobile",
   },
   globals: {
@@ -170,7 +159,6 @@ export const DenseIntervalLabels = meta.story({
     data: toChartData(tempoRun),
     meta: extractMeta(tempoRun),
     laps: denseLaps,
-    layout: mobileLayout,
     mode: "mobile",
   },
   globals: {
@@ -249,7 +237,6 @@ export const MobileNoStreams = meta.story({
     data: toChartData(manualEntry),
     meta: extractMeta(manualEntry),
     laps: toLapData(manualEntry),
-    layout: mobileLayout,
     mode: "mobile",
   },
   globals: {

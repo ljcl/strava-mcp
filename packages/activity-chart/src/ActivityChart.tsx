@@ -1,9 +1,4 @@
-import {
-  formatDistance,
-  formatPace,
-  formatTime,
-  type HostLayout,
-} from "@strava-mcp/data";
+import { formatDistance, formatPace, formatTime } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
   CardHeader,
@@ -278,7 +273,6 @@ interface ActivityChartProps {
   data: ChartDataPoint[];
   meta: ActivityMeta;
   laps?: ChartLap[];
-  layout?: HostLayout;
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
 }
@@ -287,15 +281,12 @@ export function ActivityChart({
   data,
   meta,
   laps,
-  layout,
   mode = "desktop",
   app,
 }: ActivityChartProps) {
-  const aspect = layout?.chartAspect ?? (mode === "mobile" ? 0.95 : 1.8);
   const isMobile = mode === "mobile";
-  // Legacy compact flag still used by the CSS module for header/footer
-  // spacing; any mobile render counts as compact.
-  const isCompact = isMobile || layout?.mode === "mobile";
+  // Compact flag used by the CSS module for header/footer spacing.
+  const isCompact = isMobile;
   const tokens = useMemo(() => {
     const chartTokens = getChartTokens(mode);
     return {
@@ -506,7 +497,7 @@ export function ActivityChart({
     );
 
     return (
-      <ResponsiveContainer width="100%" aspect={aspect}>
+      <ResponsiveContainer width="100%" aspect={tokens.chartAspect}>
         <ComposedChart
           accessibilityLayer
           title={buildChartA11yTitle(meta)}
@@ -726,7 +717,6 @@ export function ActivityChart({
       </ResponsiveContainer>
     );
   }, [
-    aspect,
     displayData,
     tokens,
     meta,

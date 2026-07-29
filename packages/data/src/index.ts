@@ -16,4 +16,3 @@ export {
   rampColor,
 } from "./ramp";
 export { smooth } from "./smoothing";
-export { getHostLayout, type HostLayout } from "./useHostLayout";

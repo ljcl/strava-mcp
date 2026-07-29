@@ -27,6 +27,12 @@ export function getChartTokens(mode: ChartMode) {
     labelFontSize: isMobile ? 9 : 10,
     /** Legend size prop for the shared Legend component. */
     legendSize: (isMobile ? "touch" : "default") as "default" | "touch",
+    /**
+     * ResponsiveContainer aspect ratio — taller on narrow screens, where a
+     * wide chart collapses to an unreadable band. The one field that
+     * outlived `getHostLayout`, whose other five had no consumer (#258).
+     */
+    chartAspect: isMobile ? 0.95 : 1.8,
   };
 }
 
