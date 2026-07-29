@@ -66,6 +66,7 @@ import { getBestEffortsTool } from "./tools/getBestEfforts";
 import { getFitnessTrendTool } from "./tools/getFitnessTrend";
 import { getHillAnalysisTool } from "./tools/getHillAnalysis";
 import { getIntervalAnalysisTool } from "./tools/getIntervalAnalysis";
+import { getRacePredictionTool } from "./tools/getRacePrediction";
 import { getRouteTool } from "./tools/getRoute";
 import { getRunningSummaryTool } from "./tools/getRunningSummary";
 import { getSegmentTool } from "./tools/getSegment";
@@ -350,6 +351,7 @@ const STRAVA_TOOLS = [
   getFitnessTrendTool,
   compareActivitiesTool,
   getBestEffortsTool,
+  getRacePredictionTool,
 ] as const;
 
 /** Convert existing tool definitions to low-level TOOLS array */
