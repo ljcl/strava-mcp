@@ -7,6 +7,7 @@ import {
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
   CardHeader,
+  EmptyState,
   Legend,
   LegendItem,
   type ModelContextApp,
@@ -737,6 +738,29 @@ export function ActivityChart({
     a11yDescription,
     zoomRange,
   ]);
+
+  // Manual entries, treadmill uploads, and activities with device data
+  // stripped parse into a valid-but-plottable-nothing payload. Without this
+  // guard the card renders bare axes, an empty legend, and an empty preset
+  // selector, which reads as a broken app rather than "nothing to chart"
+  // (#248). Placed after the hooks above so the branch cannot reorder them.
+  if (data.length === 0 || availableMetrics.size === 0) {
+    return (
+      <div
+        className={styles.activityChart}
+        data-compact={isCompact || undefined}
+      >
+        <CardHeader
+          title={meta.name}
+          subtitle={meta.activityType}
+          compact={isCompact}
+        />
+        <EmptyState>
+          This activity has no recorded streams, so there is nothing to chart.
+        </EmptyState>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.activityChart} data-compact={isCompact || undefined}>
