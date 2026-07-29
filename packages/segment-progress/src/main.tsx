@@ -1,12 +1,12 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import {
   type AppMode,
+  AppRoot,
   AppShell,
   ErrorState,
   type HostCtx,
   LoadingState,
   Skeleton,
-  useHostRoot,
   useServerToolData,
 } from "@strava-mcp/ui";
 import { StrictMode } from "react";
@@ -58,30 +58,25 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
 }
 
 function Root() {
-  const { app, hostCtx, mode, toolArgs, connectError } = useHostRoot<ToolArgs>({
-    appInfo: { name: "Segment Progress", version: "1.0.0" },
-    parseToolInput: (args) => (args as ToolArgs | undefined) ?? {},
-  });
-
-  // Pre-connect states render inside the same shell as the loaded app so
-  // the card chrome is stable from first paint (#116).
-  if (connectError) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <ErrorState message={`Connection error: ${connectError.message}`} />
-      </AppShell>
-    );
-  }
-  if (!app || !toolArgs) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <LoadingSkeleton />
-      </AppShell>
-    );
-  }
-
   return (
-    <AppContent app={app} toolArgs={toolArgs} hostCtx={hostCtx} mode={mode} />
+    <AppRoot<ToolArgs>
+      appInfo={{ name: "Segment Progress", version: "1.0.0" }}
+      parseToolInput={(args) => {
+        const next = args as ToolArgs | undefined;
+        return next?.segment_id ? next : null;
+      }}
+      missingArgsMessage="No segment id was provided to the segment progress view."
+      loading={<LoadingSkeleton />}
+    >
+      {({ app, toolArgs, hostCtx, mode }) => (
+        <AppContent
+          app={app}
+          toolArgs={toolArgs}
+          hostCtx={hostCtx}
+          mode={mode}
+        />
+      )}
+    </AppRoot>
   );
 }
 

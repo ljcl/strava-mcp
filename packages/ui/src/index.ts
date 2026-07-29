@@ -1,9 +1,16 @@
 export {
   type AppMode,
+  AppRoot,
+  type AppRootProps,
+  AppRootView,
+  type AppRootViewProps,
   AppShell,
   type AppShellProps,
+  type ConnectedHostRoot,
+  classifyToolInput,
   type DisplayModeApp,
   type HostRoot,
+  type ToolInputOutcome,
   type UseHostRootOptions,
   useHostRoot,
 } from "./AppShell";

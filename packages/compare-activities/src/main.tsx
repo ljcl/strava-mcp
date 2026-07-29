@@ -2,12 +2,12 @@ import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import { getHostLayout } from "@strava-mcp/data";
 import {
   type AppMode,
+  AppRoot,
   AppShell,
   ErrorState,
   type HostCtx,
   LoadingState,
   Skeleton,
-  useHostRoot,
   useServerToolData,
 } from "@strava-mcp/ui";
 import { StrictMode } from "react";
@@ -89,33 +89,25 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
 }
 
 function Root() {
-  const { app, hostCtx, mode, toolArgs, connectError } = useHostRoot<ToolArgs>({
-    appInfo: { name: "Compare Activities", version: "1.0.0" },
-    parseToolInput: (args) => {
-      const next = args as ToolArgs | undefined;
-      return next?.activity_id_1 && next?.activity_id_2 ? next : null;
-    },
-  });
-
-  // Pre-connect states render inside the same shell as the loaded app so
-  // the card chrome is stable from first paint (#116).
-  if (connectError) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <ErrorState message={`Connection error: ${connectError.message}`} />
-      </AppShell>
-    );
-  }
-  if (!app || !toolArgs) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <LoadingSkeleton />
-      </AppShell>
-    );
-  }
-
   return (
-    <AppContent app={app} toolArgs={toolArgs} hostCtx={hostCtx} mode={mode} />
+    <AppRoot<ToolArgs>
+      appInfo={{ name: "Compare Activities", version: "1.0.0" }}
+      parseToolInput={(args) => {
+        const next = args as ToolArgs | undefined;
+        return next?.activity_id_1 && next?.activity_id_2 ? next : null;
+      }}
+      missingArgsMessage="Two activity ids are needed to compare activities; the host provided fewer."
+      loading={<LoadingSkeleton />}
+    >
+      {({ app, toolArgs, hostCtx, mode }) => (
+        <AppContent
+          app={app}
+          toolArgs={toolArgs}
+          hostCtx={hostCtx}
+          mode={mode}
+        />
+      )}
+    </AppRoot>
   );
 }
 
