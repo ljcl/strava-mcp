@@ -1,5 +1,12 @@
+import { formatShortDate } from "@strava-mcp/data";
 import { describe, expect, it } from "vitest";
-import { buildTotalsStats, countWarningWeeks, formatHours } from "./normalize";
+import { mockTrainingLoadData } from "./__fixtures__/weeks";
+import {
+  buildLoadSubtitle,
+  buildTotalsStats,
+  countWarningWeeks,
+  formatHours,
+} from "./normalize";
 import { type WeekSummary } from "./types";
 
 describe("formatHours", () => {
@@ -59,5 +66,35 @@ describe("countWarningWeeks", () => {
 
   it("counts only flagged weeks", () => {
     expect(countWarningWeeks([week(true), week(false), week(true)])).toBe(2);
+  });
+});
+
+describe("buildLoadSubtitle", () => {
+  it("spans the charted weeks", () => {
+    expect(buildLoadSubtitle(mockTrainingLoadData)).toBe(
+      `${mockTrainingLoadData.weeks.length} weeks · ${formatShortDate(
+        mockTrainingLoadData.weeks[0]!.weekStarting,
+      )} – ${formatShortDate(
+        mockTrainingLoadData.weeks[mockTrainingLoadData.weeks.length - 1]!
+          .weekStarting,
+      )}`,
+    );
+  });
+
+  it("collapses a single week to one date and singular noun", () => {
+    const oneWeek = {
+      ...mockTrainingLoadData,
+      weeks: [mockTrainingLoadData.weeks[0]!],
+    };
+
+    expect(buildLoadSubtitle(oneWeek)).toBe(
+      `1 week · ${formatShortDate(mockTrainingLoadData.weeks[0]!.weekStarting)}`,
+    );
+  });
+
+  it("falls back to the requested window when no weeks came back", () => {
+    expect(
+      buildLoadSubtitle({ ...mockTrainingLoadData, days: 84, weeks: [] }),
+    ).toBe("Last 84 days");
   });
 });

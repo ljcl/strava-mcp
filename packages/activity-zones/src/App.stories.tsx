@@ -4,14 +4,24 @@ import { expect, waitFor } from "storybook/test";
 import {
   emptyZonesData,
   hrOnlyData,
+  hrZoneSet,
   mockZonesData,
 } from "./__fixtures__/zones";
 import { App } from "./App";
+import { buildZonesSubtitle } from "./normalize";
 
 const meta = preview.meta({ component: App });
 
 export const Default = meta.story({
   args: { app: null, data: mockZonesData },
+  play: async ({ canvas }) => {
+    // The card opens with a title (#247), and the subtitle names the set on
+    // screen — the pill row only appears when both sets exist.
+    await expect(canvas.getByText(mockZonesData.name)).toBeVisible();
+    await expect(
+      canvas.getByText(buildZonesSubtitle(mockZonesData, hrZoneSet)),
+    ).toBeVisible();
+  },
 });
 
 /**

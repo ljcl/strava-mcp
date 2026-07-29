@@ -14,6 +14,16 @@ export const PACE_ZONES: PaceZone[] = [
   { label: "Easy", minPace: 5.5, maxPace: 20 },
 ];
 
+/**
+ * "18 runs · last 6 weeks" — the header subtitle. Counts every run in the
+ * window, including the cadence-less ones the charts drop, because it is
+ * describing the window rather than the plotted series.
+ */
+export function buildCadenceSubtitle(runCount: number, weeks: number): string {
+  const runLabel = `${runCount} ${runCount === 1 ? "run" : "runs"}`;
+  return `${runLabel} · last ${weeks} ${weeks === 1 ? "week" : "weeks"}`;
+}
+
 /** Compute a rolling average over the activities array (sorted by date ascending) */
 export function rollingAverage(
   activities: RunSummary[],

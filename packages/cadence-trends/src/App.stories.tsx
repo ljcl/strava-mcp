@@ -3,6 +3,7 @@ import { MobileCardShell } from "@strava-mcp/ui";
 import { expect, within } from "storybook/test";
 import { mockRuns } from "./__fixtures__/runs";
 import { App } from "./App";
+import { buildCadenceSubtitle } from "./normalize";
 import { type CadenceTrendData } from "./types";
 
 const mockData: CadenceTrendData = { weeks: 6, activities: mockRuns };
@@ -11,6 +12,14 @@ const meta = preview.meta({ component: App });
 
 export const Default = meta.story({
   args: { app: null, data: mockData },
+  play: async ({ canvas }) => {
+    // The card opens with a title (#247): scrolled back in a transcript, a
+    // bare chart cannot say which runs or window it belongs to.
+    await expect(canvas.getByText("Cadence trends")).toBeVisible();
+    await expect(
+      canvas.getByText(buildCadenceSubtitle(mockRuns.length, mockData.weeks)),
+    ).toBeVisible();
+  },
 });
 
 /**

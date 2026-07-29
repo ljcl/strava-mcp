@@ -2,6 +2,7 @@ import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { type HostLayout } from "@strava-mcp/data";
 import {
+  CardHeader,
   Pill,
   PillGroup,
   SummaryBar,
@@ -11,6 +12,7 @@ import { useCallback, useMemo, useState } from "react";
 import styles from "./App.module.css";
 import { buildCadenceContextSummary } from "./contextSummary";
 import {
+  buildCadenceSubtitle,
   computeSummaryStats,
   smoothOverlayPoints,
   toOverlayPoints,
@@ -142,6 +144,11 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
+      <CardHeader
+        title="Cadence trends"
+        subtitle={buildCadenceSubtitle(stats.runCount, data.weeks)}
+        compact={isMobile}
+      />
       <SummaryBar
         compact={isMobile}
         stats={[

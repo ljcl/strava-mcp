@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { hrZoneSet, powerZoneSet } from "./__fixtures__/zones";
+import { hrZoneSet, mockZonesData, powerZoneSet } from "./__fixtures__/zones";
 import {
   buildSummaryStats,
   buildZoneRows,
+  buildZonesSubtitle,
   dominantBucket,
   formatZoneRange,
   intensitySplit,
@@ -67,5 +68,19 @@ describe("buildSummaryStats", () => {
     expect(stats[0]!.value).toBe("1h 07m");
     expect(stats[1]!.value).toBe("Z2");
     expect(stats[2]!.value).toBe("60%");
+  });
+});
+
+describe("buildZonesSubtitle", () => {
+  it("names the sport, date, and the set being charted", () => {
+    expect(buildZonesSubtitle(mockZonesData, hrZoneSet)).toBe(
+      "Run · 10 Jul · Heart rate zones",
+    );
+  });
+
+  it("names the power set when power is active", () => {
+    expect(buildZonesSubtitle(mockZonesData, powerZoneSet)).toBe(
+      "Run · 10 Jul · Power zones",
+    );
   });
 });

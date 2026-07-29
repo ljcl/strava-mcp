@@ -1,6 +1,6 @@
-import { formatDurationShort } from "@strava-mcp/data";
+import { formatDurationShort, formatShortDate } from "@strava-mcp/data";
 import { type SummaryStat } from "@strava-mcp/ui";
-import { type ZoneBucket, type ZoneSet } from "./types";
+import { type ActivityZonesData, type ZoneBucket, type ZoneSet } from "./types";
 
 /** One chart row per zone bucket. */
 export interface ZoneRow {
@@ -57,6 +57,21 @@ export function dominantBucket(set: ZoneSet): ZoneBucket {
   return set.buckets.reduce((top, bucket) =>
     bucket.seconds > top.seconds ? bucket : top,
   );
+}
+
+/**
+ * "Run · 12 Jul · Heart rate zones" — the header subtitle. Names the set on
+ * screen because the pill row only appears when both sets exist, so a
+ * heart-rate-only card would otherwise never say what it is charting.
+ */
+export function buildZonesSubtitle(
+  data: Pick<ActivityZonesData, "type" | "date">,
+  set: ZoneSet,
+): string {
+  const setLabel = set.type === "power" ? "Power zones" : "Heart rate zones";
+  return [data.type, formatShortDate(data.date), setLabel]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** SummaryBar stats for the active zone set. */

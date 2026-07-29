@@ -1,6 +1,7 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import { getChartTokens } from "@strava-mcp/design-system";
 import {
+  CardHeader,
   Legend,
   LegendItem,
   SummaryBar,
@@ -10,7 +11,11 @@ import { useMemo, useState } from "react";
 import styles from "./App.module.css";
 import { buildTrainingLoadContextSummary } from "./contextSummary";
 import { LoadChart } from "./LoadChart";
-import { buildTotalsStats, countWarningWeeks } from "./normalize";
+import {
+  buildLoadSubtitle,
+  buildTotalsStats,
+  countWarningWeeks,
+} from "./normalize";
 import { type TrainingLoadData } from "./types";
 
 interface AppProps {
@@ -35,6 +40,11 @@ export function App({ app, data, mode = "desktop" }: AppProps) {
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
+      <CardHeader
+        title="Training load"
+        subtitle={buildLoadSubtitle(data)}
+        compact={isMobile}
+      />
       <SummaryBar compact={isMobile} stats={totalsStats} />
       <div className={styles.viewContainer}>
         <LoadChart

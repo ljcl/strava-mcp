@@ -1,5 +1,6 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
 import {
+  CardHeader,
   EmptyState,
   Pill,
   PillGroup,
@@ -9,7 +10,7 @@ import {
 import { useMemo, useState } from "react";
 import styles from "./App.module.css";
 import { buildZonesContextSummary } from "./contextSummary";
-import { buildSummaryStats } from "./normalize";
+import { buildSummaryStats, buildZonesSubtitle } from "./normalize";
 import { type ActivityZonesData } from "./types";
 import { ZoneChart } from "./ZoneChart";
 
@@ -38,15 +39,23 @@ export function App({ app, data, mode = "desktop" }: AppProps) {
 
   if (!activeSet) {
     return (
-      <EmptyState>
-        No zone data recorded — this activity had neither a heart rate nor a
-        power sensor.
-      </EmptyState>
+      <div className={styles.container} data-compact={isMobile || undefined}>
+        <CardHeader title={data.name} subtitle={data.type} compact={isMobile} />
+        <EmptyState>
+          No zone data recorded — this activity had neither a heart rate nor a
+          power sensor.
+        </EmptyState>
+      </div>
     );
   }
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
+      <CardHeader
+        title={data.name}
+        subtitle={buildZonesSubtitle(data, activeSet)}
+        compact={isMobile}
+      />
       <SummaryBar compact={isMobile} stats={stats} />
       <div className={styles.viewContainer}>
         <ZoneChart set={activeSet} activityName={data.name} mode={mode} />
