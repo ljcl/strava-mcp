@@ -1,4 +1,4 @@
-import { formatPace, formatTime, type HostLayout } from "@strava-mcp/data";
+import { formatPace, formatTime } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
   CardHeader,
@@ -290,7 +290,6 @@ interface CompareActivitiesProps {
   b: ActivityStreamData;
   /** Aggregate summary; the overlay still renders without it. */
   compare: CompareData | null;
-  layout?: HostLayout;
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
 }
@@ -299,13 +298,11 @@ export function CompareActivities({
   a,
   b,
   compare,
-  layout,
   mode = "desktop",
   app,
 }: CompareActivitiesProps) {
   const isMobile = mode === "mobile";
-  const isCompact = isMobile || layout?.mode === "mobile";
-  const aspect = layout?.chartAspect ?? (isMobile ? 1.1 : 2);
+  const isCompact = isMobile;
   const tokens = useMemo(() => getChartTokens(mode), [mode]);
 
   const category = paceCategory(a.activityType, b.activityType);
@@ -374,7 +371,7 @@ export function CompareActivities({
     if (!metric || aligned.length === 0) return null;
     const reversed = metric === "pace" && category !== "speed";
     return (
-      <ResponsiveContainer width="100%" aspect={aspect}>
+      <ResponsiveContainer width="100%" aspect={tokens.chartAspect}>
         <ComposedChart
           accessibilityLayer
           title={buildCompareA11yTitle(a.name, b.name)}
@@ -465,7 +462,6 @@ export function CompareActivities({
     category,
     bothRunning,
     hidden,
-    aspect,
     isMobile,
     tokens,
     a.name,

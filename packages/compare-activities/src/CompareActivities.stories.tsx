@@ -11,15 +11,6 @@ import { CompareActivities } from "./CompareActivities";
 
 const meta = preview.meta({ component: CompareActivities });
 
-const mobileLayout = {
-  mode: "mobile" as const,
-  width: 360,
-  height: null,
-  isTouch: true,
-  chartAspect: 1.1,
-  chartHeight: 260,
-};
-
 export const SteadyVsRace = meta.story({
   args: {
     a: baselineRun,
@@ -98,7 +89,6 @@ export const MobileCompare = meta.story({
     a: baselineRun,
     b: raceRun,
     compare: compareData,
-    layout: mobileLayout,
     mode: "mobile",
   },
   globals: {

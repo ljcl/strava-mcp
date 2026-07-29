@@ -7,6 +7,7 @@ import {
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
 import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
 import styles from "./AppShell.module.css";
+import { ErrorState } from "./ErrorState";
 import { type HostCtx, useMobileMode } from "./useMobileMode";
 
 /** Layout mode every MCP App view switches on. */
@@ -29,16 +30,58 @@ function pickHostCtx(ctx: McpUiHostContext): HostCtx {
   };
 }
 
+/**
+ * Fallback for an app that declares required args but no custom wording.
+ * Apps should pass `missingArgsMessage` so the message names the id.
+ */
+const DEFAULT_MISSING_ARGS_MESSAGE =
+  "The host did not provide the arguments this view needs.";
+
 export interface UseHostRootOptions<TArgs> {
   /** App identity passed to the underlying `useApp` hook. */
   appInfo: { name: string; version: string };
   /**
-   * Map raw tool input arguments to the app's typed args. Return `null` to
-   * ignore the input and keep waiting (e.g. a required id is still missing).
+   * Map raw tool input arguments to the app's typed args. Return `null` when
+   * the input cannot be used (e.g. a required id is missing) — the host has
+   * spoken, so that is an error, not a reason to keep waiting.
    */
   parseToolInput: (args: unknown) => TArgs | null;
+  /**
+   * Message surfaced when the host sends input that `parseToolInput` rejects
+   * (#249). Omit it for an app whose args are all optional: without it a
+   * rejected input is treated as "still waiting", which is only correct when
+   * nothing is required.
+   */
+  missingArgsMessage?: string;
   /** Display modes the app advertises. Defaults to inline + fullscreen. */
   capabilities?: McpUiAppCapabilities;
+}
+
+/** What one `ontoolinput` delivery means for the root's state. */
+export type ToolInputOutcome<TArgs> =
+  | { status: "ready"; toolArgs: TArgs }
+  | { status: "unusable"; message: string }
+  | { status: "ignored" };
+
+/**
+ * Decide what a tool input delivery means, given the app's parser. Pure and
+ * exported so the three shapes (usable, unusable-with-required-args,
+ * unusable-but-nothing-required) are unit-testable without a host.
+ */
+export function classifyToolInput<TArgs>(
+  raw: unknown,
+  parseToolInput: (args: unknown) => TArgs | null,
+  missingArgsMessage?: string,
+): ToolInputOutcome<TArgs> {
+  const parsed = parseToolInput(raw);
+  if (parsed !== null) return { status: "ready", toolArgs: parsed };
+  // An app that declared no required args cannot be missing one: keep waiting
+  // rather than inventing an error the user can do nothing about.
+  if (missingArgsMessage === undefined) return { status: "ignored" };
+  return {
+    status: "unusable",
+    message: missingArgsMessage || DEFAULT_MISSING_ARGS_MESSAGE,
+  };
 }
 
 export interface HostRoot<TArgs> {
@@ -52,6 +95,12 @@ export interface HostRoot<TArgs> {
   toolArgs: TArgs | null;
   /** Connection error from the initialization handshake, if any. */
   connectError: Error | null;
+  /**
+   * Set once the host has sent tool input the app cannot use. Distinguishes
+   * "waiting for host input" (both this and `toolArgs` null) from "host sent
+   * input without the id", which must not sit on a skeleton forever.
+   */
+  argsError: string | null;
 }
 
 /**
@@ -63,9 +112,11 @@ export interface HostRoot<TArgs> {
 export function useHostRoot<TArgs>({
   appInfo,
   parseToolInput,
+  missingArgsMessage,
   capabilities = DEFAULT_CAPABILITIES,
 }: UseHostRootOptions<TArgs>): HostRoot<TArgs> {
   const [toolArgs, setToolArgs] = useState<TArgs | null>(null);
+  const [argsError, setArgsError] = useState<string | null>(null);
   const [hostCtx, setHostCtx] = useState<HostCtx>({});
 
   const { app, error: connectError } = useApp({
@@ -73,8 +124,17 @@ export function useHostRoot<TArgs>({
     capabilities,
     onAppCreated: (createdApp) => {
       createdApp.ontoolinput = (input) => {
-        const next = parseToolInput(input.arguments);
-        if (next !== null) setToolArgs(next);
+        const outcome = classifyToolInput(
+          input.arguments,
+          parseToolInput,
+          missingArgsMessage,
+        );
+        if (outcome.status === "ready") {
+          setToolArgs(outcome.toolArgs);
+          setArgsError(null);
+        } else if (outcome.status === "unusable") {
+          setArgsError(outcome.message);
+        }
       };
       createdApp.onhostcontextchanged = (ctx) => {
         setHostCtx(pickHostCtx(ctx));
@@ -93,7 +153,7 @@ export function useHostRoot<TArgs>({
   const isMobile = useMobileMode(hostCtx);
   const mode: AppMode = isMobile ? "mobile" : "desktop";
 
-  return { app, hostCtx, mode, toolArgs, connectError };
+  return { app, hostCtx, mode, toolArgs, connectError, argsError };
 }
 
 /** Compute the outer card chrome (safe-area insets, margin, width clamp). */
@@ -216,5 +276,94 @@ export function AppShell({ hostCtx, mode, children, app }: AppShellProps) {
       {canFullscreen && <FullscreenToggle app={app} hostCtx={hostCtx} />}
       {children}
     </div>
+  );
+}
+
+/** `HostRoot` narrowed to the connected, args-in-hand case `AppRoot` renders. */
+export interface ConnectedHostRoot<TArgs> {
+  app: App;
+  hostCtx: HostCtx;
+  mode: AppMode;
+  toolArgs: TArgs;
+}
+
+export interface AppRootViewProps<TArgs> extends HostRoot<TArgs> {
+  /** Skeleton shown while connecting and waiting for the host's tool input. */
+  loading: ReactNode;
+  /** Rendered once the app is connected and the tool input parsed. */
+  children: (root: ConnectedHostRoot<TArgs>) => ReactNode;
+}
+
+/**
+ * The pre-content state machine, as a pure function of `HostRoot`: connect
+ * error, unusable input, waiting for input, connected. Split from `AppRoot`
+ * so every branch is renderable without a live host — the story smoke tests
+ * and their axe checks are what hold the convention in place (#249).
+ *
+ * Each pre-content state renders inside the same `AppShell` as the loaded app
+ * so the card chrome is stable from first paint (#116).
+ */
+export function AppRootView<TArgs>({
+  app,
+  hostCtx,
+  mode,
+  toolArgs,
+  connectError,
+  argsError,
+  loading,
+  children,
+}: AppRootViewProps<TArgs>) {
+  if (connectError) {
+    return (
+      <AppShell hostCtx={hostCtx} mode={mode}>
+        <ErrorState message={`Connection error: ${connectError.message}`} />
+      </AppShell>
+    );
+  }
+  // Ahead of the waiting branch: unusable input leaves `toolArgs` null, and
+  // waiting on a skeleton for input that already arrived never resolves.
+  if (argsError) {
+    return (
+      <AppShell hostCtx={hostCtx} mode={mode}>
+        <ErrorState message={argsError} />
+      </AppShell>
+    );
+  }
+  if (!app || toolArgs === null) {
+    return (
+      <AppShell hostCtx={hostCtx} mode={mode}>
+        {loading}
+      </AppShell>
+    );
+  }
+
+  return <>{children({ app, hostCtx, mode, toolArgs })}</>;
+}
+
+export interface AppRootProps<TArgs> extends UseHostRootOptions<TArgs> {
+  /** Skeleton shown while connecting and waiting for the host's tool input. */
+  loading: ReactNode;
+  /** Rendered once the app is connected and the tool input parsed. */
+  children: (root: ConnectedHostRoot<TArgs>) => ReactNode;
+}
+
+/**
+ * Root every MCP App's `main.tsx` mounts: connects to the host, then renders
+ * the shared state machine above. Centralising both is what stops the eight
+ * apps re-litigating what a missing id should look like (#249).
+ *
+ * `children` is a render prop rather than an element so it only runs once the
+ * app and args are non-null — the content component never re-checks them.
+ */
+export function AppRoot<TArgs>({
+  loading,
+  children,
+  ...options
+}: AppRootProps<TArgs>) {
+  const root = useHostRoot<TArgs>(options);
+  return (
+    <AppRootView {...root} loading={loading}>
+      {children}
+    </AppRootView>
   );
 }

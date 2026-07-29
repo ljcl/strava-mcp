@@ -1,16 +1,17 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
-import { type CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { type HostLayout } from "@strava-mcp/data";
 import {
+  CardHeader,
   Pill,
   PillGroup,
   SummaryBar,
   useModelContextSync,
+  useServerToolFetcher,
 } from "@strava-mcp/ui";
 import { useCallback, useMemo, useState } from "react";
 import styles from "./App.module.css";
 import { buildCadenceContextSummary } from "./contextSummary";
 import {
+  buildCadenceSubtitle,
   computeSummaryStats,
   smoothOverlayPoints,
   toOverlayPoints,
@@ -21,9 +22,8 @@ import { ScatterView } from "./ScatterView";
 import { TrendView } from "./TrendView";
 import {
   type CadenceTrendData,
-  type OverlayPoint,
   type OverlayStreamData,
-  type RunSummary,
+  type RunStreamState,
   type ViewId,
 } from "./types";
 import { ZonesView } from "./ZonesView";
@@ -41,23 +41,22 @@ const MAX_COMPARE_RUNS = 4;
 interface AppProps {
   app: ReturnType<typeof useApp>["app"];
   data: CadenceTrendData;
-  layout?: HostLayout;
   mode?: "mobile" | "desktop";
 }
 
-interface CachedStream {
-  run: RunSummary;
-  points: OverlayPoint[];
-}
-
-export function App({ app, data, layout, mode = "desktop" }: AppProps) {
-  const isMobile = mode === "mobile" || layout?.mode === "mobile";
+export function App({ app, data, mode = "desktop" }: AppProps) {
+  const isMobile = mode === "mobile";
   const [activeView, setActiveView] = useState<ViewId>("trend");
   const [selectedRunIds, setSelectedRunIds] = useState<Set<number>>(new Set());
-  const [streamCache, setStreamCache] = useState<Map<number, CachedStream>>(
-    new Map(),
+
+  // Per-run stream fetches go through the shared keyed fetcher so each run
+  // carries its own loading, error, and retry (#250) — the hand-rolled
+  // version dropped a failed run silently and refetched it forever.
+  const streamFetcher = useServerToolFetcher<OverlayStreamData>(
+    app,
+    "get-activity-streams-raw",
+    (runId) => ({ activity_id: runId }),
   );
-  const [loadingStreams, setLoadingStreams] = useState<Set<number>>(new Set());
 
   const stats = useMemo(
     () => computeSummaryStats(data.activities, data.weeks),
@@ -84,36 +83,35 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
     });
   }, []);
 
-  const fetchStreamForRun = useCallback(
-    async (runId: number) => {
-      if (!app || streamCache.has(runId) || loadingStreams.has(runId)) return;
-      setLoadingStreams((prev) => new Set(prev).add(runId));
-      try {
-        const result: CallToolResult = await app.callServerTool({
-          name: "get-activity-streams-raw",
-          arguments: { activity_id: String(runId) },
-        });
-        const text = result.content?.find((c) => c.type === "text")?.text;
-        if (text) {
-          const streamData = JSON.parse(text) as OverlayStreamData;
-          const run = data.activities.find((a) => a.id === runId);
-          if (run) {
-            const points = smoothOverlayPoints(toOverlayPoints(streamData));
-            setStreamCache((prev) => new Map(prev).set(runId, { run, points }));
-          }
-        }
-      } catch (err) {
-        console.error("Failed to fetch streams for run", runId, err);
-      } finally {
-        setLoadingStreams((prev) => {
-          const next = new Set(prev);
-          next.delete(runId);
-          return next;
-        });
-      }
-    },
-    [app, streamCache, loadingStreams, data.activities],
+  const { entries, request, retry } = streamFetcher;
+
+  const requestStream = useCallback(
+    (runId: number) => request(String(runId)),
+    [request],
   );
+  const retryStream = useCallback(
+    (runId: number) => retry(String(runId)),
+    [retry],
+  );
+
+  // One state per requested run, keyed back to the run it belongs to. Only
+  // the selected runs are ever requested, so this stays at most a handful.
+  const streams = useMemo(() => {
+    const map = new Map<number, RunStreamState>();
+    for (const run of data.activities) {
+      const entry = entries.get(String(run.id));
+      if (!entry) continue;
+      map.set(run.id, {
+        run,
+        points: entry.data
+          ? smoothOverlayPoints(toOverlayPoints(entry.data))
+          : null,
+        loading: entry.loading,
+        error: entry.error,
+      });
+    }
+    return map;
+  }, [data.activities, entries]);
 
   const selectedRuns = useMemo(
     () => data.activities.filter((a) => selectedRunIds.has(a.id)),
@@ -142,6 +140,11 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
 
   return (
     <div className={styles.container} data-compact={isMobile || undefined}>
+      <CardHeader
+        title="Cadence trends"
+        subtitle={buildCadenceSubtitle(stats.runCount, data.weeks)}
+        compact={isMobile}
+      />
       <SummaryBar
         compact={isMobile}
         stats={[
@@ -197,9 +200,9 @@ export function App({ app, data, layout, mode = "desktop" }: AppProps) {
         {activeView === "overlay" && (
           <OverlayView
             selectedRunIds={selectedRunIds}
-            streamCache={streamCache}
-            loadingStreams={loadingStreams}
-            fetchStreamForRun={fetchStreamForRun}
+            streams={streams}
+            requestStream={requestStream}
+            retryStream={retryStream}
             mode={mode}
           />
         )}

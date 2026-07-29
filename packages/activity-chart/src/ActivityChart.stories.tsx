@@ -1,21 +1,13 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
 import { expect, waitFor } from "storybook/test";
+import { manualEntry, timeOnlyRecording } from "./__fixtures__/manual-entry";
 import { poolSwim } from "./__fixtures__/pool-swim";
 import { tempoRun } from "./__fixtures__/tempo-run";
 import { ActivityChart } from "./ActivityChart";
 import { extractMeta, toChartData, toLapData } from "./normalize";
 
 const meta = preview.meta({ component: ActivityChart });
-
-const mobileLayout = {
-  mode: "mobile" as const,
-  width: 360,
-  height: null,
-  isTouch: true,
-  chartAspect: 0.95,
-  chartHeight: 260,
-};
 
 export const TempoRun = meta.story({
   args: {
@@ -98,7 +90,6 @@ export const MobileRun = meta.story({
     data: toChartData(tempoRun),
     meta: extractMeta(tempoRun),
     laps: toLapData(tempoRun),
-    layout: mobileLayout,
     mode: "mobile",
   },
   globals: {
@@ -122,7 +113,6 @@ export const MobileSwim = meta.story({
     data: toChartData(poolSwim),
     meta: extractMeta(poolSwim),
     laps: toLapData(poolSwim),
-    layout: mobileLayout,
     mode: "mobile",
   },
   globals: {
@@ -169,7 +159,6 @@ export const DenseIntervalLabels = meta.story({
     data: toChartData(tempoRun),
     meta: extractMeta(tempoRun),
     laps: denseLaps,
-    layout: mobileLayout,
     mode: "mobile",
   },
   globals: {
@@ -198,6 +187,69 @@ export const DenseIntervalLabels = meta.story({
     expect(drawn.length).toBeGreaterThan(0);
     expect(drawn.length).toBeLessThan(denseLaps.length);
   },
+});
+
+/**
+ * A manual entry has no streams at all. The card keeps its title and says
+ * so, instead of rendering bare axes with an empty legend and an empty
+ * preset selector — which read as a broken app rather than "nothing to
+ * chart" (#248).
+ */
+export const NoStreams = meta.story({
+  args: {
+    data: toChartData(manualEntry),
+    meta: extractMeta(manualEntry),
+    laps: toLapData(manualEntry),
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByText("Evening Strength Session")).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "This activity has no recorded streams, so there is nothing to chart.",
+      ),
+    ).toBeVisible();
+    // No axis frame, and none of the controls that imply plottable series.
+    expect(canvasElement.querySelector(".recharts-surface")).toBeNull();
+    expect(canvas.queryByRole("button", { name: "Form" })).toBeNull();
+  },
+});
+
+/**
+ * The harder case: a time stream exists, so the payload parses into chart
+ * points, but no metric was recorded. `data.length` alone would let this
+ * through — the empty guard has to test the metric set too.
+ */
+export const TimeStreamOnly = meta.story({
+  args: {
+    data: toChartData(timeOnlyRecording),
+    meta: extractMeta(timeOnlyRecording),
+    laps: toLapData(timeOnlyRecording),
+  },
+  play: async ({ canvas, canvasElement }) => {
+    expect(toChartData(timeOnlyRecording).length).toBeGreaterThan(0);
+    await expect(canvas.getByText("Treadmill Shakeout")).toBeVisible();
+    expect(canvasElement.querySelector(".recharts-surface")).toBeNull();
+  },
+});
+
+export const MobileNoStreams = meta.story({
+  args: {
+    data: toChartData(manualEntry),
+    meta: extractMeta(manualEntry),
+    laps: toLapData(manualEntry),
+    mode: "mobile",
+  },
+  globals: {
+    viewport: { value: "claudeIosCard" },
+  },
+  parameters: { layout: "fullscreen" },
+  decorators: [
+    (StoryFn) => (
+      <MobileCardShell>
+        <StoryFn />
+      </MobileCardShell>
+    ),
+  ],
 });
 
 export const BrushZoom = meta.story({

@@ -1,13 +1,12 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
-import { getHostLayout } from "@strava-mcp/data";
 import {
   type AppMode,
+  AppRoot,
   AppShell,
   ErrorState,
   type HostCtx,
   LoadingState,
   Skeleton,
-  useHostRoot,
   useServerToolData,
 } from "@strava-mcp/ui";
 import { StrictMode, useMemo } from "react";
@@ -35,7 +34,6 @@ interface AppContentProps {
 }
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
-  const layout = getHostLayout(hostCtx, mode === "mobile");
   const {
     data: streamData,
     loading,
@@ -71,7 +69,6 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
           data={derived.data}
           meta={derived.meta}
           laps={derived.laps}
-          layout={layout}
           mode={mode}
           app={app ?? undefined}
         />
@@ -81,33 +78,25 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
 }
 
 function Root() {
-  const { app, hostCtx, mode, toolArgs, connectError } = useHostRoot<ToolArgs>({
-    appInfo: { name: "Activity Chart", version: "1.0.0" },
-    parseToolInput: (args) => {
-      const next = args as ToolArgs | undefined;
-      return next?.activity_id ? next : null;
-    },
-  });
-
-  // Pre-connect states render inside the same shell as the loaded app so
-  // the card chrome is stable from first paint (#116).
-  if (connectError) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <ErrorState message={`Connection error: ${connectError.message}`} />
-      </AppShell>
-    );
-  }
-  if (!app || !toolArgs) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <LoadingSkeleton />
-      </AppShell>
-    );
-  }
-
   return (
-    <AppContent app={app} toolArgs={toolArgs} hostCtx={hostCtx} mode={mode} />
+    <AppRoot<ToolArgs>
+      appInfo={{ name: "Activity Chart", version: "1.0.0" }}
+      parseToolInput={(args) => {
+        const next = args as ToolArgs | undefined;
+        return next?.activity_id ? next : null;
+      }}
+      missingArgsMessage="No activity id was provided to the chart view."
+      loading={<LoadingSkeleton />}
+    >
+      {({ app, toolArgs, hostCtx, mode }) => (
+        <AppContent
+          app={app}
+          toolArgs={toolArgs}
+          hostCtx={hostCtx}
+          mode={mode}
+        />
+      )}
+    </AppRoot>
   );
 }
 

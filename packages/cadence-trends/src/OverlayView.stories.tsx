@@ -1,28 +1,35 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
 import { MobileCardShell } from "@strava-mcp/ui";
-import { expect, waitFor } from "storybook/test";
-import { mockStreamCache } from "./__fixtures__/overlay-streams";
+import { expect, fn, waitFor } from "storybook/test";
+import {
+  allFailedStreams,
+  mockStreams,
+  partiallyFailedStreams,
+  partiallyLoadedStreams,
+} from "./__fixtures__/overlay-streams";
 import { OverlayView } from "./OverlayView";
 
 const noop = () => {};
 
 const meta = preview.meta({ component: OverlayView });
 
+const bothRuns = new Set([10003, 10013]);
+
 export const EmptyState = meta.story({
   args: {
     selectedRunIds: new Set<number>(),
-    streamCache: new Map(),
-    loadingStreams: new Set<number>(),
-    fetchStreamForRun: noop,
+    streams: new Map(),
+    requestStream: noop,
+    retryStream: noop,
   },
 });
 
 export const WithData = meta.story({
   args: {
-    selectedRunIds: new Set([10003, 10013]),
-    streamCache: mockStreamCache,
-    loadingStreams: new Set<number>(),
-    fetchStreamForRun: noop,
+    selectedRunIds: bothRuns,
+    streams: mockStreams,
+    requestStream: noop,
+    retryStream: noop,
   },
 });
 
@@ -34,10 +41,10 @@ export const WithData = meta.story({
  */
 export const SwitchAxisAndHideRun = meta.story({
   args: {
-    selectedRunIds: new Set([10003, 10013]),
-    streamCache: mockStreamCache,
-    loadingStreams: new Set<number>(),
-    fetchStreamForRun: noop,
+    selectedRunIds: bothRuns,
+    streams: mockStreams,
+    requestStream: noop,
+    retryStream: noop,
   },
   play: async ({ canvas, canvasElement, userEvent }) => {
     const curveCount = () =>
@@ -68,10 +75,10 @@ export const SwitchAxisAndHideRun = meta.story({
  */
 export const WithDataDark = meta.story({
   args: {
-    selectedRunIds: new Set([10003, 10013]),
-    streamCache: mockStreamCache,
-    loadingStreams: new Set<number>(),
-    fetchStreamForRun: noop,
+    selectedRunIds: bothRuns,
+    streams: mockStreams,
+    requestStream: noop,
+    retryStream: noop,
   },
   globals: {
     ...darkGlobals,
@@ -79,21 +86,84 @@ export const WithDataDark = meta.story({
   },
 });
 
+/** One run drawn, the other still loading: the chart stays up. */
 export const Loading = meta.story({
   args: {
-    selectedRunIds: new Set([10003, 10013]),
-    streamCache: new Map([...mockStreamCache].slice(0, 1)),
-    loadingStreams: new Set([10013]),
-    fetchStreamForRun: noop,
+    selectedRunIds: bothRuns,
+    streams: partiallyLoadedStreams,
+    requestStream: noop,
+    retryStream: noop,
+  },
+});
+
+/** Nothing drawn yet: skeleton instead of an empty axis frame. */
+export const LoadingFirstRun = meta.story({
+  args: {
+    selectedRunIds: bothRuns,
+    streams: new Map(),
+    requestStream: noop,
+    retryStream: noop,
+  },
+  play: async ({ canvas, canvasElement }) => {
+    await expect(canvas.getByRole("status")).toBeInTheDocument();
+    expect(canvasElement.querySelector(".recharts-surface")).toBeNull();
+  },
+});
+
+/**
+ * A failed run used to vanish from the overlay, leaving the user with a
+ * silently-incomplete comparison and a console.error (#250). It now reports
+ * the failure by name with a retry, while the runs that did load stay drawn.
+ */
+export const OneRunFailed = meta.story({
+  args: {
+    selectedRunIds: bothRuns,
+    streams: partiallyFailedStreams,
+    requestStream: noop,
+    retryStream: fn(),
+  },
+  play: async ({ args, canvas, canvasElement, userEvent }) => {
+    await waitFor(() =>
+      expect(
+        canvasElement.querySelectorAll("path.recharts-line-curve").length,
+      ).toBe(1),
+    );
+    await expect(
+      canvas.getByText("Could not load stream data for Intervals 5x1k."),
+    ).toBeVisible();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Try again" }));
+    await expect(args.retryStream).toHaveBeenCalledWith(10013);
+  },
+});
+
+/** Every selected run failed: the error replaces the chart entirely. */
+export const AllRunsFailed = meta.story({
+  args: {
+    selectedRunIds: bothRuns,
+    streams: allFailedStreams,
+    requestStream: noop,
+    retryStream: fn(),
+  },
+  play: async ({ args, canvas, canvasElement, userEvent }) => {
+    expect(canvasElement.querySelector(".recharts-surface")).toBeNull();
+    await expect(
+      canvas.getByText(
+        "Could not load stream data for 2 of the selected runs.",
+      ),
+    ).toBeVisible();
+
+    await userEvent.click(canvas.getByRole("button", { name: "Try again" }));
+    await expect(args.retryStream).toHaveBeenCalledTimes(2);
   },
 });
 
 export const Mobile = meta.story({
   args: {
-    selectedRunIds: new Set([10003, 10013]),
-    streamCache: mockStreamCache,
-    loadingStreams: new Set<number>(),
-    fetchStreamForRun: noop,
+    selectedRunIds: bothRuns,
+    streams: mockStreams,
+    requestStream: noop,
+    retryStream: noop,
     mode: "mobile",
   },
   globals: {

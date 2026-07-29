@@ -15,6 +15,7 @@ describe("getChartTokens", () => {
     expect(t.errorBarWidth).toBe(8);
     expect(t.labelFontSize).toBe(10);
     expect(t.legendSize).toBe("default");
+    expect(t.chartAspect).toBe(1.8);
   });
 
   it("returns mobile defaults for mobile mode", () => {
@@ -26,6 +27,15 @@ describe("getChartTokens", () => {
     expect(t.errorBarWidth).toBe(6);
     expect(t.labelFontSize).toBe(9);
     expect(t.legendSize).toBe("touch");
+    expect(t.chartAspect).toBe(0.95);
+  });
+});
+
+describe("chartAspect", () => {
+  it("is taller on mobile, where a wide chart collapses to a band", () => {
+    expect(getChartTokens("mobile").chartAspect).toBeLessThan(
+      getChartTokens("desktop").chartAspect,
+    );
   });
 });
 

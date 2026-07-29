@@ -1,13 +1,12 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
-import { getHostLayout } from "@strava-mcp/data";
 import {
   type AppMode,
+  AppRoot,
   AppShell,
   ErrorState,
   type HostCtx,
   LoadingState,
   Skeleton,
-  useHostRoot,
   useServerToolData,
 } from "@strava-mcp/ui";
 import { StrictMode } from "react";
@@ -36,7 +35,6 @@ interface AppContentProps {
 }
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
-  const layout = getHostLayout(hostCtx, mode === "mobile");
   const { data, loading, error, retry } = useServerToolData<CadenceTrendData>(
     app,
     "get-cadence-trend-data",
@@ -53,37 +51,30 @@ function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
           onRetry={retry}
         />
       ) : (
-        <App app={app} data={data} layout={layout} mode={mode} />
+        <App app={app} data={data} mode={mode} />
       )}
     </AppShell>
   );
 }
 
 function Root() {
-  const { app, hostCtx, mode, toolArgs, connectError } = useHostRoot<ToolArgs>({
-    appInfo: { name: "Cadence Trends", version: "1.0.0" },
-    parseToolInput: (args) => (args as ToolArgs | undefined) ?? {},
-  });
-
-  // Pre-connect states render inside the same shell as the loaded app so
-  // the card chrome is stable from first paint (#116).
-  if (connectError) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <ErrorState message={`Connection error: ${connectError.message}`} />
-      </AppShell>
-    );
-  }
-  if (!app || !toolArgs) {
-    return (
-      <AppShell hostCtx={hostCtx} mode={mode}>
-        <LoadingSkeleton />
-      </AppShell>
-    );
-  }
-
   return (
-    <AppContent app={app} toolArgs={toolArgs} hostCtx={hostCtx} mode={mode} />
+    <AppRoot<ToolArgs>
+      appInfo={{ name: "Cadence Trends", version: "1.0.0" }}
+      // Every argument is optional, so no input can be unusable and no
+      // `missingArgsMessage` applies — the window falls back to a default.
+      parseToolInput={(args) => (args as ToolArgs | undefined) ?? {}}
+      loading={<LoadingSkeleton />}
+    >
+      {({ app, toolArgs, hostCtx, mode }) => (
+        <AppContent
+          app={app}
+          toolArgs={toolArgs}
+          hostCtx={hostCtx}
+          mode={mode}
+        />
+      )}
+    </AppRoot>
   );
 }
 

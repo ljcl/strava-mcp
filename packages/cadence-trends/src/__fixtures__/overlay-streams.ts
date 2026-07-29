@@ -1,4 +1,8 @@
-import { type OverlayPoint, type RunSummary } from "../types";
+import {
+  type OverlayPoint,
+  type RunStreamState,
+  type RunSummary,
+} from "../types";
 import { mockRuns } from "./runs";
 
 function generateOverlayPoints(
@@ -26,23 +30,55 @@ function generateOverlayPoints(
 const run10003 = mockRuns.find((r) => r.id === 10003)!;
 const run10013 = mockRuns.find((r) => r.id === 10013)!;
 
-/** Pre-built stream cache for 2 runs: Tempo Intervals (10003) and Intervals 5x1k (10013) */
-export const mockStreamCache = new Map<
-  number,
-  { run: RunSummary; points: OverlayPoint[] }
->([
+const loaded = (run: RunSummary, points: OverlayPoint[]): RunStreamState => ({
+  run,
+  points,
+  loading: false,
+  error: null,
+});
+
+/** Both runs loaded: Tempo Intervals (10003) and Intervals 5x1k (10013). */
+export const mockStreams = new Map<number, RunStreamState>([
   [
     10003,
-    {
-      run: run10003,
-      points: generateOverlayPoints(run10003.distance, 172, 4.5, 50),
-    },
+    loaded(run10003, generateOverlayPoints(run10003.distance, 172, 4.5, 50)),
   ],
+  [
+    10013,
+    loaded(run10013, generateOverlayPoints(run10013.distance, 178, 4.0, 50)),
+  ],
+]);
+
+/** One run drawn, the second still in flight. */
+export const partiallyLoadedStreams = new Map<number, RunStreamState>([
+  [10003, mockStreams.get(10003)!],
+  [10013, { run: run10013, points: null, loading: true, error: null }],
+]);
+
+/** One run drawn, the second failed — it must say so, not just vanish. */
+export const partiallyFailedStreams = new Map<number, RunStreamState>([
+  [10003, mockStreams.get(10003)!],
   [
     10013,
     {
       run: run10013,
-      points: generateOverlayPoints(run10013.distance, 178, 4.0, 50),
+      points: null,
+      loading: false,
+      error: "Error: stream fetch failed",
     },
   ],
+]);
+
+/** Every selected run failed, so there is nothing to draw at all. */
+export const allFailedStreams = new Map<number, RunStreamState>([
+  [
+    10003,
+    {
+      run: run10003,
+      points: null,
+      loading: false,
+      error: "Error: stream fetch failed",
+    },
+  ],
+  [10013, partiallyFailedStreams.get(10013)!],
 ]);

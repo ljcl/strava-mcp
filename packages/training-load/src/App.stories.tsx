@@ -3,11 +3,20 @@ import { MobileCardShell } from "@strava-mcp/ui";
 import { expect, waitFor } from "storybook/test";
 import { mockTrainingLoadData } from "./__fixtures__/weeks";
 import { App } from "./App";
+import { buildLoadSubtitle } from "./normalize";
 
 const meta = preview.meta({ component: App });
 
 export const Default = meta.story({
   args: { app: null, data: mockTrainingLoadData },
+  play: async ({ canvas }) => {
+    // The card opens with a title (#247): scrolled back in a transcript, a
+    // bare chart cannot say which period it belongs to.
+    await expect(canvas.getByText("Training load")).toBeVisible();
+    await expect(
+      canvas.getByText(buildLoadSubtitle(mockTrainingLoadData)),
+    ).toBeVisible();
+  },
 });
 
 /**

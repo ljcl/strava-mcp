@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCadenceSubtitle,
   computeSummaryStats,
   computeZoneStats,
   linearRegression,
@@ -243,5 +244,19 @@ describe("toOverlayPoints", () => {
     const points = toOverlayPoints(overlayData("Ride"));
 
     expect(points[0]?.cadence).toBe(85);
+  });
+});
+
+describe("buildCadenceSubtitle", () => {
+  it("counts runs over the window", () => {
+    expect(buildCadenceSubtitle(18, 6)).toBe("18 runs · last 6 weeks");
+  });
+
+  it("uses singular forms for one run and one week", () => {
+    expect(buildCadenceSubtitle(1, 1)).toBe("1 run · last 1 week");
+  });
+
+  it("still names the window with no runs in it", () => {
+    expect(buildCadenceSubtitle(0, 12)).toBe("0 runs · last 12 weeks");
   });
 });

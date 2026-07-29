@@ -30,7 +30,7 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `packages/segment-progress/` — React + Recharts MCP App charting the athlete's own effort history on one segment
 - `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
   - **Formatters live here, once.** MCP App packages cannot import each other, so a formatter two apps need has exactly one home: `formatting.ts` (`formatClock`, `formatShortDate`, `formatDurationShort`, `formatTime`, `formatPace`, `formatDistance`), alongside the `ramp.ts` precedent. #216 fixed a pace-rollover bug in one of two copies and left the other wrong — neither knip nor Biome can see a genuinely-imported duplicate, so the only defence is not making the copy. Server-side, `apps/server/src/formatters.ts` is the equivalent single home; `utils/running.ts` holds sport-specific transforms only
-- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar, AppShell, CardHeader, EmptyState, ErrorState, LoadingState, Skeleton)
+- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar, AppShell, CardHeader, EmptyState, ErrorState, LoadingState, Skeleton) plus the shared app-shell runtime (`AppRoot`, `useServerToolData`, `useServerToolFetcher`, `useModelContextSync`, `useMobileMode`)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
 - `packages/vite-config/` — Shared Vite config for MCP App single-file builds
 - `packages/tsconfig/` — Shared TypeScript configurations
@@ -177,7 +177,7 @@ The `view-cadence-trends` tool renders an interactive cadence analysis dashboard
 - Bundled as single HTML file via `vite-plugin-singlefile`
 - Served as MCP resource at `ui://cadence-trends/app.html`
 - Calls `get-cadence-trend-data` (app-only) to fetch summary data on mount
-- Calls `get-activity-streams-raw` (app-only) for per-second overlay data on demand
+- Calls `get-activity-streams-raw` (app-only) for per-second overlay data on demand, through the shared `useServerToolFetcher` — one keyed fetch per selected run, each with its own loading, error, and retry (#250)
 - Four views: Trend timeline, Scatter plot, Pace Zones, Overlay comparison
 - Overlay run selection has two entry points sharing App's `toggleRunSelection` (capped at 4): clicking Trend/Scatter dots, and a keyboard/touch-accessible run picker (`RunSelectList.tsx`, #169). Recharts `Cell` dots carry no tabindex/role/key handling, so the picker — a Base UI `ToggleGroup` of toggle chips (roving tabindex, one Tab stop, `aria-pressed` per run) shown under the Trend/Scatter charts — is the accessible alternative rather than fighting SVG focus. Unselected chips disable at the cap so the limit is legible
 
@@ -255,6 +255,43 @@ The `view-segment-progress` tool charts the athlete's own repeated efforts on on
 - Per-effort dots come from a custom `dot` renderer keyed on the row's `highlight` tier (`--color-tier-pr` gold for the personal best, `--color-tier-top10` purple for ranks 2–3, and no top-3 tier at all when there are three efforts or fewer). Deliberately not extra `Scatter` series: Scatter draws a symbol for every row including the null ones, so highlights arrive with phantom points attached
 - `EffortList.tsx` lists the efforts newest-first as Base UI `Collapsible` rows (date, badge, time; pace, gap to best, HR — expanding to rank, moving time, max HR, cadence, power, and the parent activity id). The open row is reported to the host through `useModelContextSync` so the model can name the effort the user is looking at
 - Presentation logic is pure and unit-tested in `src/normalize.ts` (`buildChartRows`, `highlightForRank`, `buildSummaryStats`, the formatters); a11y narration in `src/a11y.ts`, host context sync in `src/contextSummary.ts`, all per the established conventions
+
+## MCP App shell conventions
+
+Every app's `main.tsx` is the same four-branch state machine, so it lives in
+`packages/ui` (`AppShell.tsx`) rather than in each app (#249, #285).
+
+- **`AppRoot`** connects to the host and renders: connect error → unusable input
+  → waiting for input → content. `children` is a render prop, so it only runs
+  once `app` and `toolArgs` are non-null and the content component never
+  re-checks them. Each pre-content state renders inside the same `AppShell` as
+  the loaded app, so the card chrome is stable from first paint (#116).
+- **An app with a required id declares `missingArgsMessage`.** `parseToolInput`
+  returning `null` then means "the host spoke and the input is unusable" — an
+  `ErrorState` naming the missing id, not an endless skeleton. Omit the message
+  only when every argument is optional (cadence-trends, training-load); omitting
+  it on an app that needs an id is what put four apps on a permanent loading
+  skeleton and had segment-progress call the server with `segment_id:
+  undefined`. The classification is pure and unit-tested (`classifyToolInput`);
+  the branches are storied on `AppRootView`, the pure half of `AppRoot`, since a
+  live host is not reachable from Storybook.
+- **Fetching.** `useServerToolData` is the mount-time single fetch every app
+  makes. Anything keyed and on-demand — a stream per selected run — goes through
+  `useServerToolFetcher` instead of a hand-rolled effect (#250). Its state
+  machine is `KeyedFetchStore`, deliberately outside React so its two rules are
+  directly testable: a key is fetched at most once, and only an explicit `retry`
+  re-fires a failed one. Do not reintroduce a "cached or in flight" guard — a
+  failure satisfies neither, so the effect refetches forever.
+- **Every app opens with a `CardHeader`** (#247). In a host transcript the card
+  is otherwise detached from the tool call that produced it. Subtitles are built
+  by a unit-tested helper next to the app's other pure normalizers
+  (`buildSegmentSubtitle` is the pattern).
+- **No-data is `EmptyState`, never a bare chart frame** (#248). Test what the
+  chart actually needs, not just the row count: an activity whose only stream is
+  time parses into points that plot nothing.
+- **Layout comes from `mode`.** `getChartTokens(mode)` serves `chartAspect`
+  along with the other numeric tokens; the parallel `getHostLayout` abstraction
+  is gone (#258). Per-chart margins still stay local.
 
 ## Targeting Mobile for MCP Apps
 
@@ -402,7 +439,7 @@ whichever version is right.
   workspace actually runs. react-is@19 exports every symbol pretty-format@27 imports, so the pin
   is safe in the other direction.
 
-Coverage thresholds (#162): `apps/server`, `packages/data`, and `packages/design-system` set `coverage.thresholds` in their vitest.config.ts, and each `test:coverage` run **auto-ratchets** them: vitest rewrites the numbers to a fixed cushion under measured coverage (5 points for the server, 2 for the ~100% packages), so the floor rises as coverage grows and a genuine drop fails CI. If a coverage run dirties a vitest.config.ts, that's the ratchet — commit it, never hand-edit the numbers. The view-heavy packages are intentionally unthresholded — their component coverage belongs to the story render-path coverage (the browser-mode smoke tests).
+Coverage thresholds (#162): `apps/server`, `packages/data`, `packages/design-system`, and `packages/ui` set `coverage.thresholds` in their vitest.config.ts, and each `test:coverage` run **auto-ratchets** them: vitest rewrites the numbers to a fixed cushion under measured coverage (5 points for the server and ui, 2 for the ~100% packages), so the floor rises as coverage grows and a genuine drop fails CI. If a coverage run dirties a vitest.config.ts, that's the ratchet — commit it, never hand-edit the numbers. The view-heavy packages are intentionally unthresholded — their component coverage belongs to the story render-path coverage (the browser-mode smoke tests). `packages/ui` is the one hybrid: its coverage `include` lists only the hooks and stores (`useServerToolData`, `useServerToolFetcher`, `keyedFetchStore`, `useModelContextSync`, `useMobileMode`), which no story reaches because no app's `main.tsx` has one, while its components stay with the render-path report. Those hooks are tested in a `happy-dom` environment via the 50-line `renderHook` harness in `src/renderHook.ts` — the repo has no React testing library and needs none for this.
 
 ## Commands
 

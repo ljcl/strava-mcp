@@ -1,15 +1,27 @@
 export {
   type AppMode,
+  AppRoot,
+  type AppRootProps,
+  AppRootView,
+  type AppRootViewProps,
   AppShell,
   type AppShellProps,
+  type ConnectedHostRoot,
+  classifyToolInput,
   type DisplayModeApp,
   type HostRoot,
+  type ToolInputOutcome,
   type UseHostRootOptions,
   useHostRoot,
 } from "./AppShell";
 export { CardHeader, type CardHeaderProps } from "./CardHeader";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { ErrorState, type ErrorStateProps } from "./ErrorState";
+export {
+  type KeyedFetch,
+  type KeyedFetchState,
+  KeyedFetchStore,
+} from "./keyedFetchStore";
 export { Legend, LegendItem } from "./Legend";
 export { LoadingState, type LoadingStateProps } from "./LoadingState";
 export { MobileCardShell } from "./MobileCardShell";
@@ -37,3 +49,7 @@ export {
   type ServerToolData,
   useServerToolData,
 } from "./useServerToolData";
+export {
+  type ServerToolFetcher,
+  useServerToolFetcher,
+} from "./useServerToolFetcher";
