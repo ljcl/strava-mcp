@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.10.1](https://github.com/ljcl/strava-mcp/compare/v2.10.0...v2.10.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* one loading, error, empty, and layout convention across the MCP Apps ([#307](https://github.com/ljcl/strava-mcp/issues/307)) ([6050282](https://github.com/ljcl/strava-mcp/commit/60502825c38d99756c320a0adfd0332a1f8e4cd8))
+
 ## [2.10.0](https://github.com/ljcl/strava-mcp/compare/v2.9.0...v2.10.0) (2026-07-29)
 
 
