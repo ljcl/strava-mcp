@@ -34,6 +34,10 @@ export default defineMain({
       directory: "../../../packages/training-load/src/",
     },
     {
+      titlePrefix: "Fitness Trend",
+      directory: "../../../packages/fitness-trend/src/",
+    },
+    {
       titlePrefix: "Compare Activities",
       directory: "../../../packages/compare-activities/src/",
     },

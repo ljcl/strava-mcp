@@ -14,6 +14,7 @@
     "@strava-mcp/cadence-trends": "workspace:*",
     "@strava-mcp/compare-activities": "workspace:*",
     "@strava-mcp/design-system": "workspace:*",
+    "@strava-mcp/fitness-trend": "workspace:*",
     "@strava-mcp/route-map": "workspace:*",
     "@strava-mcp/segment-progress": "workspace:*",
     "@strava-mcp/training-load": "workspace:*",

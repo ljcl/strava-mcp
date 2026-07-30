@@ -1,0 +1,8 @@
+.projected {
+  margin-bottom: var(--space-1);
+  font-size: var(--font-text-xs-size);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-wide);
+}

@@ -17,6 +17,11 @@ import {
   dominantBucket,
   mapActivityZones,
 } from "./activityZones";
+import { buildFitnessTrend } from "./fitnessTrend";
+import {
+  type FitnessTrendAppData,
+  mapFitnessTrendApp,
+} from "./fitnessTrendApp";
 import { formatDuration } from "./formatters";
 import {
   cumulativeDistances,
@@ -76,6 +81,7 @@ import { getRunningSummaryTool } from "./tools/getRunningSummary";
 import { getSegmentTool } from "./tools/getSegment";
 import { getSegmentEffortTool } from "./tools/getSegmentEffort";
 import { getSegmentProfileTool } from "./tools/getSegmentProfile";
+import { getSplitAnalysisTool } from "./tools/getSplitAnalysis";
 import { getTrainingLoadTool } from "./tools/getTrainingLoad";
 import { listAthleteRoutesTool } from "./tools/listAthleteRoutes";
 import { listSegmentEffortsTool } from "./tools/listSegmentEfforts";
@@ -181,6 +187,51 @@ const segmentProgressInput = z.object({
     .describe("Only include efforts ending before this ISO 8601 date-time."),
 });
 
+/**
+ * Fitness-trend args, shared by the view and data tools (#262). Mirrors the
+ * `get-fitness-trend` text tool's inputs, since both surfaces run one solve:
+ * a lookback window, how far to project, and an optional taper target. The
+ * projection defaults to a fortnight here rather than the text tool's zero —
+ * the dashed continuation is half of what the chart is for.
+ */
+const fitnessTrendInput = z.object({
+  days: z
+    .number()
+    .int()
+    .positive()
+    .max(365)
+    .default(90)
+    .describe(
+      "Days to look back (default 90; CTL needs ~90 days of runway, max 365)",
+    ),
+  projectDays: z
+    .number()
+    .int()
+    .min(0)
+    .max(60)
+    .default(14)
+    .describe(
+      "Days to project past today assuming rest (default 14; ignored when targetDate is set)",
+    ),
+  targetDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, {
+      error: "Invalid target date. Use YYYY-MM-DD.",
+    })
+    .optional()
+    .describe(
+      "Race or peak date (YYYY-MM-DD) to chart a solved taper toward. Omit for a rest projection.",
+    ),
+  targetTsb: z
+    .number()
+    .min(-40)
+    .max(40)
+    .default(10)
+    .describe(
+      "Form (TSB) to arrive at on targetDate (default +10; +5 to +15 is the usual race window)",
+    ),
+});
+
 const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   "view-activity-chart": z.object({
     activity_id: stravaIdInput("The Strava activity ID to visualize."),
@@ -208,6 +259,8 @@ const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
   }),
   "view-training-load": z.object({ days: daysInput }),
   "get-training-load-data": z.object({ days: daysInput }),
+  "view-fitness-trend": fitnessTrendInput,
+  "get-fitness-trend-data": fitnessTrendInput,
   "view-activity-zones": z.object({
     activity_id: stravaIdInput("The Strava activity ID."),
   }),
@@ -308,6 +361,11 @@ const APP_RESOURCES: AppResource[] = [
     name: "Segment Progress",
     htmlPath: appHtmlRequire.resolve("@strava-mcp/segment-progress/app.html"),
   },
+  {
+    uri: "ui://fitness-trend/app.html",
+    name: "Fitness Trend",
+    htmlPath: appHtmlRequire.resolve("@strava-mcp/fitness-trend/app.html"),
+  },
 ];
 
 /**
@@ -355,6 +413,7 @@ const STRAVA_TOOLS = [
   getRunningSummaryTool,
   getAerobicAnalysisTool,
   getHillAnalysisTool,
+  getSplitAnalysisTool,
   getIntervalAnalysisTool,
   getTrainingLoadTool,
   getFitnessTrendTool,
@@ -526,6 +585,36 @@ function buildToolDefs(): ToolDef[] {
     _meta: {
       ui: {
         resourceUri: "ui://training-load/app.html",
+        visibility: ["app"],
+      },
+    },
+  });
+
+  defs.push({
+    name: "view-fitness-trend",
+    description:
+      "Open an interactive fitness/fatigue/form chart (the performance-management chart): fitness (CTL) and fatigue (ATL) over the lookback window with form (TSB) on its own axis, deep-fatigue, freshness, and steep-ramp periods shaded, and a dashed continuation past today. " +
+      "Pass targetDate to chart a solved taper landing on targetTsb on that day, week by week; omit it for a rest projection. " +
+      "Prefer this over the text-only get-fitness-trend when the user wants to see whether they are peaking or digging a hole.",
+    inputSchema: toInputSchema(APP_TOOL_INPUT_SCHEMAS["view-fitness-trend"]!),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: { resourceUri: "ui://fitness-trend/app.html" },
+    },
+  });
+
+  defs.push({
+    name: "get-fitness-trend-data",
+    description:
+      "Internal data feed for the fitness-trend UI: returns the per-day CTL/ATL/TSB series, the forward projection, any solved taper plan (weekly loads and the days they produce), and the dated deep-fatigue / freshness / steep-ramp bands as JSON. " +
+      "The view-fitness-trend app calls this; not intended for direct model use.",
+    inputSchema: toInputSchema(
+      APP_TOOL_INPUT_SCHEMAS["get-fitness-trend-data"]!,
+    ),
+    annotations: READ_ONLY,
+    _meta: {
+      ui: {
+        resourceUri: "ui://fitness-trend/app.html",
         visibility: ["app"],
       },
     },
@@ -841,6 +930,87 @@ async function handleViewTrainingLoad(
     "",
     "[Interactive training load chart rendered above]",
   ];
+  return { content: [{ type: "text", text: lines.join("\n") }] };
+}
+
+/**
+ * Shared fetch + solve for the fitness-trend view and data tools (#262).
+ * Cross-sport by design: relative effort is heart-rate based, so whole-body
+ * load is what TSB should reflect — unlike the running-only training-load
+ * feed above.
+ */
+async function loadFitnessTrendAppData(
+  token: string,
+  args: Record<string, unknown>,
+): Promise<FitnessTrendAppData> {
+  const days = Number(args.days) || 90;
+  const projectDays = Number(args.projectDays ?? 14);
+  const targetDate =
+    typeof args.targetDate === "string" ? args.targetDate : undefined;
+  const targetTsb = Number(args.targetTsb ?? 10);
+
+  const end = new Date();
+  const activities = await getAllActivitiesFn(token, {
+    after: Math.floor((end.getTime() - days * 24 * 60 * 60 * 1000) / 1000),
+    before: Math.floor(end.getTime() / 1000),
+  });
+
+  const trend = buildFitnessTrend(activities, {
+    endDate: end.toISOString().split("T")[0]!,
+    days,
+    projectDays,
+    taper: targetDate ? { targetDate, targetTsb } : undefined,
+  });
+
+  return mapFitnessTrendApp(trend, {
+    days,
+    activitiesIncluded: activities.length,
+    activitiesMissingLoad: activities.filter((a) => a.suffer_score == null)
+      .length,
+  });
+}
+
+async function handleGetFitnessTrendData(
+  args: Record<string, unknown>,
+  token: string,
+): Promise<ToolCallResult> {
+  const data = await loadFitnessTrendAppData(token, args);
+  return { content: [{ type: "text", text: JSON.stringify(data) }] };
+}
+
+async function handleViewFitnessTrend(
+  args: Record<string, unknown>,
+  token: string,
+): Promise<ToolCallResult> {
+  const data = await loadFitnessTrendAppData(token, args);
+  const current = data.current;
+  const lines = [`Fitness Trend (last ${data.days} days)`];
+
+  if (current) {
+    lines.push(
+      `Fitness (CTL) ${current.ctl}, fatigue (ATL) ${current.atl}, form (TSB) ${current.tsb >= 0 ? "+" : ""}${current.tsb}`,
+    );
+  }
+  if (data.taper) {
+    const taper = data.taper;
+    lines.push(
+      `Taper to ${taper.targetDate}: ${taper.weeks
+        .map((week) => `week ${week.week} ${week.dailyLoad}/day`)
+        .join(
+          ", ",
+        )} — lands TSB ${taper.achievedTsb >= 0 ? "+" : ""}${taper.achievedTsb}`,
+    );
+    if (!taper.feasible && taper.note) lines.push(`Warning: ${taper.note}`);
+  } else if (data.tsbPositiveDate) {
+    lines.push(
+      `Resting from here, form turns positive on ${data.tsbPositiveDate}`,
+    );
+  }
+  for (const flag of data.flags) {
+    lines.push(`Flag: ${flag}`);
+  }
+
+  lines.push("", "[Interactive fitness trend chart rendered above]");
   return { content: [{ type: "text", text: lines.join("\n") }] };
 }
 
@@ -1499,6 +1669,8 @@ const APP_TOOL_HANDLERS: Record<
   "get-activity-segments-data": handleGetActivitySegmentsData,
   "view-training-load": handleViewTrainingLoad,
   "get-training-load-data": handleGetTrainingLoadData,
+  "view-fitness-trend": handleViewFitnessTrend,
+  "get-fitness-trend-data": handleGetFitnessTrendData,
   "view-activity-zones": handleViewActivityZones,
   "get-activity-zones-data": handleGetActivityZonesData,
   "view-segment-progress": handleViewSegmentProgress,

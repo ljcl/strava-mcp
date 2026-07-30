@@ -230,6 +230,38 @@ const FitnessTrendDaySchema = z.object({
   atl: z.number().describe("Acute training load ('fatigue'), 7-day EWA"),
   tsb: z.number().describe("Training stress balance ('form'): CTL − ATL"),
 });
+const TaperWeekSchema = z.object({
+  week: z.number().int().describe("1-based week of the plan"),
+  start_date: z.string(),
+  end_date: z.string(),
+  days: z
+    .number()
+    .int()
+    .describe("Days in this week (the last week can be short)"),
+  daily_load: z.number().describe("Relative effort to average per day"),
+  week_load: z.number().describe("Total relative effort for the week"),
+  pct_of_recent: z
+    .number()
+    .nullable()
+    .describe("Week's load as a % of the trailing 28-day average, if any"),
+});
+const TaperPlanSchema = z.object({
+  target_date: z.string(),
+  target_tsb: z.number(),
+  achieved_tsb: z
+    .number()
+    .describe("TSB the plan lands on — equals target_tsb unless clamped"),
+  feasible: z.boolean().describe("False when the target is out of reach"),
+  note: z.string().nullable().describe("Why the plan was clamped, if it was"),
+  weeks: z.array(TaperWeekSchema),
+  days: z
+    .array(FitnessTrendDaySchema)
+    .describe("Day-by-day CTL/ATL/TSB under the plan"),
+  total_load: z.number(),
+  recent_daily_load: z
+    .number()
+    .describe("Trailing 28-day average daily load, the pct_of_recent basis"),
+});
 export const FitnessTrendOutputSchema = z.object({
   period: z.object({
     days: z.number().int(),
@@ -244,15 +276,33 @@ export const FitnessTrendOutputSchema = z.object({
     })
     .nullable(),
   flags: z.array(z.string()),
+  bands: z
+    .array(
+      z.object({
+        kind: z.enum(["deep-fatigue", "fresh", "steep-ramp"]),
+        start_date: z.string(),
+        end_date: z.string(),
+        days: z.number().int(),
+        reason: z.string(),
+      }),
+    )
+    .describe(
+      "Dated stretches worth annotating: deep fatigue, freshness, steep CTL ramps. `flags` is the subset running to end_date",
+    ),
   warnings: z.array(z.string()),
   daily: z.array(FitnessTrendDaySchema),
   projection: z
     .array(FitnessTrendDaySchema)
-    .describe("Zero-load decay projection past end_date; empty if none"),
+    .describe(
+      "Decay projection past end_date (zero load unless planned); empty if none",
+    ),
   tsb_positive_date: z
     .string()
     .nullable()
     .describe("First projected date TSB crosses ≥ 0, if projected"),
+  taper: TaperPlanSchema.nullable().describe(
+    "Solved load taper to the requested target date, or null if none was requested",
+  ),
   activities_included: z.number().int(),
   activities_missing_load: z.number().int(),
 });
@@ -309,6 +359,90 @@ export const HillAnalysisOutputSchema = z.object({
     descent_count: z.number().int(),
     climb_distance_m: z.number(),
     climb_gain_m: z.number(),
+  }),
+  warnings: z.array(z.string()),
+});
+
+// ---------- get-split-analysis ----------
+const SplitShapeSchema = z.enum(["even", "positive", "negative"]);
+const SplitSchema = z.object({
+  split: z.number().int().describe("1-based split number"),
+  start_m: z.number(),
+  end_m: z.number(),
+  distance_m: z.number(),
+  partial: z
+    .boolean()
+    .describe("True on a trailing split shorter than a full unit"),
+  moving_time_s: z.number().int(),
+  elapsed_time_s: z.number().int(),
+  pace_sec_per_unit: z
+    .number()
+    .nullable()
+    .describe("Moving pace per split unit (extrapolated on a partial split)"),
+  pace_formatted: z.string().nullable(),
+  gap_pace_sec_per_unit: z
+    .number()
+    .nullable()
+    .describe("Grade-adjusted (flat-equivalent) pace per split unit"),
+  gap_pace_formatted: z.string().nullable(),
+  elevation_change_m: z.number().nullable(),
+  avg_grade_pct: z.number().nullable(),
+  avg_hr: z.number().nullable(),
+  avg_cadence: z
+    .number()
+    .nullable()
+    .describe("spm (doubled) for runs, rpm for rides"),
+  avg_watts: z.number().nullable(),
+});
+export const SplitAnalysisOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  date: z.string(),
+  type: z.string(),
+  unit: z.enum(["km", "mile"]),
+  verdict: z
+    .object({
+      shape: SplitShapeSchema.describe(
+        "On the clock: positive = second half slower",
+      ),
+      gap_shape: SplitShapeSchema.describe("Same, corrected for grade"),
+      first_half_pace_sec_per_unit: z.number(),
+      second_half_pace_sec_per_unit: z.number(),
+      first_half_pace_formatted: z.string().nullable(),
+      second_half_pace_formatted: z.string().nullable(),
+      first_half_gap_pace_sec_per_unit: z.number().nullable(),
+      second_half_gap_pace_sec_per_unit: z.number().nullable(),
+      delta_pct: z
+        .number()
+        .describe("Pace change second half vs first; positive = slower"),
+      gap_delta_pct: z.number().nullable().describe("Same, grade-adjusted"),
+      terrain_pct: z
+        .number()
+        .nullable()
+        .describe(
+          "Percentage points of delta_pct the terrain accounts for (delta − gap delta)",
+        ),
+      first_half_elevation_change_m: z.number().nullable(),
+      second_half_elevation_change_m: z.number().nullable(),
+      interpretation: z.string(),
+    })
+    .nullable()
+    .describe("Null when either half is too short for a verdict to mean much"),
+  splits: z.array(SplitSchema),
+  fastest_split: z
+    .number()
+    .int()
+    .nullable()
+    .describe("Split number, ignoring a trailing partial split"),
+  slowest_split: z.number().int().nullable(),
+  totals: z.object({
+    distance_m: z.number(),
+    moving_time_s: z.number().int(),
+    elapsed_time_s: z.number().int(),
+    elevation_gain_m: z.number(),
+    avg_pace_sec_per_unit: z.number().nullable(),
+    avg_pace_formatted: z.string().nullable(),
+    avg_gap_pace_sec_per_unit: z.number().nullable(),
   }),
   warnings: z.array(z.string()),
 });
