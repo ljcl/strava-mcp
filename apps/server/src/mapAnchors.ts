@@ -61,6 +61,26 @@ export function indexAtDistance(
 const EARTH_RADIUS_M = 6371000;
 
 /**
+ * Great-circle distance in metres between two `[lat, lng]` points. The one
+ * haversine in the server: `cumulativeDistances` below sums it, and
+ * `routeSegments.ts` measures how far an explored segment's endpoint sits from
+ * the course with it.
+ */
+export function haversineMeters(
+  a: [number, number],
+  b: [number, number],
+): number {
+  const dLat = (b[0] - a[0]) * DEG_TO_RAD;
+  const dLng = (b[1] - a[1]) * DEG_TO_RAD;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(a[0] * DEG_TO_RAD) *
+      Math.cos(b[0] * DEG_TO_RAD) *
+      Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/**
  * Cumulative haversine distance (metres) along a `[lat, lng]` track, aligned
  * index-for-index with the coordinates. The distance-anchor fallback when no
  * recorded distance stream exists: saved routes and polyline-only activities
@@ -74,16 +94,7 @@ export function cumulativeDistances(
   let total = 0;
   for (let i = 0; i < coordinates.length; i++) {
     if (i > 0) {
-      const [lat1, lng1] = coordinates[i - 1]!;
-      const [lat2, lng2] = coordinates[i]!;
-      const dLat = (lat2 - lat1) * DEG_TO_RAD;
-      const dLng = (lng2 - lng1) * DEG_TO_RAD;
-      const a =
-        Math.sin(dLat / 2) ** 2 +
-        Math.cos(lat1 * DEG_TO_RAD) *
-          Math.cos(lat2 * DEG_TO_RAD) *
-          Math.sin(dLng / 2) ** 2;
-      total += 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(a));
+      total += haversineMeters(coordinates[i - 1]!, coordinates[i]!);
     }
     out.push(total);
   }

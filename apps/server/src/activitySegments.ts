@@ -9,6 +9,12 @@ import { isRunningActivity } from "./utils/running";
 export interface ActivitySegmentRow {
   name: string;
   segmentId: string;
+  /**
+   * The effort's own id, distinct from the segment's. Exposed so the model can
+   * chain straight from a row into `compare-segment-efforts` (#269) instead of
+   * having to re-derive it from the activity.
+   */
+  effortId: string;
   distanceMeters: number;
   elapsedTime: number;
   movingTime: number;
@@ -55,6 +61,7 @@ export function mapActivitySegments(
     .map((e) => ({
       name: e.name,
       segmentId: String(e.segment?.id ?? ""),
+      effortId: String(e.id ?? ""),
       distanceMeters: e.distance,
       elapsedTime: e.elapsed_time,
       movingTime: e.moving_time,

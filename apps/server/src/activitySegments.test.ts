@@ -191,6 +191,23 @@ describe("mapActivitySegments", () => {
     expect(data.segments[1]!.climbCategory).toBeNull();
   });
 
+  // #269: the effort's own id, so the model can chain a row straight into
+  // compare-segment-efforts instead of re-deriving it from the activity.
+  it("exposes the effort id alongside the segment id", () => {
+    const data = mapActivitySegments(
+      fakeActivity({
+        segment_efforts: [
+          effort({ id: "9001" }),
+          effort({ id: undefined, start_index: 1 }),
+        ],
+      }),
+    );
+
+    expect(data.segments[0]!.effortId).toBe("9001");
+    expect(data.segments[0]!.effortId).not.toBe(data.segments[0]!.segmentId);
+    expect(data.segments[1]!.effortId).toBe("");
+  });
+
   it("falls back to sport_type then null for activityType", () => {
     const withSport = mapActivitySegments(
       fakeActivity({

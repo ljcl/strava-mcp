@@ -510,12 +510,15 @@ The server exposes the following MCP tools:
 
 | Tool | Description |
 | ---- | ----------- |
-| `list-starred-segments` | List starred segments |
+| `list-starred-segments` | List starred segments (paged; discloses when more are available) |
 | `get-segment` | Get detailed segment info |
+| `get-segment-profile` | Gradient breakdown along a segment: per-band grade, sustained climbs, crux position, and shape |
 | `explore-segments` | Search for segments in a geographic area |
+| `find-segments-on-route` | Segments a route or past activity actually passes through, in course order |
 | `star-segment` | Star or unstar a segment |
 | `get-segment-effort` | Get details for a specific segment effort |
 | `list-segment-efforts` | List athlete's efforts on a segment |
+| `compare-segment-efforts` | Compare two efforts on one segment per third, showing where the time went |
 
 ### Route Tools
 
@@ -523,6 +526,7 @@ The server exposes the following MCP tools:
 | ---- | ----------- |
 | `list-athlete-routes` | List created routes |
 | `get-route` | Get detailed route info |
+| `get-route-preview` | Preview a saved route's climbs: each climb's position, grade, and length, plus the crux |
 | `export-route-gpx` | Export route as GPX file |
 | `export-route-tcx` | Export route as TCX file |
 

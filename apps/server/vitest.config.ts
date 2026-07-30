@@ -22,10 +22,10 @@ export default defineConfig({
       // equal floor(actual − 5)); commit the rewrite, don't hand-edit.
       thresholds: {
         autoUpdate: (newThreshold: number) => Math.floor(newThreshold - 5),
-        statements: 80,
-        branches: 69,
-        functions: 83,
-        lines: 81,
+        statements: 85,
+        branches: 73,
+        functions: 86,
+        lines: 86,
       },
     },
   },

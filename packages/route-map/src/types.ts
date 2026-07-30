@@ -45,8 +45,10 @@ export interface RouteMapData {
   start: [number, number] | null;
   /** Last point of the path, or null when there is no geometry. */
   end: [number, number] | null;
-  /** Metric streams aligned with `coordinates`; absent for saved routes and
-   * activities without GPS streams. */
+  /** Metric streams aligned with `coordinates`. Activities carry the full set;
+   * saved routes carry `distance` + `altitude` from their stored profile (#264),
+   * so the elevation strip and elevation colouring work for them too. Absent
+   * for activities without GPS streams and for routes with no stored profile. */
   streams?: RouteStreams;
   /** Annotation anchors resolved server-side. Laps, segments, and photos need
    * stream data; waypoints resolve for any geometry (routes included). */

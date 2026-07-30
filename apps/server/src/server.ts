@@ -28,6 +28,7 @@ import {
 } from "./mapAnchors";
 import { decodePolyline } from "./polyline";
 import { getPrompt, listPrompts } from "./prompts";
+import { loadRouteProfile } from "./routeProfile";
 import {
   buildSegmentProgress,
   type SegmentProgressData,
@@ -52,11 +53,13 @@ import {
   buildComparison,
   compareActivitiesTool,
 } from "./tools/compareActivities";
+import { compareSegmentEffortsTool } from "./tools/compareSegmentEfforts";
 import { createActivityTool } from "./tools/createActivity";
 import { exploreSegments } from "./tools/exploreSegments";
 import { exportActivityGpx } from "./tools/exportActivityGpx";
 import { exportRouteGpx } from "./tools/exportRouteGpx";
 import { exportRouteTcx } from "./tools/exportRouteTcx";
+import { findSegmentsOnRouteTool } from "./tools/findSegmentsOnRoute";
 import { getActivityLapsTool } from "./tools/getActivityLaps";
 import { getActivityPhotosTool } from "./tools/getActivityPhotos";
 import { getActivityZonesTool } from "./tools/getActivityZones";
@@ -68,9 +71,11 @@ import { getHillAnalysisTool } from "./tools/getHillAnalysis";
 import { getIntervalAnalysisTool } from "./tools/getIntervalAnalysis";
 import { getRacePredictionTool } from "./tools/getRacePrediction";
 import { getRouteTool } from "./tools/getRoute";
+import { getRoutePreviewTool } from "./tools/getRoutePreview";
 import { getRunningSummaryTool } from "./tools/getRunningSummary";
 import { getSegmentTool } from "./tools/getSegment";
 import { getSegmentEffortTool } from "./tools/getSegmentEffort";
+import { getSegmentProfileTool } from "./tools/getSegmentProfile";
 import { getTrainingLoadTool } from "./tools/getTrainingLoad";
 import { listAthleteRoutesTool } from "./tools/listAthleteRoutes";
 import { listSegmentEffortsTool } from "./tools/listSegmentEfforts";
@@ -331,12 +336,16 @@ const STRAVA_TOOLS = [
   updateActivityTool,
   listStarredSegments,
   getSegmentTool,
+  getSegmentProfileTool,
   exploreSegments,
+  findSegmentsOnRouteTool,
   starSegment,
   getSegmentEffortTool,
   listSegmentEffortsTool,
+  compareSegmentEffortsTool,
   listAthleteRoutesTool,
   getRouteTool,
+  getRoutePreviewTool,
   exportRouteGpx,
   exportRouteTcx,
   exportActivityGpx,
@@ -1192,9 +1201,24 @@ async function loadRouteMapGeometry(
     };
   }
 
-  const route = await getRouteById(token, routeId as string);
+  const [route, profile] = await Promise.all([
+    getRouteById(token, routeId as string),
+    options.includeStreams
+      ? loadRouteProfile(token, routeId as string)
+      : Promise.resolve(null),
+  ]);
   const encoded = route.map?.polyline || route.map?.summary_polyline || "";
-  const coordinates = decodePolyline(encoded);
+  // Prefer the profile's own geometry: it is index-aligned with the elevation,
+  // so the app can colour the track and draw the elevation strip. Fall back to
+  // the polyline for a route whose profile arrived without coordinates.
+  const coordinates =
+    profile && profile.coordinates.length >= 2
+      ? profile.coordinates
+      : decodePolyline(encoded);
+  const streams: RouteMapStreams | undefined =
+    profile && profile.altitude.length === coordinates.length
+      ? { distance: profile.distance, altitude: profile.altitude }
+      : undefined;
   return {
     source: "route",
     id: String(route.id),
@@ -1205,6 +1229,7 @@ async function loadRouteMapGeometry(
     coordinates,
     start: coordinates[0] ?? null,
     end: coordinates[coordinates.length - 1] ?? null,
+    ...(streams ? { streams } : {}),
   };
 }
 

@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  type GradientProfile,
+  type SustainedStretch,
+} from "../gradientProfile";
 import { type StravaStats } from "../stravaClient";
 
 // ---------- get-athlete-stats ----------
@@ -542,4 +546,198 @@ export const ActivityLapsOutputSchema = z.object({
   sport_type: z.string(),
   lap_count: z.number().int(),
   laps: z.array(LapEntrySchema),
+});
+
+// ---------- shared gradient profile (get-segment-profile, get-route-preview) ----------
+// One schema for both because both answer the same question over the same
+// distance + altitude pair — a segment's stored streams and a saved route's
+// (#264, #266). Keeping the payload identical is what lets the two tools share
+// `gradientProfile.ts` and their text formatting.
+const GradientBandSchema = z.object({
+  start_m: z.number(),
+  end_m: z.number(),
+  length_m: z.number(),
+  grade_pct: z.number(),
+  elevation_change_m: z.number(),
+});
+const SustainedStretchSchema = z.object({
+  start_m: z.number(),
+  end_m: z.number(),
+  length_m: z.number(),
+  grade_pct: z.number(),
+  elevation_change_m: z.number(),
+  position_fraction: z
+    .number()
+    .describe("Midpoint as a fraction (0-1) of the course length"),
+});
+export const GradientProfileOutputSchema = z.object({
+  length_m: z.number(),
+  elevation_gain_m: z.number(),
+  elevation_loss_m: z.number(),
+  net_elevation_change_m: z.number(),
+  min_altitude_m: z.number(),
+  max_altitude_m: z.number(),
+  avg_grade_pct: z.number(),
+  band_length_m: z.number(),
+  shape: z
+    .enum([
+      "flat",
+      "steady",
+      "front-loaded",
+      "back-loaded",
+      "rolling",
+      "descending",
+    ])
+    .describe("How the climbing is distributed along the course"),
+  bands: z.array(GradientBandSchema),
+  climbs: z.array(SustainedStretchSchema),
+  steepest: SustainedStretchSchema.nullable().describe(
+    "Steepest sustained window — the crux",
+  ),
+});
+export type GradientProfileOutput = z.infer<typeof GradientProfileOutputSchema>;
+
+/** camelCase profile → the snake_case payload both profile tools return. */
+export function toGradientProfileOutput(
+  profile: GradientProfile,
+): GradientProfileOutput {
+  const stretch = (s: SustainedStretch) => ({
+    start_m: s.startM,
+    end_m: s.endM,
+    length_m: s.lengthM,
+    grade_pct: s.gradePct,
+    elevation_change_m: s.elevationChangeM,
+    position_fraction: s.positionFraction,
+  });
+  return {
+    length_m: profile.lengthM,
+    elevation_gain_m: profile.elevationGainM,
+    elevation_loss_m: profile.elevationLossM,
+    net_elevation_change_m: profile.netElevationChangeM,
+    min_altitude_m: profile.minAltitudeM,
+    max_altitude_m: profile.maxAltitudeM,
+    avg_grade_pct: profile.avgGradePct,
+    band_length_m: profile.bandLengthM,
+    shape: profile.shape,
+    bands: profile.bands.map((b) => ({
+      start_m: b.startM,
+      end_m: b.endM,
+      length_m: b.lengthM,
+      grade_pct: b.gradePct,
+      elevation_change_m: b.elevationChangeM,
+    })),
+    climbs: profile.climbs.map(stretch),
+    steepest: profile.steepest ? stretch(profile.steepest) : null,
+  };
+}
+
+// ---------- get-segment-profile ----------
+export const SegmentProfileOutputSchema = z.object({
+  segment_id: z.string(),
+  name: z.string(),
+  activity_type: z.string(),
+  climb_category: z.number().int().nullable(),
+  profile: GradientProfileOutputSchema,
+  warnings: z.array(z.string()),
+});
+
+// ---------- get-route-preview ----------
+export const RoutePreviewOutputSchema = z.object({
+  route_id: z.string(),
+  name: z.string(),
+  type: z.string(),
+  distance_m: z.number(),
+  elevation_gain_m: z
+    .number()
+    .describe("Strava's stored figure for the route, not the derived one"),
+  elevation_source: z
+    .enum(["streams", "gpx"])
+    .describe("Where the elevation profile came from"),
+  profile: GradientProfileOutputSchema,
+  warnings: z.array(z.string()),
+});
+
+// ---------- find-segments-on-route ----------
+const OnCourseSegmentSchema = z.object({
+  segment_id: z.string(),
+  name: z.string(),
+  at_m: z.number().describe("Metres into the course where the segment starts"),
+  distance_m: z.number(),
+  avg_grade_pct: z.number(),
+  elev_difference_m: z.number(),
+  climb_category: z.number().int(),
+  climb_category_desc: z.string(),
+  starred: z.boolean(),
+  off_course_m: z
+    .number()
+    .describe("How far the segment's endpoints sit from the course"),
+  your_effort: z
+    .object({
+      elapsed_time_s: z.number().int(),
+      pr_rank: z.number().int().nullable(),
+      kom_rank: z.number().int().nullable(),
+    })
+    .nullable()
+    .describe("Set only when scanning an activity you have already run"),
+});
+export const FindSegmentsOnRouteOutputSchema = z.object({
+  source: z.enum(["activity", "route"]),
+  id: z.string(),
+  name: z.string(),
+  activity_type: z.string().nullable(),
+  distance_m: z.number(),
+  tiles_searched: z.number().int(),
+  tile_length_m: z.number(),
+  tolerance_m: z.number(),
+  segment_count: z.number().int(),
+  segments: z.array(OnCourseSegmentSchema),
+  warnings: z.array(z.string()),
+});
+
+// ---------- compare-segment-efforts ----------
+/** Per-effort pairs are ordered [effort 1, effort 2] throughout. */
+const EffortPairSchema = z.tuple([z.number(), z.number()]);
+const NullableEffortPairSchema = z.tuple([
+  z.number().nullable(),
+  z.number().nullable(),
+]);
+const ComparedEffortSchema = z.object({
+  effort_id: z.string(),
+  activity_id: z.string(),
+  date: z.string(),
+  elapsed_time_s: z.number().int(),
+  compared_seconds: z
+    .number()
+    .describe("Elapsed seconds over the distance both efforts share"),
+  pr_rank: z.number().int().nullable(),
+  avg_heartrate: z.number().nullable(),
+});
+const DeltaPointSchema = z.object({
+  distance_m: z.number(),
+  delta_seconds: z
+    .number()
+    .describe("effort 2 − effort 1; negative = effort 2 ahead"),
+});
+export const CompareSegmentEffortsOutputSchema = z.object({
+  segment_id: z.string(),
+  segment_name: z.string(),
+  compared_distance_m: z.number(),
+  effort_1: ComparedEffortSchema,
+  effort_2: ComparedEffortSchema,
+  total_delta_seconds: z.number(),
+  thirds: z.array(
+    z.object({
+      label: z.enum(["first", "middle", "last"]),
+      start_m: z.number(),
+      end_m: z.number(),
+      seconds: EffortPairSchema,
+      pace_sec_per_km: NullableEffortPairSchema,
+      avg_hr: NullableEffortPairSchema,
+      delta_seconds: z.number(),
+    }),
+  ),
+  delta_curve: z.array(DeltaPointSchema),
+  best_for_effort_2: DeltaPointSchema.nullable(),
+  worst_for_effort_2: DeltaPointSchema.nullable(),
+  warnings: z.array(z.string()),
 });
