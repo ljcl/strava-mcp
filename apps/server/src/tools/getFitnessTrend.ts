@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { buildFitnessTrend, type FitnessTrendDay } from "../fitnessTrend";
+import {
+  buildFitnessTrend,
+  type FitnessTrendDay,
+  type TaperWeek,
+} from "../fitnessTrend";
 import { getAllActivities } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
 import { FitnessTrendOutputSchema, warnOnSchemaDrift } from "./outputs";
@@ -19,7 +23,9 @@ fetches:
 Use Cases:
 - "When does my form (TSB) return positive, and does it align with my next quality day?"
 - Judge whether a training block is digging too deep (sustained very negative TSB)
-- Time a taper: project forward assuming rest to find the fresh date
+- Plan a taper: "my race is on 2026-09-13 — what should the next three weeks
+  look like so I arrive at TSB +10 instead of overcooked or detrained?"
+  (pass targetDate, and targetTsb if you want something other than +10)
 
 Parameters:
 - days (optional): lookback window (default 90, max 365). CTL starts from zero
@@ -29,8 +35,18 @@ Parameters:
   is usually what you want. Pass e.g. ["Run"] to isolate one sport
 - projectDays (optional, default 0, max 60): also project TSB forward assuming
   zero load, answering "when do I return to fresh if I rest?"
+- targetDate (optional, YYYY-MM-DD): solve a load taper landing on targetTsb on
+  this date. Returns a week-by-week relative-effort plan (each week stepped down
+  toward the date, and compared to what the athlete has recently been averaging)
+  plus the daily CTL/ATL/TSB it produces. Reduced load, not rest
+- targetTsb (optional, default 10): form to arrive at on targetDate. +5 to +15
+  is the usual race window; higher means fresher but more fitness shed
 
 Notes:
+- A taper that even complete rest cannot reach in time is reported as such,
+  with the form rest would actually land on — the tool does not invent a plan
+- The taper plan is prescriptive load, not recorded load: it says how much
+  relative effort to spend, not which sessions to spend it in
 - Values are directionally consistent with TRIMP-based CTL/ATL from other
   platforms but not absolutely comparable (relative effort ≠ TRIMP)
 - Activities without a relative effort (no HR recorded) contribute zero load
@@ -63,14 +79,45 @@ const inputSchema = z.object({
     .describe(
       "Project TSB this many days forward assuming zero load (default 0 = no projection)",
     ),
+  targetDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, {
+      error: "Invalid target date. Use YYYY-MM-DD.",
+    })
+    .optional()
+    .describe(
+      "Race or peak date (YYYY-MM-DD) to solve a load taper for. Omit for no taper plan.",
+    ),
+  targetTsb: z
+    .number()
+    .min(-40)
+    .max(40)
+    .default(10)
+    .describe(
+      "Form (TSB) to arrive at on targetDate (default +10; +5 to +15 is the usual race window)",
+    ),
 });
 
 type GetFitnessTrendInput = z.infer<typeof inputSchema>;
+
+/** Beyond this the solved plan is a training block, not a taper (#267). */
+const LONG_PLAN_DAYS = 28;
 
 const signed = (value: number) => `${value >= 0 ? "+" : ""}${value}`;
 
 function formatDay(day: FitnessTrendDay): string {
   return `  ${day.date}: load ${day.load}, CTL ${day.ctl}, ATL ${day.atl}, TSB ${signed(day.tsb)}`;
+}
+
+/** One line per planned week: what to spend, and how that compares to recent. */
+function formatTaperWeek(week: TaperWeek): string {
+  const span =
+    week.days === 1 ? week.start_date : `${week.start_date} → ${week.end_date}`;
+  const recent =
+    week.pct_of_recent === null
+      ? ""
+      : ` — ${week.pct_of_recent}% of recent weekly load`;
+  return `  Week ${week.week} (${span}): ${week.daily_load}/day, ${week.week_load} total${recent}`;
 }
 
 export const getFitnessTrendTool = {
@@ -80,7 +127,13 @@ export const getFitnessTrendTool = {
   annotations: READ_ONLY,
   outputSchema: FitnessTrendOutputSchema,
   execute: async (
-    { days, activityTypes, projectDays }: GetFitnessTrendInput,
+    {
+      days,
+      activityTypes,
+      projectDays,
+      targetDate,
+      targetTsb,
+    }: GetFitnessTrendInput,
     token: string,
   ) => {
     try {
@@ -107,10 +160,12 @@ export const getFitnessTrendTool = {
         (a) => a.suffer_score == null,
       ).length;
 
+      const endDay = endDate.toISOString().split("T")[0]!;
       const trend = buildFitnessTrend(activities, {
-        endDate: endDate.toISOString().split("T")[0]!,
+        endDate: endDay,
         days,
         projectDays,
+        taper: targetDate ? { targetDate, targetTsb } : undefined,
       });
 
       const warnings: string[] = [];
@@ -127,6 +182,15 @@ export const getFitnessTrendTool = {
         warnings.push(
           `A ${days}-day window gives CTL little runway (it starts from zero); values early in the window under-read true fitness.`,
         );
+      }
+      // The taper's own note prints with the plan below rather than in the
+      // warning list, so it reads next to the numbers it qualifies.
+      if (trend.taper) {
+        if (trend.taper.days.length > LONG_PLAN_DAYS) {
+          warnings.push(
+            `${trend.taper.days.length} days is a training block rather than a taper — the plan still steps down each week, so treat its early weeks as maintenance load.`,
+          );
+        }
       }
 
       // 7-day deltas for a quick direction read.
@@ -157,10 +221,12 @@ export const getFitnessTrendTool = {
           : null,
         trend: trendSummary,
         flags: trend.flags,
+        bands: trend.bands,
         warnings,
         daily: series,
         projection: trend.projection,
         tsb_positive_date: trend.tsbPositiveDate,
+        taper: trend.taper,
         activities_included: activities.length,
         activities_missing_load: missingLoad,
       };
@@ -195,6 +261,27 @@ export const getFitnessTrendTool = {
         const last = trend.projection[trend.projection.length - 1];
         if (last) {
           output += `  End of projection (${last.date}): CTL ${last.ctl}, TSB ${signed(last.tsb)}\n`;
+        }
+        output += `\n`;
+      }
+
+      const taper = trend.taper;
+      if (taper) {
+        output += `**Taper plan to ${taper.target_date} (target TSB ${signed(taper.target_tsb)})**\n`;
+        if (taper.weeks.length > 0) {
+          for (const week of taper.weeks) {
+            output += `${formatTaperWeek(week)}\n`;
+          }
+          const landing = taper.days[taper.days.length - 1]!;
+          output += `  Lands ${landing.date}: CTL ${landing.ctl}, ATL ${landing.atl}, TSB ${signed(landing.tsb)}\n`;
+          output += `  Total planned load ${taper.total_load}`;
+          output +=
+            taper.recent_daily_load > 0
+              ? ` (recent average ${taper.recent_daily_load}/day)\n`
+              : `\n`;
+        }
+        if (!taper.feasible) {
+          output += `  ⚠️ ${taper.note}\n`;
         }
         output += `\n`;
       }

@@ -25,6 +25,7 @@
         "@strava-mcp/activity-zones": "workspace:*",
         "@strava-mcp/cadence-trends": "workspace:*",
         "@strava-mcp/compare-activities": "workspace:*",
+        "@strava-mcp/fitness-trend": "workspace:*",
         "@strava-mcp/route-map": "workspace:*",
         "@strava-mcp/segment-progress": "workspace:*",
         "@strava-mcp/training-load": "workspace:*",
@@ -48,6 +49,7 @@
         "@strava-mcp/cadence-trends": "workspace:*",
         "@strava-mcp/compare-activities": "workspace:*",
         "@strava-mcp/design-system": "workspace:*",
+        "@strava-mcp/fitness-trend": "workspace:*",
         "@strava-mcp/route-map": "workspace:*",
         "@strava-mcp/segment-progress": "workspace:*",
         "@strava-mcp/training-load": "workspace:*",
@@ -214,6 +216,29 @@
         "react": "19.2.8",
         "react-dom": "19.2.8",
         "typescript": "7.0.2",
+        "vitest": "4.1.10",
+      },
+    },
+    "packages/fitness-trend": {
+      "name": "@strava-mcp/fitness-trend",
+      "version": "1.0.0",
+      "dependencies": {
+        "@modelcontextprotocol/ext-apps": "1.7.5",
+        "@strava-mcp/data": "workspace:*",
+        "@strava-mcp/design-system": "workspace:*",
+        "@strava-mcp/ui": "workspace:*",
+        "react": "19.2.8",
+        "react-dom": "19.2.8",
+        "recharts": "3.10.1",
+      },
+      "devDependencies": {
+        "@strava-mcp/tsconfig": "workspace:*",
+        "@strava-mcp/vite-config": "workspace:*",
+        "@types/react": "19.2.17",
+        "@types/react-dom": "19.2.3",
+        "storybook": "10.5.2",
+        "typescript": "7.0.2",
+        "vite": "8.1.5",
         "vitest": "4.1.10",
       },
     },
@@ -655,6 +680,8 @@
     "@strava-mcp/data": ["@strava-mcp/data@workspace:packages/data"],
 
     "@strava-mcp/design-system": ["@strava-mcp/design-system@workspace:packages/design-system"],
+
+    "@strava-mcp/fitness-trend": ["@strava-mcp/fitness-trend@workspace:packages/fitness-trend"],
 
     "@strava-mcp/route-map": ["@strava-mcp/route-map@workspace:packages/route-map"],
 

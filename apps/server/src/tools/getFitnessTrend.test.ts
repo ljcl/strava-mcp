@@ -9,7 +9,14 @@ vi.mock("../stravaClient", () => ({
 
 const mockedList = vi.mocked(getAllActivities);
 
-const DEFAULT_INPUT = { days: 90, projectDays: 0 };
+const DEFAULT_INPUT = { days: 90, projectDays: 0, targetTsb: 10 };
+
+/** YYYY-MM-DD `days` from today, for taper target dates. */
+function inDays(days: number): string {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0]!;
+}
 
 function run(
   daysAgo: number,
@@ -126,10 +133,7 @@ describe("get-fitness-trend execute", () => {
     ]);
 
     const result = await getFitnessTrendTool.execute(
-      {
-        days: 90,
-        projectDays: 30,
-      },
+      { ...DEFAULT_INPUT, projectDays: 30 },
       "test-token",
     );
 
@@ -147,10 +151,7 @@ describe("get-fitness-trend execute", () => {
     mockedList.mockResolvedValueOnce([run(2)]);
 
     const result = await getFitnessTrendTool.execute(
-      {
-        days: 28,
-        projectDays: 0,
-      },
+      { ...DEFAULT_INPUT, days: 28 },
       "test-token",
     );
 
@@ -173,6 +174,95 @@ describe("get-fitness-trend execute", () => {
     };
     expect(structured.warnings.join(" ")).toContain("No matching activities");
     expect(FitnessTrendOutputSchema.safeParse(structured).success).toBe(true);
+  });
+
+  it("solves a taper plan to a target date and prints the weekly plan", async () => {
+    // Three weeks of solid load: fatigued now, worth tapering from.
+    mockedList.mockResolvedValueOnce(
+      Array.from({ length: 21 }, (_, i) =>
+        run(i + 1, { id: `run-${i}`, suffer_score: 80 }),
+      ),
+    );
+
+    const targetDate = inDays(21);
+    const result = await getFitnessTrendTool.execute(
+      { ...DEFAULT_INPUT, targetDate },
+      "test-token",
+    );
+
+    expect(result.isError).toBeUndefined();
+    const structured = result.structuredContent as {
+      taper: {
+        target_date: string;
+        target_tsb: number;
+        achieved_tsb: number;
+        feasible: boolean;
+        weeks: { week: number; daily_load: number; pct_of_recent: number }[];
+        days: unknown[];
+      } | null;
+    };
+    expect(structured.taper).not.toBeNull();
+    const taper = structured.taper!;
+    expect(taper.target_date).toBe(targetDate);
+    expect(taper.target_tsb).toBe(10);
+    expect(taper.achieved_tsb).toBeCloseTo(10, 1);
+    expect(taper.feasible).toBe(true);
+    expect(taper.weeks).toHaveLength(3);
+    expect(taper.days).toHaveLength(21);
+    expect(FitnessTrendOutputSchema.safeParse(structured).success).toBe(true);
+
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain(`Taper plan to ${targetDate} (target TSB +10)`);
+    expect(text).toContain("Week 1 (");
+    expect(text).toContain("% of recent weekly load");
+    expect(text).toContain(`Lands ${targetDate}:`);
+  });
+
+  it("omits the taper when no target date is given", async () => {
+    mockedList.mockResolvedValueOnce([run(2)]);
+
+    const result = await getFitnessTrendTool.execute(
+      DEFAULT_INPUT,
+      "test-token",
+    );
+
+    expect((result.structuredContent as { taper: unknown }).taper).toBeNull();
+    expect(result.content[0]?.text).not.toContain("Taper plan");
+  });
+
+  it("says so when even rest cannot reach the target in time", async () => {
+    mockedList.mockResolvedValueOnce(
+      Array.from({ length: 10 }, (_, i) =>
+        run(i + 1, { id: `hard-${i}`, suffer_score: 200 }),
+      ),
+    );
+
+    const result = await getFitnessTrendTool.execute(
+      { ...DEFAULT_INPUT, targetDate: inDays(2), targetTsb: 25 },
+      "test-token",
+    );
+
+    const taper = (
+      result.structuredContent as {
+        taper: { feasible: boolean; note: string; total_load: number };
+      }
+    ).taper;
+    expect(taper.feasible).toBe(false);
+    expect(taper.note).toContain("complete rest");
+    expect(taper.total_load).toBe(0);
+    expect(result.content[0]?.text).toContain("complete rest");
+  });
+
+  it("warns that a long plan is a training block, not a taper", async () => {
+    mockedList.mockResolvedValueOnce([run(2, { suffer_score: 90 })]);
+
+    const result = await getFitnessTrendTool.execute(
+      { ...DEFAULT_INPUT, targetDate: inDays(60) },
+      "test-token",
+    );
+
+    const structured = result.structuredContent as { warnings: string[] };
+    expect(structured.warnings.join(" ")).toContain("training block");
   });
 
   it("surfaces API failures as tool errors", async () => {

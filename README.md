@@ -14,9 +14,9 @@ A Model Context Protocol (MCP) server that supplements the official Strava MCP c
 - Fetch per-activity photos, zone breakdowns, and running summaries
 - List and view details of saved routes
 - Export routes (GPX/TCX) and activity tracks (GPX built from streams)
-- Derived analysis Strava does not expose: interval detection, climb/descent breakdown, aerobic decoupling, training load, and fitness/fatigue/form (CTL/ATL/TSB)
+- Derived analysis Strava does not expose: interval detection, climb/descent breakdown, aerobic decoupling, training load, fitness/fatigue/form (CTL/ATL/TSB), and a solved taper to a target race-day form
 - AI-friendly JSON responses via MCP
-- Eight interactive visualizations rendered in MCP-compatible hosts — activity chart, cadence trends, route map, activity segments, training load, compare activities, activity zones, and segment progress
+- Nine interactive visualizations rendered in MCP-compatible hosts — activity chart, cadence trends, route map, activity segments, training load, compare activities, activity zones, segment progress, and fitness trend
 - Guided [prompts](#mcp-prompts) for weekly reviews, annotating a run, and segment hunting
 - Automatic token refresh
 - Streamable HTTP transport for remote deployment
@@ -452,7 +452,11 @@ Ask your AI assistant questions like these (use the official Strava MCP to disco
 **Training analysis:**
 - "Break down the intervals in activity 12345678 — did I fade across the reps?"
 - "How much did the climbs cost me on Sunday's long run?"
+- "Did I positive-split Sunday's long run, or was that just the hills?"
+- "Show me the mile splits for activity 12345678 with grade-adjusted pace"
 - "Am I fresh enough to race this weekend? Check my CTL, ATL, and TSB"
+- "My race is on 13 September — what should the next three weeks look like so I arrive at TSB +10?"
+- "Chart my fitness and fatigue for the season and show the taper to race day"
 - "Did I decouple on that marathon-pace effort?"
 
 **Routes:**
@@ -493,9 +497,10 @@ The server exposes the following MCP tools:
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
 | `get-aerobic-analysis` | Aerobic decoupling, efficiency factor, and intensity factor from HR + power/speed streams |
 | `get-hill-analysis` | Climb/descent detection with GAP and early-vs-late climb effort drift |
+| `get-split-analysis` | Even km or mile splits with a two-halves pacing verdict stated twice: on the clock and grade-adjusted, so a hilly back half is not misread as fade |
 | `get-interval-analysis` | Interval detection with urban-stop-aware rest classification and rep fade |
 | `get-training-load` | Training load summary with trend analysis |
-| `get-fitness-trend` | Fitness/fatigue/form (CTL/ATL/TSB) from relative effort, with rest projection |
+| `get-fitness-trend` | Fitness/fatigue/form (CTL/ATL/TSB) from relative effort, with rest projection and a solved week-by-week taper to a target form on a target date |
 | `compare-activities` | Compare two running activities side-by-side |
 | `get-best-efforts` | Personal best efforts across all running activities, optionally scoped to a date window |
 | `get-race-prediction` | Predicted race times from recorded best efforts (Riegel), with confidence, source effort, and km/mile goal-pace splits |
@@ -550,6 +555,8 @@ The server exposes the following MCP tools:
 | `get-activity-zones-data` | Per-zone time distributions for the activity-zones UI (app-only) |
 | `view-segment-progress` | Effort history on one segment: time over date with PR/top-3 highlights, an average-HR overlay, and an expandable effort list (MCP App) |
 | `get-segment-progress-data` | Segment details, per-effort rows, and the progress summary for the segment-progress UI (app-only) |
+| `view-fitness-trend` | Fitness (CTL), fatigue (ATL), and form (TSB) over time with shaded fatigue/freshness/ramp periods and a dashed taper plan or rest projection past today (MCP App) |
+| `get-fitness-trend-data` | Per-day CTL/ATL/TSB, the projection, any solved taper plan, and the dated warning bands for the fitness-trend UI (app-only) |
 
 ## Project Structure
 
@@ -564,6 +571,7 @@ packages/training-load/      Weekly training volume and trend (MCP App)
 packages/compare-activities/ Two-activity stream overlay (MCP App)
 packages/activity-zones/     Per-activity time-in-zone chart (MCP App)
 packages/segment-progress/   Segment effort history (MCP App)
+packages/fitness-trend/      Fitness/fatigue/form chart with taper plan (MCP App)
 packages/data/               Shared pure data utilities
 packages/ui/                 Shared presentational React components
 packages/design-system/      Design tokens, color constants, Storybook preview

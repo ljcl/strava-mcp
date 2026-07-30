@@ -361,6 +361,103 @@ describe("training load handlers", () => {
   });
 });
 
+describe("fitness trend handlers", () => {
+  /** `count` consecutive daily runs ending yesterday, each with load 80. */
+  function recentBlock(count: number): StravaSummaryActivity[] {
+    return Array.from({ length: count }, (_, i) => {
+      const date = new Date(Date.now() - (i + 1) * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0]!;
+      return summaryRun({
+        id: `load-${i}`,
+        start_date: `${date}T07:00:00Z`,
+        start_date_local: `${date}T07:00:00`,
+        suffer_score: 80,
+      });
+    });
+  }
+
+  /** YYYY-MM-DD `days` from today, for taper target dates. */
+  function inDays(days: number): string {
+    return new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0]!;
+  }
+
+  it("get-fitness-trend-data returns the series, projection, and bands", async () => {
+    mockedList.mockResolvedValueOnce(recentBlock(21));
+
+    const result = await dispatchToolCall("get-fitness-trend-data", {});
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.days).toBe(90);
+    expect(parsed.series).toHaveLength(90);
+    // projectDays defaults to a fortnight for the chart, not the text tool's 0.
+    expect(parsed.projection).toHaveLength(14);
+    expect(parsed.taper).toBeNull();
+    expect(parsed.current.ctl).toBeGreaterThan(0);
+    expect(parsed.activitiesIncluded).toBe(21);
+    expect(Array.isArray(parsed.bands)).toBe(true);
+  });
+
+  it("get-fitness-trend-data solves a taper in camelCase for the app", async () => {
+    mockedList.mockResolvedValueOnce(recentBlock(21));
+    const targetDate = inDays(21);
+
+    const result = await dispatchToolCall("get-fitness-trend-data", {
+      targetDate,
+      targetTsb: 12,
+    });
+
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.taper.targetDate).toBe(targetDate);
+    expect(parsed.taper.targetTsb).toBe(12);
+    expect(parsed.taper.achievedTsb).toBeCloseTo(12, 1);
+    expect(parsed.taper.days).toHaveLength(21);
+    expect(parsed.taper.weeks).toHaveLength(3);
+    expect(parsed.taper.weeks[0].dailyLoad).toBeGreaterThan(0);
+    expect(parsed.taper.weeks[0].startDate).toBeTruthy();
+  });
+
+  it("view-fitness-trend prints the same headline numbers as the chart", async () => {
+    mockedList.mockResolvedValueOnce(recentBlock(21));
+    const targetDate = inDays(14);
+
+    const result = await dispatchToolCall("view-fitness-trend", {
+      targetDate,
+    });
+
+    expect(result.isError).toBeUndefined();
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("Fitness Trend (last 90 days)");
+    expect(text).toContain("Fitness (CTL)");
+    expect(text).toContain(`Taper to ${targetDate}`);
+    expect(text).toContain("week 1");
+    expect(text).toContain("[Interactive fitness trend chart rendered above]");
+  });
+
+  it("view-fitness-trend reports the fresh date when only resting", async () => {
+    mockedList.mockResolvedValueOnce(recentBlock(10));
+
+    const result = await dispatchToolCall("view-fitness-trend", {});
+
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("form turns positive on");
+    expect(text).not.toContain("Taper to");
+  });
+
+  it("rejects a malformed target date via the input schema", async () => {
+    const result = await dispatchToolCall("get-fitness-trend-data", {
+      targetDate: "next Sunday",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("Invalid target date");
+    expect(mockedList).not.toHaveBeenCalled();
+  });
+});
+
 describe("segment progress handlers", () => {
   it("view-segment-progress summarises best, latest, and the half-vs-half trend", async () => {
     mockedSegment.mockResolvedValueOnce(detailedSegment());
