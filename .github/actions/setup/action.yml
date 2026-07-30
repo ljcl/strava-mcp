@@ -1,5 +1,14 @@
 name: Setup
 description: Install Bun, restore the Turborepo cache, and install dependencies. Caller must run actions/checkout first.
+inputs:
+  turbo-cache:
+    description: >-
+      Restore and save the .turbo cache. Set to "false" in a job that runs no
+      turbo task: cache entries are immutable and the first job to post one
+      wins, so a job with nothing to contribute reserves the key and the job
+      that did the work cannot save (#271).
+    required: false
+    default: "true"
 runs:
   using: composite
   steps:
@@ -11,11 +20,18 @@ runs:
         bun-version-file: package.json
 
     - name: Restore Turborepo cache
-      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+      if: inputs.turbo-cache == 'true'
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: .turbo
-        key: ${{ runner.os }}-turbo-${{ github.sha }}
+        # Namespaced per workflow and job. CI's `check` and Storybook's
+        # `deploy` both run turbo tasks against the same main-push SHA, and on
+        # a shared key whichever finishes first saves while the other's save is
+        # rejected as a duplicate. The bare prefix stays in restore-keys, so a
+        # job with no namespaced entry yet still seeds from the newest cache.
+        key: ${{ runner.os }}-turbo-${{ github.workflow }}-${{ github.job }}-${{ github.sha }}
         restore-keys: |
+          ${{ runner.os }}-turbo-${{ github.workflow }}-${{ github.job }}-
           ${{ runner.os }}-turbo-
 
     - name: Install dependencies
