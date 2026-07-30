@@ -792,19 +792,28 @@ export async function getActivityById(
   }
 }
 
+/** What a stream set can be attached to. */
+export type StreamResourceKind = "activity" | "route" | "segment";
+
 /**
- * The activity genuinely has no recorded samples: Strava answered 404, or
+ * The resource genuinely has no recorded samples: Strava answered 404, or
  * returned an empty stream set. Distinct from every other failure so callers
- * can degrade (a manual activity really has nothing to analyse) without also
- * swallowing an expired token or an exhausted rate limit.
+ * can degrade (a manual activity really has nothing to analyse, an old saved
+ * route really has no stored profile) without also swallowing an expired token
+ * or an exhausted rate limit.
  */
 export class StreamsUnavailableError extends Error {
-  activityId: string;
+  resourceId: string;
+  kind: StreamResourceKind;
 
-  constructor(activityId: number | string) {
-    super(`No data streams are recorded for activity ${activityId}.`);
+  constructor(
+    resourceId: number | string,
+    kind: StreamResourceKind = "activity",
+  ) {
+    super(`No data streams are recorded for ${kind} ${resourceId}.`);
     this.name = "StreamsUnavailableError";
-    this.activityId = String(activityId);
+    this.resourceId = String(resourceId);
+    this.kind = kind;
   }
 }
 
@@ -853,8 +862,36 @@ export async function getActivityStreams(
   if (options.seriesType) query.set("series_type", options.seriesType);
   if (options.resolution) query.set("resolution", options.resolution);
   const suffix = query.size > 0 ? `?${query.toString()}` : "";
-  const endpoint = `/activities/${activityId}/streams/${types.join(",")}${suffix}`;
 
+  return fetchStreamSet({
+    accessToken,
+    endpoint: `/activities/${activityId}/streams/${types.join(",")}${suffix}`,
+    kind: "activity",
+    resourceId: activityId,
+    context: `getActivityStreams for ID ${activityId}`,
+    retry: (newToken) =>
+      getActivityStreams(newToken, activityId, types, options),
+  });
+}
+
+/**
+ * The one place a stream set is fetched, validated, and error-mapped (#237,
+ * extended for routes and segments in #264/#266). Every caller inherits the
+ * same contract: a genuine 404 or an empty response is
+ * {@link StreamsUnavailableError} — the single failure a caller may degrade on
+ * — while auth, rate-limit, and subscription failures go through
+ * {@link handleApiError} so a 401 refreshes and retries and a 429 gets the
+ * structured message.
+ */
+async function fetchStreamSet(args: {
+  accessToken: string;
+  endpoint: string;
+  kind: StreamResourceKind;
+  resourceId: number | string;
+  context: string;
+  retry: (newToken: string) => Promise<StravaStreamSet>;
+}): Promise<StravaStreamSet> {
+  const { accessToken, endpoint, kind, resourceId, context, retry } = args;
   try {
     const response = await stravaApi.get<unknown>(endpoint, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -863,7 +900,7 @@ export async function getActivityStreams(
     const validationResult = StravaStreamSetSchema.safeParse(response.data);
     if (!validationResult.success) {
       console.error(
-        `Strava API validation failed (getActivityStreams: ${activityId}):`,
+        `Strava API validation failed (${context}):`,
         validationResult.error,
       );
       throw new Error(
@@ -871,7 +908,7 @@ export async function getActivityStreams(
       );
     }
     if (validationResult.data.length === 0) {
-      throw new StreamsUnavailableError(activityId);
+      throw new StreamsUnavailableError(resourceId, kind);
     }
 
     return new Map(validationResult.data.map((s) => [s.type, s.data]));
@@ -879,40 +916,117 @@ export async function getActivityStreams(
     if (error instanceof StreamsUnavailableError) {
       throw error;
     }
-    // Strava answers 404 for an activity that recorded nothing (a manual
-    // entry). That is the only status that means "no samples" — everything
-    // else is a real failure and must not be reported as an empty activity.
+    // Strava answers 404 for a resource that recorded nothing (a manual
+    // activity, a route saved before it stored a profile). That is the only
+    // status that means "no samples" — everything else is a real failure and
+    // must not be reported as an empty resource.
     if (error instanceof HttpError && error.response.status === 404) {
-      throw new StreamsUnavailableError(activityId);
+      throw new StreamsUnavailableError(resourceId, kind);
     }
-    return await handleApiError<StravaStreamSet>(
-      error,
-      `getActivityStreams for ID ${activityId}`,
-      async (newToken) =>
-        getActivityStreams(newToken, activityId, types, options),
-    );
+    return await handleApiError<StravaStreamSet>(error, context, retry);
   }
 }
 
 /**
+ * Fetches a saved route's streams (#264).
+ *
+ * `/routes/{id}/streams` takes no key list — it returns the route's whole
+ * stored set (distance, altitude, latlng), so there is nothing to request.
+ *
+ * Routes carry a stored elevation profile, but the map used to render them
+ * from the encoded polyline alone — so the elevation strip, the scrub metrics,
+ * and the metric-coloured track were dead code for every `route_id`. Older
+ * routes have no stored profile and answer 404, which surfaces as
+ * {@link StreamsUnavailableError} for the caller to fall back on.
+ *
+ * @throws {StreamsUnavailableError} when the route has no stored streams.
+ */
+export async function getRouteStreams(
+  accessToken: string,
+  routeId: number | string,
+): Promise<StravaStreamSet> {
+  if (!accessToken) {
+    throw new Error("Strava access token is required.");
+  }
+  if (!routeId) {
+    throw new Error("Route ID is required to fetch streams.");
+  }
+
+  return fetchStreamSet({
+    accessToken,
+    endpoint: `/routes/${routeId}/streams`,
+    kind: "route",
+    resourceId: routeId,
+    context: `getRouteStreams for ID ${routeId}`,
+    retry: (newToken) => getRouteStreams(newToken, routeId),
+  });
+}
+
+/** Stream keys a segment stores: its course plus the elevation along it. */
+export const SEGMENT_STREAM_KEYS = ["distance", "altitude", "latlng"] as const;
+
+/**
+ * Fetches a segment's streams (#266).
+ *
+ * The distance + altitude pair is what turns `get-segment`'s single average
+ * grade into a profile: a steady 4% ramp and a flat kilometre followed by a
+ * wall report the same scalar. Subscription-gated like `/segment_efforts`, and
+ * that 402 flows through {@link handleApiError}'s `SUBSCRIPTION_REQUIRED:`
+ * sentinel for the tool to translate.
+ *
+ * @throws {StreamsUnavailableError} when the segment has no stored streams.
+ */
+export async function getSegmentStreams(
+  accessToken: string,
+  segmentId: number | string,
+  types: readonly string[] = SEGMENT_STREAM_KEYS,
+): Promise<StravaStreamSet> {
+  if (!accessToken) {
+    throw new Error("Strava access token is required.");
+  }
+  if (!segmentId) {
+    throw new Error("Segment ID is required to fetch streams.");
+  }
+
+  return fetchStreamSet({
+    accessToken,
+    endpoint: `/segments/${segmentId}/streams/${types.join(",")}`,
+    kind: "segment",
+    resourceId: segmentId,
+    context: `getSegmentStreams for ID ${segmentId}`,
+    retry: (newToken) => getSegmentStreams(newToken, segmentId, types),
+  });
+}
+
+/** Page size `listStarredSegments` requests when the caller names none. */
+export const STARRED_SEGMENTS_DEFAULT_PER_PAGE = 30;
+
+/**
  * Lists the segments starred by the authenticated athlete.
  *
+ * Paged explicitly (#246). `/segments/starred` silently serves only its first
+ * page, so an athlete with more stars than the page size used to be told the
+ * truncated list was everything.
+ *
  * @param accessToken - The Strava API access token.
- * @returns A promise that resolves to an array of the athlete's starred segments.
+ * @param page - 1-based page number.
+ * @param perPage - Items per page (Strava caps this at 200).
+ * @returns A promise that resolves to one page of the athlete's starred segments.
  * @throws Throws an error if the API request fails or the response format is unexpected.
  */
 export async function listStarredSegments(
   accessToken: string,
+  page = 1,
+  perPage: number = STARRED_SEGMENTS_DEFAULT_PER_PAGE,
 ): Promise<StravaSegment[]> {
   if (!accessToken) {
     throw new Error("Strava access token is required.");
   }
 
   try {
-    // Strava API uses page/per_page but often defaults reasonably for lists like this.
-    // Add pagination parameters if needed later.
     const response = await stravaApi.get<unknown>("/segments/starred", {
       headers: { Authorization: `Bearer ${accessToken}` },
+      params: { page, per_page: perPage },
     });
 
     const validationResult = StravaSegmentsResponseSchema.safeParse(
@@ -934,10 +1048,32 @@ export async function listStarredSegments(
       error,
       "listStarredSegments",
       async (newToken) => {
-        return listStarredSegments(newToken);
+        return listStarredSegments(newToken, page, perPage);
       },
     );
   }
+}
+
+/** Pages `listStarredSegments` will walk before giving up. */
+export const STARRED_SEGMENTS_MAX_PAGES = 10;
+
+/**
+ * Walks `/segments/starred` to completion so callers that need the *whole*
+ * starred set (`find-segments-on-route`) cannot silently work from page one.
+ * Bounded by {@link STARRED_SEGMENTS_MAX_PAGES} — 2000 stars at the maximum
+ * page size — so a pathological account cannot spend the rate limit here.
+ */
+export async function listAllStarredSegments(
+  accessToken: string,
+  perPage = 200,
+): Promise<StravaSegment[]> {
+  const all: StravaSegment[] = [];
+  for (let page = 1; page <= STARRED_SEGMENTS_MAX_PAGES; page++) {
+    const batch = await listStarredSegments(accessToken, page, perPage);
+    all.push(...batch);
+    if (batch.length < perPage) break;
+  }
+  return all;
 }
 
 /**

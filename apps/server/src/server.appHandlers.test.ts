@@ -7,12 +7,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
 import {
+  exportRouteGpx,
   getActivityById,
   getActivityLaps,
   getActivityPhotos,
   getActivityZones,
   getAllActivities,
   getRouteById,
+  getRouteStreams,
   getSegmentById,
   listSegmentEfforts,
   type StravaActivityZone,
@@ -22,6 +24,7 @@ import {
   type StravaLap,
   type StravaRoute,
   type StravaSummaryActivity,
+  StreamsUnavailableError,
 } from "./stravaClient";
 
 vi.mock("./stravaClient", async (importOriginal) => {
@@ -34,8 +37,10 @@ vi.mock("./stravaClient", async (importOriginal) => {
     getActivityZones: vi.fn(),
     getAllActivities: vi.fn(),
     getRouteById: vi.fn(),
+    getRouteStreams: vi.fn(),
     getSegmentById: vi.fn(),
     listSegmentEfforts: vi.fn(),
+    exportRouteGpx: vi.fn(),
   };
 });
 
@@ -65,6 +70,7 @@ const mockedZones = vi.mocked(getActivityZones);
 const mockedPhotos = vi.mocked(getActivityPhotos);
 const mockedList = vi.mocked(getAllActivities);
 const mockedRoute = vi.mocked(getRouteById);
+const mockedRouteStreams = vi.mocked(getRouteStreams);
 const mockedSegment = vi.mocked(getSegmentById);
 const mockedSegmentEfforts = vi.mocked(listSegmentEfforts);
 const mockedApiGet = vi.mocked(stravaApi.get);
@@ -145,6 +151,13 @@ function segmentEffort(
 beforeEach(() => {
   vi.clearAllMocks();
   mockedToken.mockResolvedValue("test-token");
+  // Default a saved route to "no stored profile" (#264), so route cases that
+  // are not about elevation keep rendering from the polyline as before. Tests
+  // that care override the stream mock.
+  mockedRouteStreams.mockRejectedValue(
+    new StreamsUnavailableError("9", "route"),
+  );
+  vi.mocked(exportRouteGpx).mockResolvedValue("");
 });
 
 /** Every app tool with args that pass its input schema. */
@@ -686,6 +699,91 @@ describe("route map handlers", () => {
     expect(result.content[0]?.text).toContain(
       "Invalid arguments for view-route-map",
     );
+  });
+
+  // #264: before this, the route branch returned coordinates only, so the
+  // elevation strip and metric colouring were dead code for every route_id.
+  it("get-route-map-data attaches a saved route's stored elevation profile", async () => {
+    mockedRoute.mockResolvedValueOnce({
+      id: "9",
+      name: "River Loop",
+      type: 2,
+      distance: 5000,
+      elevation_gain: 50,
+      created_at: "2026-01-01T00:00:00Z",
+      map: { summary_polyline: POLYLINE },
+    } as unknown as StravaRoute);
+    mockedRouteStreams.mockReset();
+    mockedRouteStreams.mockResolvedValueOnce(
+      new Map<string, unknown[]>([
+        ["distance", [0, 100, 200]],
+        ["altitude", [10, 25, 18]],
+        [
+          "latlng",
+          [
+            [38.5, -120.2],
+            [40.7, -120.95],
+            [43.252, -126.453],
+          ],
+        ],
+      ]),
+    );
+
+    const result = await dispatchToolCall("get-route-map-data", {
+      route_id: "9",
+    });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.streams.altitude).toEqual([10, 25, 18]);
+    expect(parsed.streams.distance).toEqual([0, 100, 200]);
+    // The stream geometry wins over the polyline: it is index-aligned with the
+    // elevation, which is what lets the app colour the track by it.
+    expect(parsed.coordinates).toHaveLength(3);
+  });
+
+  it("get-route-map-data still maps a route with no stored profile", async () => {
+    mockedRoute.mockResolvedValueOnce({
+      id: "9",
+      name: "River Loop",
+      type: 2,
+      distance: 5000,
+      elevation_gain: 50,
+      created_at: "2026-01-01T00:00:00Z",
+      map: { summary_polyline: POLYLINE },
+    } as unknown as StravaRoute);
+
+    const result = await dispatchToolCall("get-route-map-data", {
+      route_id: "9",
+    });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.streams).toBeUndefined();
+    expect(parsed.coordinates.length).toBeGreaterThan(0);
+  });
+
+  it("get-route-map-data propagates a quota failure rather than dropping elevation", async () => {
+    mockedRoute.mockResolvedValueOnce({
+      id: "9",
+      name: "River Loop",
+      type: 2,
+      distance: 5000,
+      elevation_gain: 50,
+      created_at: "2026-01-01T00:00:00Z",
+      map: { summary_polyline: POLYLINE },
+    } as unknown as StravaRoute);
+    mockedRouteStreams.mockReset();
+    mockedRouteStreams.mockRejectedValueOnce(
+      new Error("Strava rate limit exceeded in getRouteStreams for ID 9."),
+    );
+
+    const result = await dispatchToolCall("get-route-map-data", {
+      route_id: "9",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toContain("rate limit");
   });
 
   it("get-route-map-data errors when neither id is provided", async () => {

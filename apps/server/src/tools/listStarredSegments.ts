@@ -1,25 +1,57 @@
+import { z } from "zod";
 import {
   listStarredSegments as fetchSegments,
   getAuthenticatedAthlete,
-} from "../stravaClient"; // Renamed import
+  STARRED_SEGMENTS_DEFAULT_PER_PAGE,
+} from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+
+/**
+ * Paging is part of the tool contract (#246). Strava serves `/segments/starred`
+ * one page at a time regardless, so without these the caller had no way to
+ * reach page two and no way to know page two existed.
+ */
+const ListStarredSegmentsInputSchema = z.object({
+  page: z
+    .number()
+    .int()
+    .min(1)
+    .optional()
+    .describe("1-based page of starred segments to fetch (default 1)."),
+  perPage: z
+    .number()
+    .int()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      `Starred segments per page, 1-200 (default ${STARRED_SEGMENTS_DEFAULT_PER_PAGE}).`,
+    ),
+});
+
+type ListStarredSegmentsInput = z.infer<typeof ListStarredSegmentsInputSchema>;
 
 // Export the tool definition directly
 export const listStarredSegments = {
   name: "list-starred-segments",
   description:
-    "List the segments the athlete has starred. Returns each segment's id, name, distance, average grade, and climb category so the model can pick one to inspect with get-segment or list efforts with list-segment-efforts. Use when the user refers to their saved or favorite segments.",
-  // No input schema needed
-  inputSchema: undefined,
+    "List the segments the athlete has starred. Returns each segment's id, name, distance, average grade, and climb category so the model can pick one to inspect with get-segment or list efforts with list-segment-efforts. Results are paged: when the response says more are available, call again with the next page. Use when the user refers to their saved or favorite segments.",
+  inputSchema: ListStarredSegmentsInputSchema,
   annotations: READ_ONLY,
-  // Takes no arguments, but dispatch passes (args, token) uniformly.
-  execute: async (_args: Record<string, unknown>, token: string) => {
+  execute: async (
+    { page, perPage }: ListStarredSegmentsInput,
+    token: string,
+  ) => {
+    const currentPage = page ?? 1;
+    const pageSize = perPage ?? STARRED_SEGMENTS_DEFAULT_PER_PAGE;
     try {
-      console.error("Fetching starred segments...");
+      console.error(
+        `Fetching starred segments (page ${currentPage}, ${pageSize} per page)...`,
+      );
       // Need athlete measurement preference for formatting distance
       const athlete = await getAuthenticatedAthlete(token);
       // Use renamed import
-      const segments = await fetchSegments(token);
+      const segments = await fetchSegments(token, currentPage, pageSize);
       console.error(
         `Successfully fetched ${segments?.length ?? 0} starred segments.`,
       );
@@ -27,7 +59,13 @@ export const listStarredSegments = {
       if (!segments || segments.length === 0) {
         return {
           content: [
-            { type: "text" as const, text: " MNo starred segments found." },
+            {
+              type: "text" as const,
+              text:
+                currentPage > 1
+                  ? `No starred segments on page ${currentPage}.`
+                  : "No starred segments found.",
+            },
           ],
         };
       }
@@ -56,9 +94,22 @@ export const listStarredSegments = {
         })
         .join("\n---\n");
 
-      const responseText = `**Your Starred Segments:**\n\n${segmentText}`;
+      // A full page means Strava had at least this many; there may be more.
+      // Saying so is the point of #246 — a truncated list presented as
+      // complete is worse than no list.
+      const heading =
+        currentPage > 1
+          ? `**Your Starred Segments (page ${currentPage}):**`
+          : "**Your Starred Segments:**";
+      const lines = [heading, "", segmentText];
+      if (segments.length === pageSize) {
+        lines.push(
+          "",
+          `Showing ${segments.length} starred segments (page ${currentPage}); more may be available — call again with page ${currentPage + 1}.`,
+        );
+      }
 
-      return { content: [{ type: "text" as const, text: responseText }] };
+      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";

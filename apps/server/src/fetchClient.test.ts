@@ -498,6 +498,20 @@ describe("stravaCacheTtl policy", () => {
     expect(stravaCacheTtl("/segment_efforts")).toBe(2 * 60_000);
   });
 
+  it("caches segment streams as long as activity streams", () => {
+    // A segment's course cannot be edited — a change produces a new segment —
+    // so its profile is as immutable as a recorded activity's (#266).
+    expect(stravaCacheTtl("/segments/55/streams/distance,altitude")).toBe(
+      6 * 60 * 60_000,
+    );
+  });
+
+  it("caches a route's stored profile for an hour", () => {
+    // The expensive half of the route pair, wanted by both get-route-preview
+    // and the map, and only invalidated by an athlete editing the route (#264).
+    expect(stravaCacheTtl("/routes/77/streams")).toBe(60 * 60_000);
+  });
+
   it("does not cache listings, exports, or ad-hoc queries", () => {
     expect(stravaCacheTtl("/athlete/activities")).toBeNull();
     expect(stravaCacheTtl("/athlete/clubs")).toBeNull();

@@ -126,7 +126,9 @@ export function gapFactor(gradeFraction: number): number {
  * altitude change over a trailing ~GRADE_WINDOW_M window (single-sample
  * altitude noise otherwise produces phantom micro-climbs).
  */
-export function computeGrades(streams: HillStreams): number[] {
+export function computeGrades(
+  streams: Pick<HillStreams, "distance" | "altitude" | "grade_smooth">,
+): number[] {
   const { distance, altitude, grade_smooth } = streams;
   if (grade_smooth && grade_smooth.length === distance.length) {
     return grade_smooth;

@@ -87,7 +87,7 @@ export const exploreSegments = {
           content: [
             {
               type: "text" as const,
-              text: " MNo segments found in the specified area with the given filters.",
+              text: "No segments found in the specified area with the given filters.",
             },
           ],
         };

@@ -14,6 +14,7 @@ function row(partial: Partial<SegmentEffortRow>): SegmentEffortRow {
   return {
     name: "Segment",
     segmentId: "1",
+    effortId: "e1",
     distanceMeters: 1000,
     elapsedTime: 300,
     movingTime: 300,

@@ -1,6 +1,8 @@
 export interface SegmentEffortRow {
   name: string;
   segmentId: string;
+  /** The effort's own id — what compare-segment-efforts takes (#269). */
+  effortId: string;
   distanceMeters: number;
   elapsedTime: number;
   movingTime: number;
