@@ -62,19 +62,28 @@ jobs:
 
       # Story smoke tests: every Storybook story renders in real headless
       # Chromium via the Vitest addon (#163). This is the automated UI gate.
-      - name: Get Playwright version
-        id: playwright-version
-        run: echo "version=$(bun --print 'require("./package.json").devDependencies.playwright')" >> "$GITHUB_OUTPUT"
+      # Both halves of the browser cache key. ImageOS is read HERE, in a shell
+      # step, and not as `${{ env.ImageOS }}` in the cache step's `with:` — the
+      # env context holds only workflow/job/step-defined variables, so an
+      # ambient runner variable interpolates to the empty string there and the
+      # key silently loses the segment.
+      - name: Resolve Playwright cache key
+        id: playwright-key
+        run: |
+          {
+            echo "version=$(bun --print 'require("./package.json").devDependencies.playwright')"
+            echo "image=${ImageOS:-unknown}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          # ImageOS is in the key because the browser binaries link against the
-          # runner image's system libraries: a runner image bump must not
-          # restore browsers built for the previous one (#274).
-          key: ${{ runner.os }}-${{ runner.arch }}-${{ env.ImageOS }}-playwright-${{ steps.playwright-version.outputs.version }}
+          # The image is in the key because the browser binaries link against
+          # the runner image's system libraries: an image bump must not restore
+          # browsers built for the previous one (#274).
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright-key.outputs.image }}-playwright-${{ steps.playwright-key.outputs.version }}
 
       # Split on the cache result (#274). The download is what the cache exists
       # to skip; the apt-get half is not cached and has to run either way, so a
