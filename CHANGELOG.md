@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.11.0](https://github.com/ljcl/strava-mcp/compare/v2.10.1...v2.11.0) (2026-07-30)
+
+
+### Features
+
+* finish the segments and routes lane ([#309](https://github.com/ljcl/strava-mcp/issues/309)) ([979a1d9](https://github.com/ljcl/strava-mcp/commit/979a1d956fde91610c18302a963c8653e14aa4e9))
+
 ## [2.10.1](https://github.com/ljcl/strava-mcp/compare/v2.10.0...v2.10.1) (2026-07-29)
 
 
