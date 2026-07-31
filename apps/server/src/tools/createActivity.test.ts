@@ -25,10 +25,34 @@ function createdActivity(
 
 const baseInput = {
   name: "Morning Yoga",
-  sportType: "Yoga",
+  sportType: "Yoga" as const,
   startDateLocal: "2026-07-13T07:30:00",
   elapsedTimeSeconds: 1800,
 };
+
+describe("createActivityTool input schema", () => {
+  it("rejects a sport type Strava does not define, before any write (#244)", () => {
+    const result = createActivityTool.inputSchema.safeParse({
+      ...baseInput,
+      sportType: "Weightlifting",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error!.issues[0]!.message).toContain(
+      "Did you mean WeightTraining?",
+    );
+    expect(mockedPost).not.toHaveBeenCalled();
+  });
+
+  it("accepts every sport type it advertises", () => {
+    for (const sportType of ["Yoga", "TrailRun", "EMountainBikeRide"]) {
+      expect(
+        createActivityTool.inputSchema.safeParse({ ...baseInput, sportType })
+          .success,
+      ).toBe(true);
+    }
+  });
+});
 
 describe("createActivityTool.execute", () => {
   beforeEach(() => {
@@ -47,7 +71,7 @@ describe("createActivityTool.execute", () => {
 
     expect(mockedPost).toHaveBeenCalledWith("test-token", {
       name: "Morning Yoga",
-      sportType: "Yoga",
+      sportType: "Yoga" as const,
       startDateLocal: "2026-07-13T07:30:00",
       elapsedTimeSeconds: 1800,
       distanceMeters: undefined,
@@ -70,7 +94,7 @@ describe("createActivityTool.execute", () => {
     const result = await createActivityTool.execute(
       {
         name: "Treadmill 5k",
-        sportType: "Run",
+        sportType: "Run" as const,
         startDateLocal: "2026-07-13T06:00:00",
         elapsedTimeSeconds: 1500,
         distanceMeters: 5000,
@@ -83,7 +107,7 @@ describe("createActivityTool.execute", () => {
 
     expect(mockedPost).toHaveBeenCalledWith("test-token", {
       name: "Treadmill 5k",
-      sportType: "Run",
+      sportType: "Run" as const,
       startDateLocal: "2026-07-13T06:00:00",
       elapsedTimeSeconds: 1500,
       distanceMeters: 5000,

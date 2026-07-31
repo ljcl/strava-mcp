@@ -363,6 +363,322 @@ export const HillAnalysisOutputSchema = z.object({
   warnings: z.array(z.string()),
 });
 
+// ---------- segments, routes, zones, photos, writes (#243) ----------
+/**
+ * These tools rendered ids into prose like `(ID: 123)`, so anything chaining
+ * into `get-segment` or `list-segment-efforts` had to regex them back out.
+ * One summary schema per resource, plus a mapper, following the
+ * `GradientProfileOutputSchema` precedent — the group schemas are shared by
+ * the list and detail tools rather than redefined per file.
+ */
+const SegmentSummarySchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  activity_type: z.string().nullable(),
+  distance_m: z.number().nullable(),
+  average_grade_pct: z.number().nullable(),
+  maximum_grade_pct: z.number().nullable(),
+  elevation_high_m: z.number().nullable(),
+  elevation_low_m: z.number().nullable(),
+  total_elevation_gain_m: z.number().nullable(),
+  climb_category: z.number().int().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  country: z.string().nullable(),
+  private: z.boolean(),
+  starred: z.boolean(),
+});
+
+/** Minimal slice of a Strava segment the summary mapper reads. */
+interface SegmentLike {
+  id: string | number;
+  name: string;
+  activity_type?: string | null;
+  distance?: number | null;
+  average_grade?: number | null;
+  maximum_grade?: number | null;
+  elevation_high?: number | null;
+  elevation_low?: number | null;
+  total_elevation_gain?: number | null;
+  climb_category?: number | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  private?: boolean;
+  starred?: boolean;
+}
+
+export function toSegmentSummary(segment: SegmentLike) {
+  return {
+    id: segment.id,
+    name: segment.name,
+    activity_type: segment.activity_type ?? null,
+    distance_m: segment.distance ?? null,
+    average_grade_pct: segment.average_grade ?? null,
+    maximum_grade_pct: segment.maximum_grade ?? null,
+    elevation_high_m: segment.elevation_high ?? null,
+    elevation_low_m: segment.elevation_low ?? null,
+    total_elevation_gain_m: segment.total_elevation_gain ?? null,
+    climb_category: segment.climb_category ?? null,
+    city: segment.city ?? null,
+    state: segment.state ?? null,
+    country: segment.country ?? null,
+    private: Boolean(segment.private),
+    starred: Boolean(segment.starred),
+  };
+}
+
+export const SegmentOutputSchema = SegmentSummarySchema.extend({
+  effort_count: z.number().int().nullable(),
+  athlete_count: z.number().int().nullable(),
+  star_count: z.number().int().nullable(),
+  created_at: z.string().nullable(),
+});
+
+export const SegmentListOutputSchema = z.object({
+  segments: z.array(SegmentSummarySchema),
+  count: z.number().int(),
+  page: z.number().int().nullable().describe("1-based page, when paged"),
+  has_more: z
+    .boolean()
+    .describe("A full page came back, so Strava may hold more"),
+});
+
+const SegmentEffortSummarySchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  segment_id: z.union([z.string(), z.number()]).nullable(),
+  segment_name: z.string().nullable(),
+  activity_id: z.union([z.string(), z.number()]).nullable(),
+  start_date_local: z.string().nullable(),
+  elapsed_time_s: z.number().int().nullable(),
+  moving_time_s: z.number().int().nullable(),
+  distance_m: z.number().nullable(),
+  average_heartrate: z.number().nullable(),
+  average_watts: z.number().nullable(),
+  average_cadence: z.number().nullable(),
+  pr_rank: z.number().int().nullable(),
+  kom_rank: z.number().int().nullable(),
+});
+
+/** Minimal slice of a Strava segment effort the summary mapper reads. */
+interface SegmentEffortLike {
+  id: string | number;
+  segment?: { id?: string | number; name?: string } | null;
+  activity?: { id?: string | number } | null;
+  start_date_local?: string | null;
+  elapsed_time?: number | null;
+  moving_time?: number | null;
+  distance?: number | null;
+  average_heartrate?: number | null;
+  average_watts?: number | null;
+  average_cadence?: number | null;
+  pr_rank?: number | null;
+  kom_rank?: number | null;
+}
+
+export function toSegmentEffortSummary(effort: SegmentEffortLike) {
+  return {
+    id: effort.id,
+    segment_id: effort.segment?.id ?? null,
+    segment_name: effort.segment?.name ?? null,
+    activity_id: effort.activity?.id ?? null,
+    start_date_local: effort.start_date_local ?? null,
+    elapsed_time_s: effort.elapsed_time ?? null,
+    moving_time_s: effort.moving_time ?? null,
+    distance_m: effort.distance ?? null,
+    average_heartrate: effort.average_heartrate ?? null,
+    average_watts: effort.average_watts ?? null,
+    average_cadence: effort.average_cadence ?? null,
+    pr_rank: effort.pr_rank ?? null,
+    kom_rank: effort.kom_rank ?? null,
+  };
+}
+
+export const SegmentEffortOutputSchema = SegmentEffortSummarySchema;
+
+export const SegmentEffortsOutputSchema = z.object({
+  segment_id: z.union([z.string(), z.number()]),
+  efforts: z.array(SegmentEffortSummarySchema),
+  count: z.number().int(),
+});
+
+const RouteSummarySchema = z.object({
+  id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  type: z.string().nullable().describe("Ride or Run, as Strava labels it"),
+  sub_type: z.string().nullable(),
+  distance_m: z.number().nullable(),
+  elevation_gain_m: z.number().nullable(),
+  estimated_moving_time_s: z.number().int().nullable(),
+  private: z.boolean(),
+  starred: z.boolean(),
+  created_at: z.string().nullable(),
+});
+
+/** Minimal slice of a Strava route the summary mapper reads. */
+interface RouteLike {
+  id: string | number;
+  name: string;
+  type?: string | number | null;
+  sub_type?: string | number | null;
+  distance?: number | null;
+  elevation_gain?: number | null;
+  estimated_moving_time?: number | null;
+  private?: boolean;
+  starred?: boolean;
+  created_at?: string | null;
+  description?: string | null;
+}
+
+export function toRouteSummary(route: RouteLike) {
+  return {
+    id: route.id,
+    name: route.name,
+    type: route.type == null ? null : String(route.type),
+    sub_type: route.sub_type == null ? null : String(route.sub_type),
+    distance_m: route.distance ?? null,
+    elevation_gain_m: route.elevation_gain ?? null,
+    estimated_moving_time_s: route.estimated_moving_time ?? null,
+    private: Boolean(route.private),
+    starred: Boolean(route.starred),
+    created_at: route.created_at ?? null,
+  };
+}
+
+export const RouteOutputSchema = RouteSummarySchema.extend({
+  description: z.string().nullable(),
+});
+
+export const RoutesOutputSchema = z.object({
+  routes: z.array(RouteSummarySchema),
+  count: z.number().int(),
+  page: z.number().int().nullable(),
+  has_more: z.boolean(),
+});
+
+export const ActivityZonesOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  zone_sets: z.array(
+    z.object({
+      type: z.string().describe("heartrate or power"),
+      sensor_based: z.boolean().nullable(),
+      total_seconds: z.number().int(),
+      buckets: z.array(
+        z.object({
+          zone: z.number().int().describe("1-based zone number"),
+          min: z.number().nullable(),
+          max: z
+            .number()
+            .nullable()
+            .describe("null on the open-ended top bucket"),
+          seconds: z.number().int(),
+          pct: z.number(),
+        }),
+      ),
+    }),
+  ),
+});
+
+export const ActivityPhotosOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  photos: z.array(
+    z.object({
+      id: z.union([z.string(), z.number()]).nullable(),
+      unique_id: z.string().nullable(),
+      caption: z.string().nullable(),
+      url: z.string().nullable().describe("Largest URL Strava returned"),
+      created_at: z.string().nullable(),
+      location: z
+        .array(z.number())
+        .nullable()
+        .describe("[lat, lng] when the photo is geotagged"),
+    }),
+  ),
+  count: z.number().int(),
+});
+
+export const StarSegmentOutputSchema = z.object({
+  segment_id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  starred: z.boolean().describe("State after the write"),
+});
+
+/** Minimal slice of a written activity the mapper reads. */
+interface WrittenActivityLike {
+  id: string | number;
+  name: string;
+  sport_type?: string | null;
+  type?: string | null;
+  start_date_local?: string | null;
+  distance?: number | null;
+  elapsed_time?: number | null;
+  description?: string | null;
+  gear_id?: string | null;
+  commute?: boolean | null;
+  trainer?: boolean | null;
+}
+
+/** Both write tools return the activity Strava echoed back, in one shape. */
+export function toActivityWriteOutput(activity: WrittenActivityLike) {
+  return {
+    activity_id: activity.id,
+    name: activity.name,
+    sport_type: activity.sport_type ?? activity.type ?? null,
+    start_date_local: activity.start_date_local ?? null,
+    distance_m: activity.distance ?? null,
+    elapsed_time_s: activity.elapsed_time ?? null,
+    description: activity.description ?? null,
+    gear_id: activity.gear_id ?? null,
+    commute: activity.commute ?? null,
+    trainer: activity.trainer ?? null,
+    url: `https://www.strava.com/activities/${activity.id}`,
+  };
+}
+
+export const ActivityWriteOutputSchema = z.object({
+  activity_id: z.union([z.string(), z.number()]),
+  name: z.string(),
+  sport_type: z.string().nullable(),
+  start_date_local: z.string().nullable(),
+  distance_m: z.number().nullable(),
+  elapsed_time_s: z.number().int().nullable(),
+  description: z.string().nullable(),
+  gear_id: z.string().nullable(),
+  commute: z.boolean().nullable(),
+  trainer: z.boolean().nullable(),
+  url: z.string().describe("Strava web URL for the activity"),
+});
+
+// ---------- export-route-gpx, export-route-tcx, export-activity-gpx ----------
+/**
+ * One shape for all three exports (#243, #245). `mode` is what actually
+ * happened, not what was asked for: with no `output` argument the tool picks
+ * by whether the server has an export directory, and a caller chaining on the
+ * result needs to know which it got.
+ */
+export const ExportOutputSchema = z.object({
+  resource_id: z
+    .string()
+    .describe("Route or activity id the export was produced from"),
+  format: z.enum(["gpx", "tcx"]),
+  mode: z
+    .enum(["file", "content"])
+    .describe("How the export was delivered — file path, or inline content"),
+  filename: z.string(),
+  path: z
+    .string()
+    .nullable()
+    .describe("Absolute server-side path in file mode; null in content mode"),
+  bytes: z.number().int().describe("Size of the document delivered"),
+  truncated: z
+    .boolean()
+    .describe("True when content mode cut the document at the size cap"),
+  note: z
+    .string()
+    .optional()
+    .describe("Caveat about the export's completeness, when one applies"),
+});
+
 // ---------- get-split-analysis ----------
 const SplitShapeSchema = z.enum(["even", "positive", "negative"]);
 const SplitSchema = z.object({

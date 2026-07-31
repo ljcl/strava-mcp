@@ -291,7 +291,7 @@ and are expected to keep asking:
 | `create-activity` | Creates a new Strava activity |
 | `update-activity` | Overwrites an existing activity's fields |
 | `star-segment` | Changes your starred segments |
-| `export-activity-gpx`, `export-route-gpx`, `export-route-tcx` | Write a file into `ROUTE_EXPORT_PATH` |
+| `export-activity-gpx`, `export-route-gpx`, `export-route-tcx` | Return the document in the response, or write a file into `ROUTE_EXPORT_PATH` |
 
 No tool sets `anthropic/requiresUserInteraction`, so nothing here opts out of
 "always allow" on purpose.
@@ -385,7 +385,7 @@ The setup script will guide you through the OAuth flow using `localhost` as the 
 | `STRAVA_ACCESS_TOKEN`  | No       | Initial access token (from `bun run setup-auth`)                  |
 | `STRAVA_REFRESH_TOKEN` | No       | Initial refresh token (from `bun run setup-auth`)                 |
 | `MCP_AUTH_TOKEN`       | No       | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>` |
-| `ROUTE_EXPORT_PATH`    | No       | Absolute path for saving exported route files              |
+| `ROUTE_EXPORT_PATH`    | No       | Absolute path for saving exported files. Unset, the export tools return the document inline instead |
 | `TOKEN_DATA_DIR`       | No       | Override token storage directory (default: `./data`)       |
 | `PORT`                 | No       | Server port (default: `3000`)                              |
 
@@ -492,7 +492,7 @@ The server exposes the following MCP tools:
 | `update-activity` | Update an activity's description, title, sport type, gear, or flags |
 | `get-activity-zones` | Time spent in each HR and power zone for an activity |
 | `get-activity-laps` | Laps of an activity with sport-aware pace/speed, HR, power, cadence |
-| `export-activity-gpx` | Export an activity's recorded track as GPX built from its streams |
+| `export-activity-gpx` | Export an activity's recorded track as GPX built from its streams, inline or to a file |
 | `get-activity-photos` | Get photos from an activity |
 | `get-running-summary` | Running-focused summary with HR zones and lap analysis |
 | `get-aerobic-analysis` | Aerobic decoupling, efficiency factor, and intensity factor from HR + power/speed streams |
@@ -532,8 +532,8 @@ The server exposes the following MCP tools:
 | `list-athlete-routes` | List created routes |
 | `get-route` | Get detailed route info |
 | `get-route-preview` | Preview a saved route's climbs: each climb's position, grade, and length, plus the crux |
-| `export-route-gpx` | Export route as GPX file |
-| `export-route-tcx` | Export route as TCX file |
+| `export-route-gpx` | Export a route as GPX, inline or to a file |
+| `export-route-tcx` | Export a route as TCX, inline or to a file |
 
 ### Visualization Tools
 

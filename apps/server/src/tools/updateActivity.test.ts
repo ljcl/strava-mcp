@@ -27,6 +27,30 @@ function updatedActivity(
   } as unknown as StravaDetailedActivity;
 }
 
+describe("updateActivityTool input schema", () => {
+  it("rejects a sport type Strava does not define, before any write (#244)", () => {
+    const result = updateActivityTool.inputSchema.safeParse({
+      activityId: "555",
+      sportType: "Jogging",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error!.issues[0]!.message).toContain(
+      "is not a Strava sport type",
+    );
+    expect(mockedPut).not.toHaveBeenCalled();
+  });
+
+  it("leaves sportType optional", () => {
+    expect(
+      updateActivityTool.inputSchema.safeParse({
+        activityId: "555",
+        name: "Renamed",
+      }).success,
+    ).toBe(true);
+  });
+});
+
 describe("updateActivityTool.execute", () => {
   beforeEach(() => {
     process.env.STRAVA_ACCESS_TOKEN = "test-token";

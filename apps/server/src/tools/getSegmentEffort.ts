@@ -6,6 +6,11 @@ import {
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
+import {
+  SegmentEffortOutputSchema,
+  toSegmentEffortSummary,
+  warnOnSchemaDrift,
+} from "./outputs";
 
 const GetSegmentEffortInputSchema = z.object({
   effortId: stravaIdInput(
@@ -60,6 +65,7 @@ export const getSegmentEffortTool = {
     "Fetch one specific segment effort by its effort id, including elapsed and moving time, PR rank, and KOM/QOM rank. Use when the user asks about a single recorded attempt on a segment. For all of an athlete's efforts on a segment use list-segment-efforts; for the segment's static stats use get-segment.",
   inputSchema: GetSegmentEffortInputSchema,
   annotations: READ_ONLY,
+  outputSchema: SegmentEffortOutputSchema,
   execute: async ({ effortId }: GetSegmentEffortInput, token: string) => {
     try {
       console.error(`Fetching details for segment effort ID: ${effortId}...`);
@@ -68,7 +74,17 @@ export const getSegmentEffortTool = {
       const effortDetailsText = formatSegmentEffort(effort); // Use metric formatter
 
       console.error(`Successfully fetched details for effort: ${effort.name}`);
-      return { content: [{ type: "text" as const, text: effortDetailsText }] };
+      const structured = toSegmentEffortSummary(effort);
+      warnOnSchemaDrift(
+        "get-segment-effort",
+        SegmentEffortOutputSchema,
+        structured,
+      );
+
+      return {
+        content: [{ type: "text" as const, text: effortDetailsText }],
+        structuredContent: structured,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

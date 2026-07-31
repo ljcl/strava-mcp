@@ -7,6 +7,11 @@ import {
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
+import {
+  SegmentEffortsOutputSchema,
+  toSegmentEffortSummary,
+  warnOnSchemaDrift,
+} from "./outputs";
 
 // Zod schema for input validation
 const ListSegmentEffortsInputSchema = z.object({
@@ -59,6 +64,7 @@ export const listSegmentEffortsTool = {
     "Lists the authenticated athlete's efforts on a specific segment, optionally filtering by date.",
   inputSchema: ListSegmentEffortsInputSchema,
   annotations: READ_ONLY,
+  outputSchema: SegmentEffortsOutputSchema,
   execute: async (
     {
       segmentId,
@@ -82,6 +88,12 @@ export const listSegmentEffortsTool = {
         console.error(
           `No efforts found for segment ${segmentId} with the given filters.`,
         );
+        const empty = { segment_id: segmentId, efforts: [], count: 0 };
+        warnOnSchemaDrift(
+          "list-segment-efforts",
+          SegmentEffortsOutputSchema,
+          empty,
+        );
         return {
           content: [
             {
@@ -89,6 +101,7 @@ export const listSegmentEffortsTool = {
               text: `No efforts found for segment ${segmentId} matching the criteria.`,
             },
           ],
+          structuredContent: empty,
         };
       }
 
@@ -100,7 +113,21 @@ export const listSegmentEffortsTool = {
       ); // Use metric formatter
       const responseText = `**Segment ${segmentId} Efforts:**\n\n${effortSummaries.join("\n")}`;
 
-      return { content: [{ type: "text" as const, text: responseText }] };
+      const structured = {
+        segment_id: segmentId,
+        efforts: efforts.map(toSegmentEffortSummary),
+        count: efforts.length,
+      };
+      warnOnSchemaDrift(
+        "list-segment-efforts",
+        SegmentEffortsOutputSchema,
+        structured,
+      );
+
+      return {
+        content: [{ type: "text" as const, text: responseText }],
+        structuredContent: structured,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

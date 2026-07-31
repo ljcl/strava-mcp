@@ -2,6 +2,7 @@ import { z } from "zod";
 import { starSegment as updateStarStatus } from "../stravaClient"; // Renamed import
 import { WRITE_IDEMPOTENT } from "./_annotations";
 import { stravaIdInput } from "./_ids";
+import { StarSegmentOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const StarSegmentInputSchema = z.object({
   segmentId: stravaIdInput(
@@ -21,6 +22,7 @@ export const starSegment = {
     "Stars or unstars a specific segment for the authenticated athlete.",
   inputSchema: StarSegmentInputSchema,
   annotations: WRITE_IDEMPOTENT,
+  outputSchema: StarSegmentOutputSchema,
   execute: async ({ segmentId, starred }: StarSegmentInput, token: string) => {
     try {
       const action = starred ? "starring" : "unstarring";
@@ -31,7 +33,17 @@ export const starSegment = {
       const successMessage = `Successfully ${action} segment: "${updatedSegment.name}" (ID: ${updatedSegment.id}). Its starred status is now: ${updatedSegment.starred}.`;
       console.error(successMessage);
 
-      return { content: [{ type: "text" as const, text: successMessage }] };
+      const structured = {
+        segment_id: updatedSegment.id,
+        name: updatedSegment.name,
+        starred: Boolean(updatedSegment.starred),
+      };
+      warnOnSchemaDrift("star-segment", StarSegmentOutputSchema, structured);
+
+      return {
+        content: [{ type: "text" as const, text: successMessage }],
+        structuredContent: structured,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";
