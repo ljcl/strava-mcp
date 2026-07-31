@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.12.0](https://github.com/ljcl/strava-mcp/compare/v2.11.0...v2.12.0) (2026-07-31)
+
+
+### Features
+
+* finish the training analysis lane ([#312](https://github.com/ljcl/strava-mcp/issues/312)) ([bf05f6d](https://github.com/ljcl/strava-mcp/commit/bf05f6dae82bafc3761bb05b7a4403ca7440753d))
+* publish structured output, usable exports, and a real sport-type enum ([#315](https://github.com/ljcl/strava-mcp/issues/315)) ([9f6665b](https://github.com/ljcl/strava-mcp/commit/9f6665bcbe0a44406908de041f93e66c8865fe3f))
+
 ## [2.11.0](https://github.com/ljcl/strava-mcp/compare/v2.10.1...v2.11.0) (2026-07-30)
 
 
