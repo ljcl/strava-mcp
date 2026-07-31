@@ -1,5 +1,6 @@
 import { stravaApi } from "./fetchClient";
 import { authTokenConfigured, requestHasValidSecret } from "./mcpAuth";
+import { toolCallStats } from "./telemetry";
 import { getTokenStatus } from "./tokenManager";
 import { SERVER_VERSION } from "./version";
 
@@ -29,5 +30,9 @@ export async function handleHealth(req: Request, url: URL): Promise<Response> {
     authenticated: tokenStatus.authenticated,
     token_expires_at: tokenStatus.expires_at ?? null,
     rate_limit: stravaApi.getRateLimitSnapshot(),
+    // Rolling per-tool counters since process start (#241): which tools are
+    // used, how slow they are, and how often they fail. Behind the same secret
+    // as the rate-limit detail, since it describes the athlete's usage.
+    tools: toolCallStats(),
   });
 }

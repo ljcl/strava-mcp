@@ -8,6 +8,7 @@ import {
   ListResourcesRequestSchema,
   ListToolsRequestSchema,
   ReadResourceRequestSchema,
+  SetLevelRequestSchema,
   type ToolAnnotations,
 } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
@@ -51,6 +52,13 @@ import {
   type StravaDetailedActivity,
   StreamsUnavailableError,
 } from "./stravaClient";
+import {
+  type LogLevel,
+  recordToolCall,
+  shouldSendLog,
+  type ToolCallRecord,
+  type ToolOutcome,
+} from "./telemetry";
 import { getStravaToken } from "./tokenManager";
 import { READ_ONLY } from "./tools/_annotations";
 import { stravaIdInput, stravaIdJsonSchemaOverride } from "./tools/_ids";
@@ -1694,13 +1702,38 @@ const APP_TOOL_HANDLERS: Record<
 export async function dispatchToolCall(
   name: string,
   rawArgs: Record<string, unknown> | undefined,
+  /**
+   * Session-scoped sink for the same record stderr gets, so a client that
+   * asked for logs receives them. Per-call rather than module-level because
+   * each MCP session builds its own server (#241).
+   */
+  onRecord?: (record: ToolCallRecord) => void,
 ): Promise<ToolCallResult> {
+  // The timer starts here, before token resolution, so a not-connected call is
+  // recorded too — it is a real call that cost the caller a round trip, and it
+  // is exactly the failure an operator wants to see the rate of (#241).
+  const startedAt = performance.now();
+  const finish = (
+    outcome: ToolOutcome,
+    result: ToolCallResult,
+    errorClass?: string,
+  ): ToolCallResult => {
+    const record = recordToolCall({
+      tool: name,
+      duration_ms: Math.round(performance.now() - startedAt),
+      outcome,
+      ...(errorClass ? { error_class: errorClass } : {}),
+    });
+    onRecord?.(record);
+    return result;
+  };
+
   const handler = APP_TOOL_HANDLERS[name] ?? TOOL_EXECUTORS.get(name);
   if (!handler) {
-    return {
+    return finish("error", {
       isError: true,
       content: [{ type: "text", text: `Unknown tool: ${name}` }],
-    };
+    });
   }
 
   let args: Record<string, unknown> = rawArgs ?? {};
@@ -1708,7 +1741,7 @@ export async function dispatchToolCall(
   if (schema) {
     const parsed = schema.safeParse(args);
     if (!parsed.success) {
-      return {
+      return finish("invalid_args", {
         isError: true,
         content: [
           {
@@ -1716,7 +1749,7 @@ export async function dispatchToolCall(
             text: `Invalid arguments for ${name}: ${z.prettifyError(parsed.error)}`,
           },
         ],
-      };
+      });
     }
     args = parsed.data as Record<string, unknown>;
   }
@@ -1730,24 +1763,44 @@ export async function dispatchToolCall(
     // fault (missing client credentials) or a failed refresh, and its message
     // is the useful part.
     const message = error instanceof Error ? error.message : String(error);
-    return { isError: true, content: [{ type: "text", text: message }] };
+    return finish(
+      "not_connected",
+      { isError: true, content: [{ type: "text", text: message }] },
+      error instanceof Error ? error.constructor.name : undefined,
+    );
   }
 
   try {
-    return await handler(args, token);
+    const result = await handler(args, token);
+    // A handler that returns `isError` failed as surely as one that threw; the
+    // counters would flatter the server if only throws counted.
+    return finish(result.isError ? "error" : "ok", result);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return {
-      isError: true,
-      content: [{ type: "text", text: `Tool error: ${message}` }],
-    };
+    return finish(
+      "error",
+      {
+        isError: true,
+        content: [{ type: "text", text: `Tool error: ${message}` }],
+      },
+      error instanceof Error ? error.constructor.name : undefined,
+    );
   }
 }
 
 export function createServer(): Server {
   const server = new Server(
     { name: "Strava MCP Server", version: SERVER_VERSION },
-    { capabilities: { tools: {}, resources: {}, prompts: {} } },
+    {
+      capabilities: {
+        tools: {},
+        resources: {},
+        prompts: {},
+        // Advertised so a host can call logging/setLevel and receive the
+        // per-call records the dispatcher already emits to stderr (#241).
+        logging: {},
+      },
+    },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -1762,9 +1815,25 @@ export function createServer(): Server {
     getPrompt(request.params.name, request.params.arguments),
   );
 
+  // The advertised `logging` capability has to be backed by a handler, or a
+  // client calling logging/setLevel gets "method not found" — worse than not
+  // advertising it at all. The level is per session, like the server itself.
+  let logLevel: LogLevel | null = null;
+  server.setRequestHandler(SetLevelRequestSchema, async (request) => {
+    logLevel = request.params.level as LogLevel;
+    return {};
+  });
+
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
-    return dispatchToolCall(name, args);
+    return dispatchToolCall(name, args, (record) => {
+      const level: LogLevel = record.outcome === "ok" ? "info" : "error";
+      if (!shouldSendLog(logLevel, level)) return;
+      // Never let a logging failure fail the tool call it describes.
+      void server
+        .sendLoggingMessage({ level, logger: "tool-call", data: record })
+        .catch(() => {});
+    });
   });
 
   server.setRequestHandler(ListResourcesRequestSchema, async () => ({
