@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { mapActivityZones } from "../activityZones";
 import { formatDuration } from "../formatters";
 import {
   getActivityZones as getActivityZonesClient,
@@ -6,6 +7,7 @@ import {
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
+import { ActivityZonesOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-activity-zones";
 
@@ -95,6 +97,7 @@ export const getActivityZonesTool = {
   description,
   inputSchema,
   annotations: READ_ONLY,
+  outputSchema: ActivityZonesOutputSchema,
   execute: async ({ id }: GetActivityZonesInput, token: string) => {
     try {
       console.error(`Fetching zones for activity ID: ${id}...`);
@@ -109,6 +112,12 @@ export const getActivityZonesTool = {
       );
 
       if (!hasData) {
+        const empty = { activity_id: id, zone_sets: [] };
+        warnOnSchemaDrift(
+          "get-activity-zones",
+          ActivityZonesOutputSchema,
+          empty,
+        );
         return {
           content: [
             {
@@ -116,6 +125,7 @@ export const getActivityZonesTool = {
               text: `✅ No zone data found for activity ID: ${id}`,
             },
           ],
+          structuredContent: empty,
         };
       }
 
@@ -126,11 +136,29 @@ export const getActivityZonesTool = {
         `Successfully fetched ${zones.length} zone set(s) for activity ${id}`,
       );
 
+      // Same mapper the activity-zones app reads (`mapActivityZones`), so the
+      // structured payload and the chart cannot describe different zones.
+      const structured = {
+        activity_id: id,
+        zone_sets: mapActivityZones(zones).map((set) => ({
+          type: set.type,
+          sensor_based: set.sensorBased,
+          total_seconds: set.totalSeconds,
+          buckets: set.buckets,
+        })),
+      };
+      warnOnSchemaDrift(
+        "get-activity-zones",
+        ActivityZonesOutputSchema,
+        structured,
+      );
+
       return {
         content: [
           { type: "text" as const, text: summaryText },
           { type: "text" as const, text: rawDataText },
         ],
+        structuredContent: structured,
       };
     } catch (error) {
       const errorMessage =

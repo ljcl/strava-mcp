@@ -5,6 +5,7 @@ import {
   type StravaExplorerResponse,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { SegmentListOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const ExploreSegmentsInputSchema = z.object({
   bounds: z
@@ -51,6 +52,7 @@ export const exploreSegments = {
     "Search for popular segments inside a geographic bounding box (south-west and north-east lat/lng). Optionally filter by climb category. Returns matching segments with id, name, distance, and average grade. Use when the user wants to discover segments in an area rather than look up one they already know.",
   inputSchema: ExploreSegmentsInputSchema,
   annotations: READ_ONLY,
+  outputSchema: SegmentListOutputSchema,
   execute: async (
     { bounds, activityType, minCat, maxCat }: ExploreSegmentsInput,
     token: string,
@@ -83,6 +85,8 @@ export const exploreSegments = {
       console.error(`Found ${response.segments?.length ?? 0} segments.`);
 
       if (!response.segments || response.segments.length === 0) {
+        const empty = { segments: [], count: 0, page: null, has_more: false };
+        warnOnSchemaDrift("explore-segments", SegmentListOutputSchema, empty);
         return {
           content: [
             {
@@ -90,6 +94,7 @@ export const exploreSegments = {
               text: "No segments found in the specified area with the given filters.",
             },
           ],
+          structuredContent: empty,
         };
       }
 
@@ -124,7 +129,40 @@ export const exploreSegments = {
 
       const responseText = `**Found Segments:**\n\n${segmentItems.map((item) => item.text).join("\n---\n")}`;
 
-      return { content: [{ type: "text" as const, text: responseText }] };
+      // The explorer endpoint returns a leaner segment than /segments/{id}:
+      // no location, no elevation extremes, and grade under a different key.
+      const structured = {
+        segments: response.segments.map((segment) => ({
+          id: segment.id,
+          name: segment.name,
+          activity_type: activityType ?? null,
+          distance_m: segment.distance ?? null,
+          average_grade_pct: segment.avg_grade ?? null,
+          maximum_grade_pct: null,
+          elevation_high_m: segment.elev_difference ?? null,
+          elevation_low_m: null,
+          total_elevation_gain_m: null,
+          climb_category: segment.climb_category ?? null,
+          city: null,
+          state: null,
+          country: null,
+          private: false,
+          starred: Boolean(segment.starred),
+        })),
+        count: response.segments.length,
+        page: null,
+        has_more: false,
+      };
+      warnOnSchemaDrift(
+        "explore-segments",
+        SegmentListOutputSchema,
+        structured,
+      );
+
+      return {
+        content: [{ type: "text" as const, text: responseText }],
+        structuredContent: structured,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";

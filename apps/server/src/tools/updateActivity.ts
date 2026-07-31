@@ -5,10 +5,16 @@ import {
 } from "../stravaClient";
 import {
   composeDescription,
+  SportTypeSchema,
   type UpdateActivityParams,
 } from "../utils/activityWrite";
 import { WRITE_DESTRUCTIVE } from "./_annotations";
 import { stravaIdInput } from "./_ids";
+import {
+  ActivityWriteOutputSchema,
+  toActivityWriteOutput,
+  warnOnSchemaDrift,
+} from "./outputs";
 
 const UpdateActivityInputSchema = z.object({
   activityId: stravaIdInput("The unique identifier of the activity to update."),
@@ -23,10 +29,9 @@ const UpdateActivityInputSchema = z.object({
     .describe(
       "How to apply `description`. 'append' (default) preserves the existing description and adds the new text below it; 'replace' overwrites it. Use 'append' when adding workout notes, 'replace' when rewriting.",
     ),
-  sportType: z
-    .string()
-    .optional()
-    .describe("Strava sport type, e.g. 'Run', 'TrailRun', 'Ride'."),
+  sportType: SportTypeSchema.optional().describe(
+    "Strava sport type, e.g. 'Run', 'TrailRun', 'Ride'. The full set is published in this schema's enum.",
+  ),
   gearId: z.string().optional().describe("Gear id to assign, e.g. 'g123456'."),
   commute: z.boolean().optional().describe("Mark the activity as a commute."),
   trainer: z
@@ -49,6 +54,7 @@ export const updateActivityTool = {
     "Requires the activity:write scope. Assign gear by passing a Strava gear id.",
   inputSchema: UpdateActivityInputSchema,
   annotations: WRITE_DESTRUCTIVE,
+  outputSchema: ActivityWriteOutputSchema,
   execute: async (input: UpdateActivityInput, token: string) => {
     const {
       activityId,
@@ -131,6 +137,13 @@ export const updateActivityTool = {
       if (hideFromHome !== undefined)
         changed.push(`hideFromHome=${hideFromHome}`);
 
+      const structured = toActivityWriteOutput(updated);
+      warnOnSchemaDrift(
+        "update-activity",
+        ActivityWriteOutputSchema,
+        structured,
+      );
+
       return {
         content: [
           {
@@ -138,6 +151,7 @@ export const updateActivityTool = {
             text: `Updated activity ${activityId} ("${updated.name}"): ${changed.join(", ")}.`,
           },
         ],
+        structuredContent: structured,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

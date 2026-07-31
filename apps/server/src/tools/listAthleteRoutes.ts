@@ -5,6 +5,11 @@ import {
   // StravaRoute is needed for the formatter
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import {
+  RoutesOutputSchema,
+  toRouteSummary,
+  warnOnSchemaDrift,
+} from "./outputs";
 
 // Remove the imported formatter since we're defining our own locally
 // import { formatRouteSummary } from "../formatters";
@@ -55,6 +60,7 @@ export const listAthleteRoutesTool = {
     "Lists the routes created by the authenticated athlete, with pagination.",
   inputSchema: ListAthleteRoutesInputSchema,
   annotations: READ_ONLY,
+  outputSchema: RoutesOutputSchema,
   execute: async (
     { page = 1, perPage = 20 }: ListAthleteRoutesInput,
     token: string,
@@ -66,10 +72,13 @@ export const listAthleteRoutesTool = {
 
       if (!routes || routes.length === 0) {
         console.error("No routes found for athlete.");
+        const empty = { routes: [], count: 0, page, has_more: false };
+        warnOnSchemaDrift("list-athlete-routes", RoutesOutputSchema, empty);
         return {
           content: [
             { type: "text" as const, text: "No routes found for the athlete." },
           ],
+          structuredContent: empty,
         };
       }
 
@@ -77,7 +86,18 @@ export const listAthleteRoutesTool = {
       const summaries = routes.map((route) => formatRouteSummary(route));
       const responseText = `**Athlete Routes (Page ${page}):**\n\n${summaries.join("\n")}`;
 
-      return { content: [{ type: "text" as const, text: responseText }] };
+      const structured = {
+        routes: routes.map(toRouteSummary),
+        count: routes.length,
+        page,
+        has_more: routes.length === perPage,
+      };
+      warnOnSchemaDrift("list-athlete-routes", RoutesOutputSchema, structured);
+
+      return {
+        content: [{ type: "text" as const, text: responseText }],
+        structuredContent: structured,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

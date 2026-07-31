@@ -30,7 +30,7 @@ describe("buildUpdateActivityBody", () => {
     const body = buildUpdateActivityBody({
       name: "Run",
       description: "desc",
-      sportType: "TrailRun",
+      sportType: "TrailRun" as const,
       gearId: "g1",
       commute: true,
       trainer: false,
@@ -61,7 +61,7 @@ describe("buildUpdateActivityBody", () => {
 describe("buildCreateActivityBody", () => {
   const required = {
     name: "Morning Yoga",
-    sportType: "Yoga",
+    sportType: "Yoga" as const,
     startDateLocal: "2026-07-13T07:30:00",
     elapsedTimeSeconds: 1800,
   };

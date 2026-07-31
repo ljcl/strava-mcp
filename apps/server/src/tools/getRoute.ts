@@ -2,6 +2,11 @@ import { z } from "zod";
 import { formatRouteSummary } from "../formatters"; // Import shared formatter
 import { getRouteById /*, handleApiError */ } from "../stravaClient"; // Removed handleApiError import
 import { READ_ONLY } from "./_annotations";
+import {
+  RouteOutputSchema,
+  toRouteSummary,
+  warnOnSchemaDrift,
+} from "./outputs";
 
 // Zod schema for input validation
 const GetRouteInputSchema = z.object({
@@ -21,6 +26,7 @@ export const getRouteTool = {
     "Fetch full detail for one saved route by id: name, distance, elevation gain, estimated moving time, and segment count. Use when the user wants details of a route from list-athlete-routes, or before exporting it with export-route-gpx or export-route-tcx.",
   inputSchema: GetRouteInputSchema,
   annotations: READ_ONLY,
+  outputSchema: RouteOutputSchema,
   execute: async (input: GetRouteInput, token: string) => {
     const { routeId } = input;
     try {
@@ -29,7 +35,16 @@ export const getRouteTool = {
       const summary = formatRouteSummary(route); // Call shared formatter without units
 
       console.error(`Successfully fetched route ${routeId}.`);
-      return { content: [{ type: "text" as const, text: summary }] };
+      const structured = {
+        ...toRouteSummary(route),
+        description: route.description ?? null,
+      };
+      warnOnSchemaDrift("get-route", RouteOutputSchema, structured);
+
+      return {
+        content: [{ type: "text" as const, text: summary }],
+        structuredContent: structured,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

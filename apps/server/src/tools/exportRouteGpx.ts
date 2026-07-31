@@ -1,34 +1,40 @@
-import * as fs from "node:fs";
 import { z } from "zod";
 import { exportRouteGpx as fetchGpxData } from "../stravaClient";
 import { WRITE_IDEMPOTENT } from "./_annotations";
-import { resolveContainedPath } from "./exportPath";
+import {
+  capExportContent,
+  type ExportMode,
+  exportOutputInput,
+  missingExportDirError,
+  resolveExportMode,
+  truncationNotice,
+  writeExport,
+} from "./_exportOutput";
+import { ExportOutputSchema, warnOnSchemaDrift } from "./outputs";
 
-// import { McpServerTool } from "@modelcontextprotocol/sdk/server/mcp"; // Type doesn't seem exported/needed
-// import { McpResponse } from "@modelcontextprotocol/sdk/server/mcp"; // Type doesn't seem exported
+const name = "export-route-gpx";
 
-// Define the input schema for the tool
 const ExportRouteGpxInputSchema = z.object({
   routeId: z
     .string()
     .regex(/^\d+$/, "Route ID must contain only digits")
     .describe("The ID of the Strava route to export."),
+  output: exportOutputInput,
 });
 
-// Infer the input type from the schema
 type ExportRouteGpxInput = z.infer<typeof ExportRouteGpxInputSchema>;
 
-// Export the tool definition directly
 export const exportRouteGpx = {
-  name: "export-route-gpx",
+  name,
   description:
-    "Exports a specific Strava route in GPX format and saves it to a pre-configured local directory.",
+    "Exports a Strava route as GPX. Returns the GPX document in the response by default on a remote server, " +
+    "or writes it to the server's configured export directory when output: 'file'.",
   inputSchema: ExportRouteGpxInputSchema,
   annotations: WRITE_IDEMPOTENT,
-  execute: async ({ routeId }: ExportRouteGpxInput, token: string) => {
-    // Dispatch does not enforce the zod schema yet (#107), and the id is
-    // interpolated into both the API URL and the output filename — reject
-    // anything non-numeric before any fetch or write.
+  outputSchema: ExportOutputSchema,
+  execute: async ({ routeId, output }: ExportRouteGpxInput, token: string) => {
+    // The id is interpolated into both the API URL and the output filename —
+    // reject anything non-numeric before any fetch or write.
     if (!/^\d+$/.test(routeId)) {
       return {
         content: [
@@ -42,87 +48,77 @@ export const exportRouteGpx = {
     }
 
     const exportDir = process.env.ROUTE_EXPORT_PATH;
-    if (!exportDir) {
-      // Strict return structure
+    const mode: ExportMode = resolveExportMode(output, exportDir);
+    if (mode === "file" && !exportDir) {
       return {
-        content: [
-          {
-            type: "text" as const,
-            text: "❌ Error: Missing ROUTE_EXPORT_PATH in .env file. Please configure the directory for saving exports.",
-          },
-        ],
+        content: [{ type: "text" as const, text: missingExportDirError() }],
         isError: true,
       };
     }
 
     try {
-      // Ensure the directory exists, create if not
-      if (!fs.existsSync(exportDir)) {
-        console.error(
-          `Export directory ${exportDir} not found, creating it...`,
-        );
-        fs.mkdirSync(exportDir, { recursive: true });
-      } else {
-        // Check if it's a directory and writable (existing logic)
-        const stats = fs.statSync(exportDir);
-        if (!stats.isDirectory()) {
-          // Strict return structure
+      const gpxData = await fetchGpxData(token, routeId);
+      const filename = `route-${routeId}.gpx`;
+
+      if (mode === "file") {
+        const written = await writeExport(exportDir!, filename, gpxData);
+        if (!written.ok) {
           return {
-            content: [
-              {
-                type: "text" as const,
-                text: `❌ Error: ROUTE_EXPORT_PATH (${exportDir}) is not a valid directory.`,
-              },
-            ],
+            content: [{ type: "text" as const, text: written.error! }],
             isError: true,
           };
         }
-        fs.accessSync(exportDir, fs.constants.W_OK);
-      }
-
-      const filename = `route-${routeId}.gpx`;
-      const fullPath = resolveContainedPath(exportDir, filename);
-      if (!fullPath) {
+        const structured = {
+          resource_id: routeId,
+          format: "gpx" as const,
+          mode: "file" as const,
+          filename,
+          path: written.path!,
+          bytes: Buffer.byteLength(gpxData, "utf8"),
+          truncated: false,
+        };
+        warnOnSchemaDrift(name, ExportOutputSchema, structured);
         return {
           content: [
             {
               type: "text" as const,
-              text: `❌ Error: Refusing to write outside ROUTE_EXPORT_PATH (${exportDir}).`,
+              text: `✅ Route ${routeId} exported successfully as GPX to: ${written.path}`,
             },
           ],
-          isError: true,
+          structuredContent: structured,
         };
       }
 
-      const gpxData = await fetchGpxData(token, routeId);
-      fs.writeFileSync(fullPath, gpxData);
+      const payload = capExportContent(gpxData, filename);
+      const originalBytes = Buffer.byteLength(gpxData, "utf8");
+      const structured = {
+        resource_id: routeId,
+        format: "gpx" as const,
+        mode: "content" as const,
+        filename,
+        path: null,
+        bytes: payload.bytes,
+        truncated: payload.truncated,
+      };
+      warnOnSchemaDrift(name, ExportOutputSchema, structured);
 
-      // Strict return structure
+      const header = payload.truncated
+        ? `${truncationNotice(originalBytes)}\n\n`
+        : `✅ Route ${routeId} exported as GPX (${filename}, ${payload.bytes} bytes).\n\n`;
+      return {
+        content: [{ type: "text" as const, text: `${header}${payload.data}` }],
+        structuredContent: structured,
+      };
+    } catch (err: unknown) {
+      console.error(`Error in ${name} tool for route ${routeId}:`, err);
+      const errMessage = err instanceof Error ? err.message : String(err);
       return {
         content: [
           {
             type: "text" as const,
-            text: `✅ Route ${routeId} exported successfully as GPX to: ${fullPath}`,
+            text: `❌ Error exporting route ${routeId} as GPX: ${errMessage}`,
           },
         ],
-      };
-    } catch (err: unknown) {
-      console.error(
-        `Error in export-route-gpx tool for route ${routeId}:`,
-        err,
-      );
-      // Strict return structure
-      const errMessage = err instanceof Error ? err.message : String(err);
-      const errCode =
-        err instanceof Error && "code" in err
-          ? (err as NodeJS.ErrnoException).code
-          : undefined;
-      let userMessage = `❌ Error exporting route ${routeId} as GPX: ${errMessage}`;
-      if (errCode === "EACCES") {
-        userMessage = `❌ Error: No write permission for ROUTE_EXPORT_PATH directory (${exportDir}).`;
-      }
-      return {
-        content: [{ type: "text" as const, text: userMessage }],
         isError: true,
       };
     }

@@ -7,6 +7,11 @@ import {
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
+import {
+  SegmentOutputSchema,
+  toSegmentSummary,
+  warnOnSchemaDrift,
+} from "./outputs";
 
 // Input schema
 const GetSegmentInputSchema = z.object({
@@ -43,6 +48,7 @@ export const getSegmentTool = {
     "Fetch full detail for one segment by id: distance, average and maximum grade, total elevation gain, climb category, location, and starred state. Use after finding a segment via explore-segments or list-starred-segments when the user wants its difficulty or stats. Obtain the id from those tools.",
   inputSchema: GetSegmentInputSchema,
   annotations: READ_ONLY,
+  outputSchema: SegmentOutputSchema,
   execute: async ({ segmentId }: GetSegmentInput, token: string) => {
     try {
       console.error(`Fetching details for segment ID: ${segmentId}...`);
@@ -53,7 +59,19 @@ export const getSegmentTool = {
       console.error(
         `Successfully fetched details for segment: ${segment.name}`,
       );
-      return { content: [{ type: "text" as const, text: segmentDetailsText }] };
+      const structured = {
+        ...toSegmentSummary(segment),
+        effort_count: segment.effort_count ?? null,
+        athlete_count: segment.athlete_count ?? null,
+        star_count: segment.star_count ?? null,
+        created_at: segment.created_at ?? null,
+      };
+      warnOnSchemaDrift("get-segment", SegmentOutputSchema, structured);
+
+      return {
+        content: [{ type: "text" as const, text: segmentDetailsText }],
+        structuredContent: structured,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

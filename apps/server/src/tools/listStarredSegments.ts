@@ -5,6 +5,11 @@ import {
   STARRED_SEGMENTS_DEFAULT_PER_PAGE,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import {
+  SegmentListOutputSchema,
+  toSegmentSummary,
+  warnOnSchemaDrift,
+} from "./outputs";
 
 /**
  * Paging is part of the tool contract (#246). Strava serves `/segments/starred`
@@ -32,12 +37,15 @@ const ListStarredSegmentsInputSchema = z.object({
 type ListStarredSegmentsInput = z.infer<typeof ListStarredSegmentsInputSchema>;
 
 // Export the tool definition directly
+const name = "list-starred-segments";
+
 export const listStarredSegments = {
-  name: "list-starred-segments",
+  name,
   description:
     "List the segments the athlete has starred. Returns each segment's id, name, distance, average grade, and climb category so the model can pick one to inspect with get-segment or list efforts with list-segment-efforts. Results are paged: when the response says more are available, call again with the next page. Use when the user refers to their saved or favorite segments.",
   inputSchema: ListStarredSegmentsInputSchema,
   annotations: READ_ONLY,
+  outputSchema: SegmentListOutputSchema,
   execute: async (
     { page, perPage }: ListStarredSegmentsInput,
     token: string,
@@ -57,6 +65,13 @@ export const listStarredSegments = {
       );
 
       if (!segments || segments.length === 0) {
+        const empty = {
+          segments: [],
+          count: 0,
+          page: currentPage,
+          has_more: false,
+        };
+        warnOnSchemaDrift(name, SegmentListOutputSchema, empty);
         return {
           content: [
             {
@@ -67,6 +82,7 @@ export const listStarredSegments = {
                   : "No starred segments found.",
             },
           ],
+          structuredContent: empty,
         };
       }
 
@@ -109,7 +125,20 @@ export const listStarredSegments = {
         );
       }
 
-      return { content: [{ type: "text" as const, text: lines.join("\n") }] };
+      const structured = {
+        segments: segments.map(toSegmentSummary),
+        count: segments.length,
+        page: currentPage,
+        // A full page means Strava had at least this many; the flag is the
+        // structured half of the "more may be available" note above (#246).
+        has_more: segments.length === pageSize,
+      };
+      warnOnSchemaDrift(name, SegmentListOutputSchema, structured);
+
+      return {
+        content: [{ type: "text" as const, text: lines.join("\n") }],
+        structuredContent: structured,
+      };
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "An unknown error occurred";

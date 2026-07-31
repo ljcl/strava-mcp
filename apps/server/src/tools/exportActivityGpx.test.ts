@@ -160,15 +160,78 @@ describe("exportActivityGpx.execute", () => {
     expect(mockedGet).not.toHaveBeenCalled();
   });
 
-  it("errors when ROUTE_EXPORT_PATH is not configured", async () => {
+  it("returns the GPX inline when no export directory is configured (#245)", async () => {
+    // The remote-transport case: a container path would be unreachable, so the
+    // tool delivers the document itself rather than erroring as it used to.
     delete process.env.ROUTE_EXPORT_PATH;
+    mockedById.mockResolvedValueOnce(asDetail(baseActivity));
+    mockedGet.mockResolvedValueOnce(streamsResponse as never);
 
     const result = await exportActivityGpx.execute(
       { activityId: "12345" },
       "test-token",
     );
 
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0]?.text).toContain("<gpx");
+    expect(result.content[0]?.text).toContain("</gpx>");
+    const structured = result.structuredContent as {
+      mode: string;
+      path: string | null;
+      filename: string;
+      truncated: boolean;
+    };
+    expect(structured.mode).toBe("content");
+    expect(structured.path).toBeNull();
+    expect(structured.filename).toBe("activity-12345.gpx");
+    expect(structured.truncated).toBe(false);
+  });
+
+  it("still explains itself when file mode is asked for with no directory", async () => {
+    delete process.env.ROUTE_EXPORT_PATH;
+
+    const result = await exportActivityGpx.execute(
+      { activityId: "12345", output: "file" },
+      "test-token",
+    );
+
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("ROUTE_EXPORT_PATH");
+    expect(result.content[0]?.text).toContain('output: "content"');
+    expect(mockedById).not.toHaveBeenCalled();
+  });
+
+  it("keeps writing a file when the directory is configured", async () => {
+    mockedById.mockResolvedValueOnce(asDetail(baseActivity));
+    mockedGet.mockResolvedValueOnce(streamsResponse as never);
+
+    const result = await exportActivityGpx.execute(
+      { activityId: "12345" },
+      "test-token",
+    );
+
+    const structured = result.structuredContent as {
+      mode: string;
+      path: string;
+    };
+    expect(structured.mode).toBe("file");
+    expect(fs.existsSync(structured.path)).toBe(true);
+    // The document is not inlined in file mode — the path is the payload.
+    expect(result.content[0]?.text).not.toContain("<gpx");
+  });
+
+  it("carries the polyline-fallback caveat into structured output", async () => {
+    mockedById.mockResolvedValueOnce(asDetail(baseActivity));
+    mockedGet.mockRejectedValueOnce(
+      new StreamsUnavailableError("12345", "activity"),
+    );
+
+    const result = await exportActivityGpx.execute(
+      { activityId: "12345", output: "content" },
+      "test-token",
+    );
+
+    const structured = result.structuredContent as { note?: string };
+    expect(structured.note).toContain("geometry-only");
   });
 });

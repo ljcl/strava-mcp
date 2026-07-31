@@ -1,16 +1,22 @@
 import { z } from "zod";
 import { formatDuration } from "../formatters";
 import { createActivity as postActivity } from "../stravaClient";
-import { type CreateActivityParams } from "../utils/activityWrite";
+import {
+  type CreateActivityParams,
+  SportTypeSchema,
+} from "../utils/activityWrite";
 import { WRITE_CREATE } from "./_annotations";
+import {
+  ActivityWriteOutputSchema,
+  toActivityWriteOutput,
+  warnOnSchemaDrift,
+} from "./outputs";
 
 const CreateActivityInputSchema = z.object({
   name: z.string().min(1).describe("Activity title, e.g. 'Morning Yoga'."),
-  sportType: z
-    .string()
-    .describe(
-      "Strava sport type, e.g. 'Run', 'Ride', 'WeightTraining', 'Yoga', 'Workout'.",
-    ),
+  sportType: SportTypeSchema.describe(
+    "Strava sport type, e.g. 'Run', 'Ride', 'WeightTraining', 'Yoga', 'Workout'. The full set is published in this schema's enum.",
+  ),
   startDateLocal: z.iso
     .datetime({ local: true, offset: true })
     .describe(
@@ -47,6 +53,7 @@ export const createActivityTool = {
     "scope. Not idempotent: calling it twice creates two activities.",
   inputSchema: CreateActivityInputSchema,
   annotations: WRITE_CREATE,
+  outputSchema: ActivityWriteOutputSchema,
   execute: async (input: CreateActivityInput, token: string) => {
     const params: CreateActivityParams = {
       name: input.name,
@@ -70,6 +77,13 @@ export const createActivityTool = {
         parts.push(`${(input.distanceMeters / 1000).toFixed(2)} km`);
       }
 
+      const structured = toActivityWriteOutput(created);
+      warnOnSchemaDrift(
+        "create-activity",
+        ActivityWriteOutputSchema,
+        structured,
+      );
+
       return {
         content: [
           {
@@ -79,6 +93,7 @@ export const createActivityTool = {
               `starting ${input.startDateLocal}. View it at https://www.strava.com/activities/${created.id}`,
           },
         ],
+        structuredContent: structured,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

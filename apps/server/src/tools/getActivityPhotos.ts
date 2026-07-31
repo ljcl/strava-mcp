@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getActivityPhotos as getActivityPhotosClient } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
 import { stravaIdInput } from "./_ids";
+import { ActivityPhotosOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-activity-photos";
 
@@ -51,6 +52,7 @@ export const getActivityPhotosTool = {
   description,
   inputSchema,
   annotations: READ_ONLY,
+  outputSchema: ActivityPhotosOutputSchema,
   execute: async ({ id, size }: GetActivityPhotosInput, token: string) => {
     try {
       // `id` arrives already validated and normalised to a digit string by
@@ -61,6 +63,12 @@ export const getActivityPhotosTool = {
       const photos = await getActivityPhotosClient(token, id, size);
 
       if (!photos || photos.length === 0) {
+        const empty = { activity_id: id, photos: [], count: 0 };
+        warnOnSchemaDrift(
+          "get-activity-photos",
+          ActivityPhotosOutputSchema,
+          empty,
+        );
         return {
           content: [
             {
@@ -68,6 +76,7 @@ export const getActivityPhotosTool = {
               text: `No photos found for activity ID: ${id}`,
             },
           ],
+          structuredContent: empty,
         };
       }
 
@@ -127,11 +136,41 @@ export const getActivityPhotosTool = {
         `Successfully fetched ${photos.length} photos for activity ${id}`,
       );
 
+      // Largest URL wins: Strava keys `urls` by requested pixel size, and a
+      // caller chaining on this wants the best available, not an arbitrary one.
+      const structured = {
+        activity_id: id,
+        photos: photos.map((photo) => {
+          const sizes = Object.entries(photo.urls ?? {});
+          const largest = sizes.sort(
+            (a, b) => Number(b[0]) - Number(a[0]),
+          )[0]?.[1];
+          return {
+            id: photo.id ?? null,
+            unique_id: photo.unique_id ?? null,
+            caption: photo.caption ?? null,
+            url: largest ?? null,
+            created_at: photo.created_at ?? null,
+            location:
+              photo.location && photo.location.length === 2
+                ? photo.location
+                : null,
+          };
+        }),
+        count: photos.length,
+      };
+      warnOnSchemaDrift(
+        "get-activity-photos",
+        ActivityPhotosOutputSchema,
+        structured,
+      );
+
       return {
         content: [
           { type: "text" as const, text: summaryText },
           { type: "text" as const, text: rawDataText },
         ],
+        structuredContent: structured,
       };
     } catch (error) {
       const errorMessage =

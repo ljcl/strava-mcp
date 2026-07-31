@@ -1,4 +1,3 @@
-import * as fs from "node:fs";
 import { z } from "zod";
 import { buildGpx } from "../gpxBuilder";
 import { decodePolyline } from "../polyline";
@@ -8,13 +7,25 @@ import {
   StreamsUnavailableError,
 } from "../stravaClient";
 import { WRITE_IDEMPOTENT } from "./_annotations";
-import { resolveContainedPath } from "./exportPath";
+import {
+  capExportContent,
+  type ExportMode,
+  exportOutputInput,
+  missingExportDirError,
+  resolveExportMode,
+  truncationNotice,
+  writeExport,
+} from "./_exportOutput";
+import { ExportOutputSchema, warnOnSchemaDrift } from "./outputs";
+
+const name = "export-activity-gpx";
 
 const ExportActivityGpxInputSchema = z.object({
   activityId: z
     .string()
     .regex(/^\d+$/, "Activity ID must contain only digits")
     .describe("The ID of the Strava activity to export."),
+  output: exportOutputInput,
 });
 
 type ExportActivityGpxInput = z.infer<typeof ExportActivityGpxInputSchema>;
@@ -71,7 +82,7 @@ async function fetchGpxStreams(
 }
 
 export const exportActivityGpx = {
-  name: "export-activity-gpx",
+  name,
   description:
     "Exports a Strava activity's recorded track as a GPX file saved to a pre-configured local directory. " +
     "Built from the activity's streams (GPS, time, altitude, heart rate, cadence), since Strava's API has no native activity export. " +
@@ -79,7 +90,11 @@ export const exportActivityGpx = {
     "Use for importing rides/runs into Garmin, route planners, or backups.",
   inputSchema: ExportActivityGpxInputSchema,
   annotations: WRITE_IDEMPOTENT,
-  execute: async ({ activityId }: ExportActivityGpxInput, token: string) => {
+  outputSchema: ExportOutputSchema,
+  execute: async (
+    { activityId, output }: ExportActivityGpxInput,
+    token: string,
+  ) => {
     // The id is interpolated into both the API URL and the output filename —
     // reject anything non-numeric before any fetch or write (mirrors the
     // route export tools, #141).
@@ -96,53 +111,16 @@ export const exportActivityGpx = {
     }
 
     const exportDir = process.env.ROUTE_EXPORT_PATH;
-    if (!exportDir) {
+    const mode: ExportMode = resolveExportMode(output, exportDir);
+    if (mode === "file" && !exportDir) {
       return {
-        content: [
-          {
-            type: "text" as const,
-            text: "❌ Error: Missing ROUTE_EXPORT_PATH in .env file. Please configure the directory for saving exports.",
-          },
-        ],
+        content: [{ type: "text" as const, text: missingExportDirError() }],
         isError: true,
       };
     }
 
     try {
-      if (!fs.existsSync(exportDir)) {
-        console.error(
-          `Export directory ${exportDir} not found, creating it...`,
-        );
-        fs.mkdirSync(exportDir, { recursive: true });
-      } else {
-        const stats = fs.statSync(exportDir);
-        if (!stats.isDirectory()) {
-          return {
-            content: [
-              {
-                type: "text" as const,
-                text: `❌ Error: ROUTE_EXPORT_PATH (${exportDir}) is not a valid directory.`,
-              },
-            ],
-            isError: true,
-          };
-        }
-        fs.accessSync(exportDir, fs.constants.W_OK);
-      }
-
       const filename = `activity-${activityId}.gpx`;
-      const fullPath = resolveContainedPath(exportDir, filename);
-      if (!fullPath) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `❌ Error: Refusing to write outside ROUTE_EXPORT_PATH (${exportDir}).`,
-            },
-          ],
-          isError: true,
-        };
-      }
 
       const [activity, streams] = await Promise.all([
         getActivityById(token, activityId),
@@ -186,15 +164,56 @@ export const exportActivityGpx = {
           " Note: built from the map polyline (no full streams), so the file is geometry-only — no timestamps or sensor data.";
       }
 
-      fs.writeFileSync(fullPath, gpx);
+      if (mode === "file") {
+        const written = await writeExport(exportDir!, filename, gpx);
+        if (!written.ok) {
+          return {
+            content: [{ type: "text" as const, text: written.error! }],
+            isError: true,
+          };
+        }
+        const structured = {
+          resource_id: activityId,
+          format: "gpx" as const,
+          mode: "file" as const,
+          filename,
+          path: written.path!,
+          bytes: Buffer.byteLength(gpx, "utf8"),
+          truncated: false,
+          ...(note ? { note: note.trim() } : {}),
+        };
+        warnOnSchemaDrift(name, ExportOutputSchema, structured);
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: `✅ Activity ${activityId} ("${activity.name}") exported as GPX to: ${written.path}.${note}`,
+            },
+          ],
+          structuredContent: structured,
+        };
+      }
 
+      const payload = capExportContent(gpx, filename);
+      const originalBytes = Buffer.byteLength(gpx, "utf8");
+      const structured = {
+        resource_id: activityId,
+        format: "gpx" as const,
+        mode: "content" as const,
+        filename,
+        path: null,
+        bytes: payload.bytes,
+        truncated: payload.truncated,
+        ...(note ? { note: note.trim() } : {}),
+      };
+      warnOnSchemaDrift(name, ExportOutputSchema, structured);
+
+      const header = payload.truncated
+        ? `${truncationNotice(originalBytes)}\n\n`
+        : `✅ Activity ${activityId} ("${activity.name}") exported as GPX (${filename}, ${payload.bytes} bytes).${note}\n\n`;
       return {
-        content: [
-          {
-            type: "text" as const,
-            text: `✅ Activity ${activityId} ("${activity.name}") exported as GPX to: ${fullPath}.${note}`,
-          },
-        ],
+        content: [{ type: "text" as const, text: `${header}${payload.data}` }],
+        structuredContent: structured,
       };
     } catch (err: unknown) {
       console.error(
