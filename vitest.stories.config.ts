@@ -26,12 +26,26 @@ export default defineConfig({
     // browser — the render-path floor for the view-heavy packages whose unit
     // coverage is intentionally low (#197). Reports land in coverage-stories/
     // (distinct from the per-package coverage/ dirs) and feed a separate row
-    // in scripts/coverage-summary.ts. No thresholds here yet: merging with
-    // unit coverage and gating the view packages is #197's stretch goal.
+    // in scripts/coverage-summary.ts.
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "json-summary"],
       reportsDirectory: "coverage-stories",
+      // Regression floor (#276), the same auto-ratchet the per-package configs
+      // use: the view packages' only regression signal previously gated
+      // nothing, so a story that stopped rendering a branch cost no coverage
+      // anywhere. Cushion is 5 points, matching apps/server — the two seeding
+      // runs measured identically, but this is browser-mode coverage and a
+      // story whose async work settles differently can move it, so the floor
+      // is deliberately not tight. Any `test:stories:coverage` run rewrites
+      // these numbers in place; commit the rewrite, don't hand-edit.
+      thresholds: {
+        autoUpdate: (newThreshold: number) => Math.floor(newThreshold - 5),
+        statements: 68,
+        branches: 59,
+        functions: 71,
+        lines: 71,
+      },
       // The storybookTest addon pins the project root to apps/storybook, so
       // every packages/* source is "external" to coverage; without this the
       // report is empty.

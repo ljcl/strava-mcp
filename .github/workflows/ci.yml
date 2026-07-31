@@ -35,44 +35,73 @@ jobs:
       - name: Lint
         run: bun run lint --reporter=github
 
+      # `test` is deliberately absent: the Coverage step below runs the same
+      # specs through `test:coverage`, and that is the pass which gates (the
+      # thresholds live in the vitest configs). Running both executed every
+      # spec twice per run and bought nothing (#273).
       - name: Check (PR — affected only)
         if: github.event_name == 'pull_request'
         run: |
-          bun run turbo run test typecheck build knip --affected
+          bun run turbo run typecheck build knip --affected
           bun run turbo boundaries
 
       - name: Check (main — full)
         if: github.event_name == 'push'
         run: |
-          bun run turbo run test typecheck build knip
+          bun run turbo run typecheck build knip
           bun run turbo boundaries
 
+      # The unit gate, and now the only place the specs run. Deliberately NOT
+      # --affected: turbo restores `coverage/**` for unchanged packages from
+      # cache, so a full run costs little and every package the summary table
+      # lists still has a coverage file and a threshold checked. It sits ahead
+      # of the browser steps so a failing spec surfaces before the ~2-minute
+      # story run rather than after it (#135, #273).
+      - name: Coverage
+        run: bun run turbo run test:coverage
+
       # Story smoke tests: every Storybook story renders in real headless
-      # Chromium via the Vitest addon (#163). This is the automated UI gate;
-      # runs after the unit-test check, coverage below is unaffected.
-      - name: Get Playwright version
-        id: playwright-version
-        run: echo "version=$(bun --print 'require("./package.json").devDependencies.playwright')" >> "$GITHUB_OUTPUT"
+      # Chromium via the Vitest addon (#163). This is the automated UI gate.
+      # Both halves of the browser cache key. ImageOS is read HERE, in a shell
+      # step, and not as `${{ env.ImageOS }}` in the cache step's `with:` — the
+      # env context holds only workflow/job/step-defined variables, so an
+      # ambient runner variable interpolates to the empty string there and the
+      # key silently loses the segment.
+      - name: Resolve Playwright cache key
+        id: playwright-key
+        run: |
+          {
+            echo "version=$(bun --print 'require("./package.json").devDependencies.playwright')"
+            echo "image=${ImageOS:-unknown}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
+        id: playwright-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+          # The image is in the key because the browser binaries link against
+          # the runner image's system libraries: an image bump must not restore
+          # browsers built for the previous one (#274).
+          key: ${{ runner.os }}-${{ runner.arch }}-${{ steps.playwright-key.outputs.image }}-playwright-${{ steps.playwright-key.outputs.version }}
 
-      - name: Install Playwright Chromium
+      # Split on the cache result (#274). The download is what the cache exists
+      # to skip; the apt-get half is not cached and has to run either way, so a
+      # hit still installs system deps — just without re-fetching ~150 MB of
+      # browser.
+      - name: Install Playwright Chromium and system deps
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: bunx playwright install chromium --with-deps
+
+      - name: Install Playwright system deps (cached browser)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
 
       # With coverage: the same story smoke tests, plus a measure of which
       # packages/* source the stories execute in the browser (#197). The
       # summary row lands in the coverage table below.
       - name: Story tests
         run: bun run turbo run test:stories:coverage
-
-      # Coverage is computed on every run and surfaced in the job summary,
-      # so test-depth regressions are visible at review time (#135).
-      - name: Coverage
-        run: bun run turbo run test:coverage
 
       # Restore the latest main coverage snapshot into coverage-baseline/ so the
       # summary can annotate each cell with its delta vs main. Best-effort: the
@@ -131,6 +160,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup
+        with:
+          # This job runs `bun audit` and no turbo task, so it has nothing to
+          # contribute to the cache — and it finishes long before `check`, so
+          # left enabled it reserved the SHA key and locked out the save from
+          # the job that actually populated `.turbo` (#271).
+          turbo-cache: "false"
 
       - name: Audit dependencies (high severity and above)
         # Advisory on PRs and main pushes: most findings are transitive deps
