@@ -22,8 +22,8 @@ interface ToolArgs {
   targetTsb?: number;
 }
 
-const LoadingSkeleton = () => (
-  <LoadingState label="Loading fitness trend">
+const LoadingSkeleton = ({ progress }: { progress?: string | null }) => (
+  <LoadingState label="Loading fitness trend" progress={progress}>
     <Skeleton variant="bar" />
     <Skeleton variant="chart" />
   </LoadingState>
@@ -37,23 +37,20 @@ interface AppContentProps {
 }
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
-  const { data, loading, error, retry } = useServerToolData<FitnessTrendData>(
-    app,
-    "get-fitness-trend-data",
-    {
+  const { data, loading, error, progress, retry } =
+    useServerToolData<FitnessTrendData>(app, "get-fitness-trend-data", {
       days: toolArgs.days ?? 90,
       projectDays: toolArgs.projectDays ?? 14,
       ...(toolArgs.targetDate ? { targetDate: toolArgs.targetDate } : {}),
       ...(toolArgs.targetTsb !== undefined
         ? { targetTsb: toolArgs.targetTsb }
         : {}),
-    },
-  );
+    });
 
   return (
     <AppShell hostCtx={hostCtx} mode={mode} app={app}>
       {loading ? (
-        <LoadingSkeleton />
+        <LoadingSkeleton progress={progress} />
       ) : error || !data ? (
         <ErrorState
           message={error ?? "No fitness trend data available"}

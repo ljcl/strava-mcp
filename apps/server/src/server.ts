@@ -33,6 +33,12 @@ import {
   type WaypointInput,
 } from "./mapAnchors";
 import { decodePolyline } from "./polyline";
+import {
+  createProgressReporter,
+  listingProgress,
+  NO_PROGRESS,
+  type ReportProgress,
+} from "./progress";
 import { getPrompt, listPrompts } from "./prompts";
 import { loadRouteProfile } from "./routeProfile";
 import {
@@ -725,12 +731,20 @@ function buildToolDefs(): ToolDef[] {
 
 export const TOOLS = buildToolDefs();
 
-/** Map of tool name → execute function for existing Strava tools */
+/**
+ * Map of tool name → execute function for existing Strava tools.
+ *
+ * The third argument is the call's progress reporter (#279). It is always
+ * supplied — {@link NO_PROGRESS} when the caller asked for none — so a handler
+ * that reports progress needs no capability check, and one that does not can
+ * keep its two-argument signature.
+ */
 const TOOL_EXECUTORS = new Map<
   string,
   (
     args: Record<string, unknown>,
     token: string,
+    progress: ReportProgress,
   ) => Promise<{
     content: Array<{ type: string; text: string }>;
     structuredContent?: unknown;
@@ -744,6 +758,7 @@ for (const tool of STRAVA_TOOLS) {
     tool.execute as (
       args: Record<string, unknown>,
       token: string,
+      progress: ReportProgress,
     ) => Promise<{
       content: Array<{ type: string; text: string }>;
       isError?: boolean;
@@ -833,6 +848,7 @@ const RUNNING_TYPES = new Set(["Run", "VirtualRun", "TrailRun"]);
 async function handleGetCadenceTrendData(
   args: Record<string, unknown>,
   token: string,
+  progress: ReportProgress,
 ): Promise<ToolCallResult> {
   const weeks = Number(args.weeks) || 6;
   const after = Math.floor(
@@ -844,6 +860,7 @@ async function handleGetCadenceTrendData(
   const allActivities = await getAllActivitiesFn(token, {
     perPage: 200,
     after,
+    onProgress: listingProgress(progress),
   });
 
   const runs = allActivities.filter((a) => a.type && RUNNING_TYPES.has(a.type));
@@ -871,6 +888,7 @@ async function handleGetCadenceTrendData(
 async function handleViewCadenceTrends(
   args: Record<string, unknown>,
   token: string,
+  progress: ReportProgress,
 ): Promise<ToolCallResult> {
   const weeks = Number(args.weeks) || 6;
   const after = Math.floor(
@@ -880,6 +898,7 @@ async function handleViewCadenceTrends(
     page: 1,
     perPage: 200,
     after,
+    onProgress: listingProgress(progress),
   });
   const runs = activities.filter((a) => a.type && RUNNING_TYPES.has(a.type));
 
@@ -902,11 +921,16 @@ async function handleViewCadenceTrends(
 }
 
 /** Fetch the window of running activities the training-load feed aggregates. */
-async function loadTrainingLoadRuns(token: string, days: number) {
+async function loadTrainingLoadRuns(
+  token: string,
+  days: number,
+  progress: ReportProgress,
+) {
   const after = Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
   const allActivities = await getAllActivitiesFn(token, {
     perPage: 200,
     after,
+    onProgress: listingProgress(progress),
   });
   return allActivities.filter((a) => a.type && RUNNING_TYPES.has(a.type));
 }
@@ -914,9 +938,10 @@ async function loadTrainingLoadRuns(token: string, days: number) {
 async function handleGetTrainingLoadData(
   args: Record<string, unknown>,
   token: string,
+  progress: ReportProgress,
 ): Promise<ToolCallResult> {
   const days = Number(args.days) || 84;
-  const runs = await loadTrainingLoadRuns(token, days);
+  const runs = await loadTrainingLoadRuns(token, days, progress);
   const result = buildTrainingLoadData(runs, days);
   return { content: [{ type: "text", text: JSON.stringify(result) }] };
 }
@@ -924,9 +949,10 @@ async function handleGetTrainingLoadData(
 async function handleViewTrainingLoad(
   args: Record<string, unknown>,
   token: string,
+  progress: ReportProgress,
 ): Promise<ToolCallResult> {
   const days = Number(args.days) || 84;
-  const runs = await loadTrainingLoadRuns(token, days);
+  const runs = await loadTrainingLoadRuns(token, days, progress);
   const data = buildTrainingLoadData(runs, days);
   const warningWeeks = data.weeks.filter((w) => w.warning).length;
 
@@ -950,6 +976,7 @@ async function handleViewTrainingLoad(
 async function loadFitnessTrendAppData(
   token: string,
   args: Record<string, unknown>,
+  progress: ReportProgress,
 ): Promise<FitnessTrendAppData> {
   const days = Number(args.days) || 90;
   const projectDays = Number(args.projectDays ?? 14);
@@ -961,6 +988,7 @@ async function loadFitnessTrendAppData(
   const activities = await getAllActivitiesFn(token, {
     after: Math.floor((end.getTime() - days * 24 * 60 * 60 * 1000) / 1000),
     before: Math.floor(end.getTime() / 1000),
+    onProgress: listingProgress(progress),
   });
 
   const trend = buildFitnessTrend(activities, {
@@ -981,16 +1009,18 @@ async function loadFitnessTrendAppData(
 async function handleGetFitnessTrendData(
   args: Record<string, unknown>,
   token: string,
+  progress: ReportProgress,
 ): Promise<ToolCallResult> {
-  const data = await loadFitnessTrendAppData(token, args);
+  const data = await loadFitnessTrendAppData(token, args, progress);
   return { content: [{ type: "text", text: JSON.stringify(data) }] };
 }
 
 async function handleViewFitnessTrend(
   args: Record<string, unknown>,
   token: string,
+  progress: ReportProgress,
 ): Promise<ToolCallResult> {
-  const data = await loadFitnessTrendAppData(token, args);
+  const data = await loadFitnessTrendAppData(token, args, progress);
   const current = data.current;
   const lines = [`Fitness Trend (last ${data.days} days)`];
 
@@ -1665,7 +1695,11 @@ interface ToolCallResult {
 /** MCP App tool name → handler (same dispatch path as the Strava tools). */
 const APP_TOOL_HANDLERS: Record<
   string,
-  (args: Record<string, unknown>, token: string) => Promise<ToolCallResult>
+  (
+    args: Record<string, unknown>,
+    token: string,
+    progress: ReportProgress,
+  ) => Promise<ToolCallResult>
 > = {
   "view-activity-chart": handleViewActivityChart,
   "get-activity-streams-raw": handleGetActivityStreamsRaw,
@@ -1687,6 +1721,22 @@ const APP_TOOL_HANDLERS: Record<
   "get-compare-activities-data": handleGetCompareActivitiesData,
 };
 
+/** Per-call hooks the transport layer supplies to {@link dispatchToolCall}. */
+export interface DispatchOptions {
+  /**
+   * Session-scoped sink for the same record stderr gets, so a client that
+   * asked for logs receives them. Per-call rather than module-level because
+   * each MCP session builds its own server (#241).
+   */
+  onRecord?: (record: ToolCallRecord) => void;
+  /**
+   * Progress reporter for this call, already bound to the caller's
+   * `progressToken`. Defaults to {@link NO_PROGRESS}, so a handler calls it
+   * unconditionally and a caller that asked for nothing pays nothing (#279).
+   */
+  progress?: ReportProgress;
+}
+
 /**
  * Single dispatch path for every tool call. Validates the raw host args
  * against the tool's zod schema BEFORE executing (#107), so defaults always
@@ -1702,12 +1752,7 @@ const APP_TOOL_HANDLERS: Record<
 export async function dispatchToolCall(
   name: string,
   rawArgs: Record<string, unknown> | undefined,
-  /**
-   * Session-scoped sink for the same record stderr gets, so a client that
-   * asked for logs receives them. Per-call rather than module-level because
-   * each MCP session builds its own server (#241).
-   */
-  onRecord?: (record: ToolCallRecord) => void,
+  { onRecord, progress = NO_PROGRESS }: DispatchOptions = {},
 ): Promise<ToolCallResult> {
   // The timer starts here, before token resolution, so a not-connected call is
   // recorded too — it is a real call that cost the caller a round trip, and it
@@ -1771,7 +1816,7 @@ export async function dispatchToolCall(
   }
 
   try {
-    const result = await handler(args, token);
+    const result = await handler(args, token, progress);
     // A handler that returns `isError` failed as surely as one that threw; the
     // counters would flatter the server if only throws counted.
     return finish(result.isError ? "error" : "ok", result);
@@ -1824,15 +1869,24 @@ export function createServer(): Server {
     return {};
   });
 
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
-    return dispatchToolCall(name, args, (record) => {
-      const level: LogLevel = record.outcome === "ok" ? "info" : "error";
-      if (!shouldSendLog(logLevel, level)) return;
-      // Never let a logging failure fail the tool call it describes.
-      void server
-        .sendLoggingMessage({ level, logger: "tool-call", data: record })
-        .catch(() => {});
+    return dispatchToolCall(name, args, {
+      onRecord: (record) => {
+        const level: LogLevel = record.outcome === "ok" ? "info" : "error";
+        if (!shouldSendLog(logLevel, level)) return;
+        // Never let a logging failure fail the tool call it describes.
+        void server
+          .sendLoggingMessage({ level, logger: "tool-call", data: record })
+          .catch(() => {});
+      },
+      // `extra.sendNotification` is already scoped to this request, which is
+      // what lets a streamable-HTTP transport put the notification on the same
+      // SSE stream the response will arrive on (#279).
+      progress: createProgressReporter(
+        request.params._meta?.progressToken,
+        extra.sendNotification,
+      ),
     });
   });
 

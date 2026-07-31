@@ -10,3 +10,14 @@
   border: 0;
   clip-path: inset(50%);
 }
+
+/*
+ * Deliberately quiet: a progress line is context for a wait, not a headline,
+ * and it sits directly above skeletons that are themselves muted.
+ */
+.progress {
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--font-text-sm-size);
+  color: var(--color-text-secondary);
+}

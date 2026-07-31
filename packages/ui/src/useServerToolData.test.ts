@@ -4,20 +4,29 @@ import { renderHook } from "./renderHook";
 import { useServerToolData } from "./useServerToolData";
 
 type CallArgs = Parameters<App["callServerTool"]>[0];
+type CallOptions = NonNullable<Parameters<App["callServerTool"]>[1]>;
 
 /** Hand-rolled fake App exposing only what the hook calls. */
-function fakeApp(respond: (args: CallArgs) => unknown | Promise<unknown>): {
+function fakeApp(
+  respond: (
+    args: CallArgs,
+    options?: CallOptions,
+  ) => unknown | Promise<unknown>,
+): {
   app: App;
   calls: CallArgs[];
+  options: Array<CallOptions | undefined>;
 } {
   const calls: CallArgs[] = [];
+  const options: Array<CallOptions | undefined> = [];
   const app = {
-    callServerTool: async (args: CallArgs) => {
+    callServerTool: async (args: CallArgs, opts?: CallOptions) => {
       calls.push(args);
-      return await respond(args);
+      options.push(opts);
+      return await respond(args, opts);
     },
   } as unknown as App;
-  return { app, calls };
+  return { app, calls, options };
 }
 
 const textResult = (text: string) => ({ content: [{ type: "text", text }] });
@@ -173,6 +182,91 @@ describe("useServerToolData", () => {
 
     expect(calls).toHaveLength(1);
     expect(harness.current().loading).toBe(false);
+
+    await harness.unmount();
+  });
+  it("asks for the progress-based timeout reset (#279)", async () => {
+    const { app, options } = fakeApp(() => textResult(JSON.stringify({})));
+
+    const harness = await renderHook(
+      () => useServerToolData(app, "get-data", {}),
+      undefined,
+    );
+    await flush();
+
+    // Without this a long history sweep is killed by the host's default
+    // request timeout while it is still making progress.
+    expect(options[0]?.resetTimeoutOnProgress).toBe(true);
+
+    await harness.unmount();
+  });
+
+  it("surfaces the latest progress message while loading", async () => {
+    const { app } = fakeApp(async (_args, options) => {
+      options?.onprogress?.({ progress: 1, message: "Listed 200 activities" });
+      options?.onprogress?.({ progress: 2, message: "Listed 400 activities" });
+      return textResult(JSON.stringify({ ok: true }));
+    });
+
+    const harness = await renderHook(
+      () => useServerToolData<{ ok: boolean }>(app, "get-data", {}),
+      undefined,
+    );
+    await flush();
+
+    expect(harness.current().progress).toBe("Listed 400 activities");
+
+    await harness.unmount();
+  });
+
+  it("ignores a progress notification carrying no message", async () => {
+    const { app } = fakeApp(async (_args, options) => {
+      options?.onprogress?.({ progress: 1, message: "Listing activities" });
+      // A bare tick is a timeout reset, not a new thing to say — it must not
+      // blank the line the user is reading.
+      options?.onprogress?.({ progress: 2 });
+      return textResult(JSON.stringify({}));
+    });
+
+    const harness = await renderHook(
+      () => useServerToolData(app, "get-data", {}),
+      undefined,
+    );
+    await flush();
+
+    expect(harness.current().progress).toBe("Listing activities");
+
+    await harness.unmount();
+  });
+
+  it("clears the stale progress line when a failed fetch is retried", async () => {
+    let attempt = 0;
+    const { app } = fakeApp(async (_args, options) => {
+      attempt += 1;
+      if (attempt === 1) {
+        options?.onprogress?.({
+          progress: 1,
+          message: "Listed 200 activities",
+        });
+        throw new Error("flaky");
+      }
+      return textResult(JSON.stringify({ ok: true }));
+    });
+
+    const harness = await renderHook(
+      () => useServerToolData<{ ok: boolean }>(app, "get-data", {}),
+      undefined,
+    );
+    await flush();
+    expect(harness.current().progress).toBe("Listed 200 activities");
+
+    harness.current().retry();
+    await flush();
+
+    // The second attempt reported nothing, so showing the first attempt's
+    // last line would describe work that is not happening.
+    expect(harness.current().progress).toBeNull();
+    expect(harness.current().data).toEqual({ ok: true });
 
     await harness.unmount();
   });

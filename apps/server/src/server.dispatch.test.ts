@@ -56,6 +56,7 @@ describe("dispatchToolCall input validation", () => {
       perPage: 100,
       maxItems: 100,
       countActivity: expect.any(Function),
+      onProgress: expect.any(Function),
     });
   });
 

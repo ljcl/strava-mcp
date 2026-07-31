@@ -136,9 +136,15 @@ describe("dispatch telemetry", () => {
   it("hands the same record to the session sink it writes to stderr", async () => {
     const records: unknown[] = [];
 
-    await dispatchToolCall("no-such-tool", {}, (record) => {
-      records.push(record);
-    });
+    await dispatchToolCall(
+      "no-such-tool",
+      {},
+      {
+        onRecord: (record) => {
+          records.push(record);
+        },
+      },
+    );
 
     expect(records).toHaveLength(1);
     expect(records[0]).toMatchObject({

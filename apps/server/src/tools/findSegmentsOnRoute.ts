@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { formatDistance } from "../formatters";
+import { NO_PROGRESS, type ReportProgress } from "../progress";
 import {
   boundsString,
   buildTiles,
@@ -119,6 +120,7 @@ export const findSegmentsOnRouteTool = {
       toleranceMeters,
     }: FindSegmentsOnRouteInput,
     token: string,
+    progress: ReportProgress = NO_PROGRESS,
   ) => {
     if ((routeId && activityId) || (!routeId && !activityId)) {
       return {
@@ -158,6 +160,12 @@ export const findSegmentsOnRouteTool = {
       // so stop and report the partial coverage rather than hiding it.
       const failed: number[] = [];
       let stopped = false;
+      let searched = 0;
+
+      progress(`Searching ${tiles.length} stretches of the course…`, {
+        important: true,
+      });
+
       const responses = await mapWithConcurrency(
         tiles,
         TILE_CONCURRENCY,
@@ -171,13 +179,25 @@ export const findSegmentsOnRouteTool = {
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);
-            if (/rate limit/i.test(message)) stopped = true;
+            if (/rate limit/i.test(message)) {
+              stopped = true;
+              progress("Strava rate limit reached — stopping the search", {
+                important: true,
+              });
+            }
             failed.push(tile.startM);
             return null;
+          } finally {
+            // Completion-ordered: TILE_CONCURRENCY tiles are in flight, so
+            // this counts stretches finished, not a position along the course.
+            searched += 1;
+            progress(`Searched ${searched} of ${tiles.length} stretches`);
           }
         },
         () => stopped,
       );
+
+      progress("Matching segments to the course…", { important: true });
 
       const starred = await starredIds(token);
       const effortsBySegment = new Map(

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { RateLimitError } from "../fetchClient";
 import { formatDuration } from "../formatters";
+import { listingProgress, NO_PROGRESS, type ReportProgress } from "../progress";
 import {
   getActivityById,
   getAllActivities,
@@ -134,11 +135,14 @@ export const getBestEffortsTool = {
   execute: async (
     { distance, limit, maxActivities, after, before }: GetBestEffortsInput,
     token: string,
+    progress: ReportProgress = NO_PROGRESS,
   ) => {
     try {
       console.error(
         `Fetching best efforts (scanning up to ${maxActivities} activities)...`,
       );
+
+      progress("Listing activities…", { important: true });
 
       // Fetch running activities. maxItems/countActivity stop the pagination
       // once enough runs have arrived instead of walking the whole history.
@@ -146,6 +150,7 @@ export const getBestEffortsTool = {
         perPage: Math.min(maxActivities, 200),
         maxItems: maxActivities,
         countActivity: isRunningActivity,
+        onProgress: listingProgress(progress),
         ...(after ? { after: Math.floor(Date.parse(after) / 1000) } : {}),
         ...(before ? { before: Math.floor(Date.parse(before) / 1000) } : {}),
       });
@@ -157,6 +162,11 @@ export const getBestEffortsTool = {
 
       console.error(
         `Found ${runningActivities.length} running activities to analyze`,
+      );
+
+      progress(
+        `Reading ${runningActivities.length} activities for best efforts…`,
+        { important: true },
       );
 
       // Collect best efforts from each activity
@@ -172,6 +182,17 @@ export const getBestEffortsTool = {
       // reporting below — it is only ever assigned inside the worker closure.
       const abort: { rateLimit: RateLimitError | null } = { rateLimit: null };
 
+      let completed = 0;
+      /**
+       * One activity finished, however it finished. Completion-ordered rather
+       * than index-ordered: the pool keeps FETCH_CONCURRENCY requests in
+       * flight, so this counts activities done, not a position in the list.
+       */
+      const advance = () => {
+        completed += 1;
+        progress(`Read ${completed} of ${runningActivities.length} activities`);
+      };
+
       await mapWithConcurrency(
         runningActivities,
         FETCH_CONCURRENCY,
@@ -182,15 +203,22 @@ export const getBestEffortsTool = {
           } catch (err) {
             if (err instanceof RateLimitError) {
               abort.rateLimit ??= err;
+              // The scan is about to stop with the list half-read; saying so
+              // beats a progress line that simply stops advancing.
+              progress("Strava rate limit reached — stopping the scan", {
+                important: true,
+              });
             } else {
               failedFetches += 1;
               console.error(
                 `Failed to fetch activity ${activitySummary.id}: ${err}`,
               );
+              advance();
             }
             return;
           }
 
+          advance();
           activitiesRead += 1;
 
           if (!activity.best_efforts || activity.best_efforts.length === 0) {
