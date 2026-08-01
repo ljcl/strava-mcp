@@ -12,12 +12,18 @@ export interface ChartContextInput {
   availableMetrics: string[];
   hidden: Set<string>;
   smooth: boolean;
+  /**
+   * The x-axis window currently shown, when zoomed (#278). Echoed back so a
+   * model that called `set-brush-window` — or a user who dragged the handles —
+   * knows which part of the run the next question is about.
+   */
+  zoomWindow?: string | null;
 }
 
 export function buildChartContextSummary(
   input: ChartContextInput,
 ): string | null {
-  const { activityName, availableMetrics, hidden, smooth } = input;
+  const { activityName, availableMetrics, hidden, smooth, zoomWindow } = input;
   if (!activityName || availableMetrics.length === 0) return null;
 
   const label = (k: string) => METRIC_LABELS[k] ?? k;
@@ -28,5 +34,6 @@ export function buildChartContextSummary(
   parts.push(shown.length ? `Showing: ${shown.join(", ")}.` : "Showing: none.");
   if (off.length) parts.push(`Hidden: ${off.join(", ")}.`);
   parts.push(`Smoothing: ${smooth ? "on" : "off"}.`);
+  if (zoomWindow) parts.push(`Zoomed to ${zoomWindow}.`);
   return parts.join(" ");
 }

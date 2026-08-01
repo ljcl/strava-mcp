@@ -44,6 +44,9 @@ const base = {
   mode: "desktop",
   loading,
   children: content,
+  // These branches all render before an app is connected, so there is no
+  // registry to install view tools into (#278).
+  viewToolRegistry: null,
 } as const;
 
 /** Host has not sent tool input yet: skeleton, no error. */

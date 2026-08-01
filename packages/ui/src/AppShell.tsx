@@ -5,10 +5,17 @@ import {
   type McpUiHostContext,
 } from "@modelcontextprotocol/ext-apps";
 import { useApp, useHostStyles } from "@modelcontextprotocol/ext-apps/react";
-import { type CSSProperties, type ReactNode, useEffect, useState } from "react";
+import {
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import styles from "./AppShell.module.css";
 import { ErrorState } from "./ErrorState";
 import { type HostCtx, useMobileMode } from "./useMobileMode";
+import { type ViewToolDefinition, ViewToolRegistry } from "./viewTools";
 
 /** Layout mode every MCP App view switches on. */
 export type AppMode = "mobile" | "desktop";
@@ -55,6 +62,13 @@ export interface UseHostRootOptions<TArgs> {
   missingArgsMessage?: string;
   /** Display modes the app advertises. Defaults to inline + fullscreen. */
   capabilities?: McpUiAppCapabilities;
+  /**
+   * Tools this view exposes to the host and model (#278). Declared here
+   * rather than in the content component because `registerTool` only works
+   * before `connect()`; the component installs the implementations with
+   * `useViewTool`. See `viewTools.ts`.
+   */
+  viewTools?: readonly ViewToolDefinition[];
 }
 
 /** What one `ontoolinput` delivery means for the root's state. */
@@ -101,6 +115,11 @@ export interface HostRoot<TArgs> {
    * input without the id", which must not sit on a skeleton forever.
    */
   argsError: string | null;
+  /**
+   * Registry the content component installs its view-tool handlers into, or
+   * null when the app declared none (#278).
+   */
+  viewToolRegistry: ViewToolRegistry | null;
 }
 
 /**
@@ -114,15 +133,29 @@ export function useHostRoot<TArgs>({
   parseToolInput,
   missingArgsMessage,
   capabilities = DEFAULT_CAPABILITIES,
+  viewTools,
 }: UseHostRootOptions<TArgs>): HostRoot<TArgs> {
   const [toolArgs, setToolArgs] = useState<TArgs | null>(null);
   const [argsError, setArgsError] = useState<string | null>(null);
   const [hostCtx, setHostCtx] = useState<HostCtx>({});
 
+  // One registry per mount, created eagerly: `onAppCreated` fires during the
+  // very first render's effect, before any state we could lazily initialise.
+  const registryRef = useRef<ViewToolRegistry | null>(null);
+  if (viewTools?.length && !registryRef.current) {
+    registryRef.current = new ViewToolRegistry();
+  }
+
   const { app, error: connectError } = useApp({
     appInfo,
     capabilities,
     onAppCreated: (createdApp) => {
+      // The only window where this works: `useApp` calls `onAppCreated`
+      // before `connect()`, and `registerTool` cannot advertise a capability
+      // once the transport exists (#278).
+      if (viewTools?.length) {
+        registryRef.current?.register(createdApp, viewTools);
+      }
       createdApp.ontoolinput = (input) => {
         const outcome = classifyToolInput(
           input.arguments,
@@ -153,7 +186,15 @@ export function useHostRoot<TArgs>({
   const isMobile = useMobileMode(hostCtx);
   const mode: AppMode = isMobile ? "mobile" : "desktop";
 
-  return { app, hostCtx, mode, toolArgs, connectError, argsError };
+  return {
+    app,
+    hostCtx,
+    mode,
+    toolArgs,
+    connectError,
+    argsError,
+    viewToolRegistry: registryRef.current,
+  };
 }
 
 /** Compute the outer card chrome (safe-area insets, margin, width clamp). */
@@ -285,6 +326,8 @@ export interface ConnectedHostRoot<TArgs> {
   hostCtx: HostCtx;
   mode: AppMode;
   toolArgs: TArgs;
+  /** Where the content component installs its `useViewTool` handlers (#278). */
+  viewToolRegistry: ViewToolRegistry | null;
 }
 
 export interface AppRootViewProps<TArgs> extends HostRoot<TArgs> {
@@ -310,6 +353,7 @@ export function AppRootView<TArgs>({
   toolArgs,
   connectError,
   argsError,
+  viewToolRegistry,
   loading,
   children,
 }: AppRootViewProps<TArgs>) {
@@ -337,7 +381,7 @@ export function AppRootView<TArgs>({
     );
   }
 
-  return <>{children({ app, hostCtx, mode, toolArgs })}</>;
+  return <>{children({ app, hostCtx, mode, toolArgs, viewToolRegistry })}</>;
 }
 
 export interface AppRootProps<TArgs> extends UseHostRootOptions<TArgs> {

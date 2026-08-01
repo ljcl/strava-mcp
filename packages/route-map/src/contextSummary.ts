@@ -9,6 +9,12 @@ export interface RouteMapContextInput {
   hasGeometry: boolean;
   /** Label of the metric the track is colored by, when streams are present. */
   colorMetric?: string | null;
+  /**
+   * How far the map is zoomed in, when it is (#278). Echoed back so a model
+   * that called `set-viewport` — or a user who pinched — knows the view is no
+   * longer showing the whole course.
+   */
+  zoom?: string | null;
 }
 
 /**
@@ -26,6 +32,7 @@ export function buildRouteMapContextSummary(
     elevationGain,
     hasGeometry,
     colorMetric,
+    zoom,
   } = input;
   if (!name) return null;
 
@@ -41,6 +48,7 @@ export function buildRouteMapContextSummary(
     if (colorMetric) {
       parts.push(`The track is coloured by ${colorMetric.toLowerCase()}.`);
     }
+    if (zoom) parts.push(`${zoom}.`);
   } else {
     parts.push("No GPS track is available for it.");
   }
