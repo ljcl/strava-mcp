@@ -33,21 +33,18 @@ export function RampLegend({
   label,
 }: RampLegendProps) {
   return (
-    // A labelled group rather than a hidden sentence: the two endpoint labels
-    // are already readable, so restating them would have a screen reader say
-    // every value twice. What is missing is only the subject — what the
-    // colour encodes — which is exactly what the group label supplies.
+    // `role="img"` rather than a group or a hidden sentence. The scale is a
+    // graphic, and the role makes it atomic: children are not announced, so
+    // the label can state the subject *and* the endpoints without a screen
+    // reader reading each value twice — which is what a hidden sentence
+    // alongside readable labels did, and what route-map's story caught.
     <div
       className={styles.scale}
-      role="group"
-      aria-label={`Colour scale: ${label}`}
+      role="img"
+      aria-label={`Colour scale: ${label}, from ${minLabel} to ${maxLabel}.`}
     >
       <span className={styles.scaleLabel}>{minLabel}</span>
-      <span
-        className={styles.scaleBar}
-        style={{ background: gradient }}
-        aria-hidden="true"
-      />
+      <span className={styles.scaleBar} style={{ background: gradient }} />
       <span className={styles.scaleLabel}>{maxLabel}</span>
     </div>
   );
