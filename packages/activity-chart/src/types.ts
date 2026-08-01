@@ -12,7 +12,7 @@ export interface Lap {
 
 /** Raw data from the server's get-activity-streams-raw tool */
 export interface ActivityStreamData {
-  activityId: number;
+  activityId: string;
   activityType: string;
   name: string;
   streams: {

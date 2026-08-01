@@ -6,7 +6,7 @@ import { type ActivityStreamData } from "../types";
  * Treadmill uploads and activities with device data stripped land here too.
  */
 export const manualEntry: ActivityStreamData = {
-  activityId: 15920083311,
+  activityId: "15920083311",
   activityType: "WeightTraining",
   name: "Evening Strength Session",
   streams: {},
@@ -18,7 +18,7 @@ export const manualEntry: ActivityStreamData = {
  * the metric-availability scan is what has to catch it, not `data.length`.
  */
 export const timeOnlyRecording: ActivityStreamData = {
-  activityId: 15920083312,
+  activityId: "15920083312",
   activityType: "Run",
   name: "Treadmill Shakeout",
   streams: {

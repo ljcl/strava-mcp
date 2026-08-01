@@ -16,7 +16,7 @@ function streamData(
   activityType = "Run",
 ): ActivityStreamData {
   return {
-    activityId: 1,
+    activityId: "1",
     activityType,
     name: "Test",
     streams: { time: [0, 10, 20, 30], ...overrides },

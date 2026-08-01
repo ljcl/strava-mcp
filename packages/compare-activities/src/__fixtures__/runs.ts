@@ -1,7 +1,7 @@
 import { type ActivityStreamData, type CompareData } from "../types";
 
 interface SynthRunOptions {
-  activityId: number;
+  activityId: string;
   name: string;
   /** Total duration in seconds (15 s sampling). */
   seconds: number;
@@ -64,7 +64,7 @@ function synthRun(options: SynthRunOptions): ActivityStreamData {
 }
 
 export const baselineRun = synthRun({
-  activityId: 101,
+  activityId: "101",
   name: "Bay Run • Steady",
   seconds: 3150,
   mps: 3.17,
@@ -74,7 +74,7 @@ export const baselineRun = synthRun({
 });
 
 export const raceRun = synthRun({
-  activityId: 102,
+  activityId: "102",
   name: "Bay Run • Race Pace",
   seconds: 3000,
   mps: 3.33,
@@ -129,7 +129,7 @@ export const compareData: CompareData = {
 /** HR-only pair (e.g. treadmill without footpod): time axis, single metric. */
 export const hrOnlyPair: [ActivityStreamData, ActivityStreamData] = [
   {
-    activityId: 201,
+    activityId: "201",
     activityType: "Run",
     name: "Treadmill Intervals",
     streams: {
@@ -138,7 +138,7 @@ export const hrOnlyPair: [ActivityStreamData, ActivityStreamData] = [
     },
   },
   {
-    activityId: 202,
+    activityId: "202",
     activityType: "Run",
     name: "Treadmill Tempo",
     streams: {

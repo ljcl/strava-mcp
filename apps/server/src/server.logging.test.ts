@@ -10,52 +10,18 @@ vi.mock("./tokenManager", async (importOriginal) => {
   return { ...actual, getStravaToken: vi.fn(async () => "test-token") };
 });
 
-const { createServer, dispatchToolCall } = await import("./server");
-const { createMcpSessionManager } = await import("./mcpSession");
+const { dispatchToolCall } = await import("./server");
+const { connectTestClient } = await import("./mcpTestClient");
 const { resetToolCallStats, toolCallStats } = await import("./telemetry");
-
-/** Initialize a session and return the parsed initialize result. */
-async function initializeOverTheWire(): Promise<{
-  manager: ReturnType<typeof createMcpSessionManager>;
-  sessionId: string;
-  result: Record<string, unknown>;
-}> {
-  const manager = createMcpSessionManager(createServer);
-  const response = await manager.handleRequest(
-    new Request("http://localhost/mcp", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "initialize",
-        params: {
-          protocolVersion: "2025-06-18",
-          capabilities: {},
-          clientInfo: { name: "logging-test", version: "1.0" },
-        },
-      }),
-    }),
-  );
-
-  const sessionId = response.headers.get("mcp-session-id") ?? "";
-  const body = await response.text();
-  // Responses come back as SSE; the payload is the `data:` line.
-  const data = body
-    .split("\n")
-    .find((line) => line.startsWith("data:"))!
-    .slice(5);
-  return { manager, sessionId, result: JSON.parse(data).result };
-}
 
 describe("logging capability", () => {
   it("is advertised in the initialize result", async () => {
-    const { result } = await initializeOverTheWire();
+    const { initializeResult } = await connectTestClient("logging-test");
 
-    const capabilities = result.capabilities as Record<string, unknown>;
+    const capabilities = initializeResult.capabilities as Record<
+      string,
+      unknown
+    >;
     expect(capabilities).toHaveProperty("logging");
     // The pre-existing three are untouched.
     expect(capabilities).toHaveProperty("tools");
@@ -64,41 +30,10 @@ describe("logging capability", () => {
   });
 
   it("answers logging/setLevel rather than method-not-found", async () => {
-    const { manager, sessionId } = await initializeOverTheWire();
+    const client = await connectTestClient("logging-test");
 
-    await manager.handleRequest(
-      new Request("http://localhost/mcp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json, text/event-stream",
-          "mcp-session-id": sessionId,
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "notifications/initialized",
-        }),
-      }),
-    );
+    const body = await client.sendRaw("logging/setLevel", { level: "info" });
 
-    const response = await manager.handleRequest(
-      new Request("http://localhost/mcp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json, text/event-stream",
-          "mcp-session-id": sessionId,
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 2,
-          method: "logging/setLevel",
-          params: { level: "info" },
-        }),
-      }),
-    );
-
-    const body = await response.text();
     // Declaring the capability without a handler would answer -32601 here,
     // which is worse than never advertising it.
     expect(body).not.toContain("-32601");

@@ -792,7 +792,7 @@ async function handleViewActivityChart(
   token: string,
 ): Promise<ToolCallResult> {
   const activityId = String(args.activity_id);
-  const activity = await getActivityById(token, Number(activityId));
+  const activity = await getActivityById(token, activityId);
   const lines = [
     `Activity: ${activity.name}`,
     `Type: ${activity.type}`,
@@ -809,7 +809,7 @@ async function handleGetActivityStreamsRaw(
   token: string,
 ): Promise<ToolCallResult> {
   const activityId = String(args.activity_id);
-  const activity = await getActivityById(token, Number(activityId));
+  const activity = await getActivityById(token, activityId);
 
   const [streamSet, stravaLaps] = await Promise.all([
     getActivityStreams(token, activityId, RAW_STREAM_TYPES, {
@@ -833,7 +833,9 @@ async function handleGetActivityStreamsRaw(
   }));
 
   const result = {
-    activityId: Number(activityId),
+    // A string, like every Strava id on the wire (#270): ids are
+    // 64-bit and `Number()` here silently rounded anything past 2^53.
+    activityId,
     activityType: activity.type,
     name: activity.name,
     streams,
@@ -1539,7 +1541,7 @@ async function loadRouteMapAnnotations(
 
   // Photos: only those with GPS coordinates.
   try {
-    const photos = await getActivityPhotos(token, Number(activityId));
+    const photos = await getActivityPhotos(token, activityId);
     const photoMarkers = [];
     for (const photo of photos) {
       const location = photo.location;

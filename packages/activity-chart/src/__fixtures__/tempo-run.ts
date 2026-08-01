@@ -1,7 +1,7 @@
 import { type ActivityStreamData } from "../types";
 
 export const tempoRun: ActivityStreamData = {
-  activityId: 17310429827,
+  activityId: "17310429827",
   activityType: "Run",
   name: "Centennial Park • Tempo 3-2-1",
   streams: {
