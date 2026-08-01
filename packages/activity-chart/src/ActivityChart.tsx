@@ -519,6 +519,12 @@ export function ActivityChart({
       meta,
       data: displayData,
       visibleMetrics: ALL_METRICS.filter(drawn),
+      // Recorded but deliberately not drawn at this size (#256): without
+      // this the same activity reads as having different data on mobile.
+      omittedMetrics:
+        isMobile && availableMetrics.has("grade") && !hidden.has("grade")
+          ? ["grade"]
+          : [],
       lapCount:
         laps?.filter(
           (lap) => !(meta.isSwimming && lap.startDistance === lap.endDistance),
@@ -864,6 +870,12 @@ export function ActivityChart({
               onClick={() => toggle(key)}
               onMouseEnter={() => setHoveredLegendKey(key)}
               onMouseLeave={() => setHoveredLegendKey(null)}
+              // Same setter on focus/blur (#251): tabbing the legend isolates
+              // the series exactly as hovering it does.
+              // Same setter on focus/blur (#251): tabbing the legend isolates
+              // the series exactly as hovering it does.
+              onFocus={() => setHoveredLegendKey(key)}
+              onBlur={() => setHoveredLegendKey(null)}
             />
           ))}
         </Legend>

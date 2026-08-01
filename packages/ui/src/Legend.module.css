@@ -29,6 +29,11 @@
   border: none;
 }
 
+/* A static key entry is not interactive, so it must not look clickable. */
+.legendButton[data-static] {
+  cursor: default;
+}
+
 .legend[data-size="touch"] .legendButton {
   /* off-scale: intentional touch-mode tweak */
   gap: 5px;

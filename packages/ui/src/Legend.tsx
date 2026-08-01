@@ -25,7 +25,7 @@ export function Legend({ children, size = "default" }: LegendProps) {
     isValidElement,
   ) as ReactElement<LegendItemProps>[];
   const value = items.flatMap((item, i) =>
-    item.props.hidden ? [] : [String(i)],
+    item.props.hidden || item.props.static ? [] : [String(i)],
   );
   return (
     <ToggleGroup
@@ -47,6 +47,23 @@ interface LegendItemProps {
   onClick?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  /**
+   * Keyboard counterparts to the mouse handlers (#251). A consumer that dims
+   * non-hovered series must pass the same setter to all four, or a keyboard
+   * user tabbing the legend gets the focus ring and none of the isolation
+   * the affordance exists to provide.
+   */
+  onFocus?: () => void;
+  onBlur?: () => void;
+  /**
+   * Render as a static key entry rather than a toggle (#256). For a series
+   * that is always drawn — training-load's volume bars are the chart's
+   * dominant mark — where a legend entry is needed to explain the colour but
+   * there is nothing to switch off. A toggle that does nothing is worse than
+   * no toggle: it takes a tab stop and announces an action it will not
+   * perform.
+   */
+  static?: boolean;
   /** Injected by Legend to identify the toggle within the group. */
   value?: string;
 }
@@ -59,8 +76,23 @@ export function LegendItem({
   onClick,
   onMouseEnter,
   onMouseLeave,
+  onFocus,
+  onBlur,
+  static: isStatic,
   value,
 }: LegendItemProps) {
+  if (isStatic) {
+    return (
+      <span className={styles.legendButton} data-static="">
+        <span
+          className={styles.swatch}
+          style={{ backgroundColor: color }}
+          aria-hidden="true"
+        />
+        {label}
+      </span>
+    );
+  }
   return (
     <Toggle
       value={value}
@@ -68,6 +100,8 @@ export function LegendItem({
       onPressedChange={() => onClick?.()}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onFocus={onFocus}
+      onBlur={onBlur}
       className={styles.legendButton}
       data-hidden={hidden || undefined}
       data-faded={faded || undefined}
