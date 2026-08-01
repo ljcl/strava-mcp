@@ -4,8 +4,6 @@ import { SummaryBar } from "./SummaryBar";
 
 const meta = preview.meta({
   component: SummaryBar,
-  // ui primitives are the first package gated on axe (#165).
-  parameters: { a11y: { test: "error" } },
 });
 
 export const WithTrend = meta.story({

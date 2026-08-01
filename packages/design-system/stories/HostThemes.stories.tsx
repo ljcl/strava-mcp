@@ -36,7 +36,9 @@ function Swatch({ variable }: { variable: string }) {
       <code
         style={{
           fontSize: "var(--font-text-xs-size)",
-          color: "var(--color-text-tertiary)",
+          // Secondary, not tertiary: this is the swatch's only label, and
+          // tertiary at 12px falls under 4.5:1 in some host palettes (#286).
+          color: "var(--color-text-secondary)",
         }}
       >
         {variable}

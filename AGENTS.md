@@ -663,13 +663,26 @@ its box, default centre) and `--wait` extends the settle beat for charts that mo
 `@storybook/addon-a11y` (#165) runs axe on every story: as a panel in Storybook dev, and inside
 the story smoke tests in CI (the addon's preview annotations are composed into the design-system
 `definePreview` via its `addons` array — the CSF-factory equivalent of a vitest setup file). The
-global default is `parameters.a11y.test: "todo"` (violations report without failing);
-`packages/ui` story files pin `"error"` and are the first gated package. Ratchet a package to
-`"error"` in its story metas once its violations reach zero. Two conventions keep the checks
-honest: the design-system preview decorator paints `--color-background-primary` on the theme
-wrapper (axe otherwise measures dark-mode text against the white test canvas), and
+global default is `parameters.a11y.test: "error"` — **repo-wide since #286**, so a violation
+fails the build wherever it appears and a new package inherits the gate instead of opting into
+it. The per-package ratchet it replaced (default `"todo"`, pinned to `"error"` in a package's
+story metas as its violations reached zero) is finished, and the redundant pins in
+`packages/ui` are gone; do not reintroduce a per-file `a11y` parameter to route around a
+violation.
+
+What the sweep that closed #286 actually found is worth knowing, because it was not what the
+epic predicted: **all 13 violations were `color-contrast`, and none came from the five issues
+filed against the epic** (headings, legend focus, narration, legend entries, a colour key —
+all real improvements, but structural things axe cannot detect). The shipped defect was one
+missing token. Achievement badges paired a *theme-dependent* foreground (`--color-text-inverse`)
+with the *theme-invariant* tier backgrounds, which made them correct in dark mode and
+white-on-amber at 2.14:1 in light; `--color-tier-text` is the paired invariant foreground, and
+new UI sitting on a theme-invariant colour needs the same treatment. Three conventions keep the
+checks honest: the design-system preview decorator paints `--color-background-primary` on the
+theme wrapper (axe otherwise measures dark-mode text against the white test canvas);
 hidden/faded `Legend` labels keep contrast-passing text (only the swatch dims) because enabled
-toggles must stay readable.
+toggles must stay readable; and `--color-text-tertiary` is for decoration, not for an element's
+only label — at 12px it falls under 4.5:1 in some host palettes.
 
 ### Agent access
 

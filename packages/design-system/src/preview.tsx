@@ -25,10 +25,12 @@ export default definePreview({
   addons: [addonA11y(), addonDocs()],
   parameters: {
     // Per-story axe checks (#165): the addon panel reports violations in dev,
-    // and the vitest story tests run the same checks in CI. "todo" surfaces
-    // violations as warnings without failing; packages ratchet to "error" in
-    // their story files as their violations reach zero (ui primitives first).
-    a11y: { test: "todo" },
+    // and the vitest story tests run the same checks in CI. Gated at "error"
+    // repo-wide since #286 — every package is clean, so the ratchet that used
+    // to run per package (default "todo", pinned to "error" as each reached
+    // zero) has finished and a violation now fails the build wherever it
+    // appears. A new package inherits the gate rather than opting into it.
+    a11y: { test: "error" },
     viewport: {
       options: {
         iphone16pro: {

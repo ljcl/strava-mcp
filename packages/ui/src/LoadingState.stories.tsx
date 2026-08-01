@@ -4,8 +4,6 @@ import { Skeleton } from "./Skeleton";
 
 const meta = preview.meta({
   component: LoadingState,
-  // ui primitives are the first package gated on axe (#165).
-  parameters: { a11y: { test: "error" } },
 });
 
 export const Default = meta.story({
