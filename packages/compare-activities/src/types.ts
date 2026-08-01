@@ -3,7 +3,7 @@
  * the compare overlay ignores the lap payload that tool also returns).
  */
 export interface ActivityStreamData {
-  activityId: number;
+  activityId: string;
   activityType: string;
   name: string;
   streams: {

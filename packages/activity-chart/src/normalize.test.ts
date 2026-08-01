@@ -9,7 +9,7 @@ const streamData = (
     streams: ActivityStreamData["streams"];
   },
 ): ActivityStreamData => ({
-  activityId: 1,
+  activityId: "1",
   activityType: "Run",
   name: "Test",
   ...overrides,

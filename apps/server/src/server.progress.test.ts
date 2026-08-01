@@ -25,8 +25,7 @@ vi.mock("./tokenManager", async (importOriginal) => {
 });
 
 const { dispatchToolCall } = await import("./server");
-const { createServer } = await import("./server");
-const { createMcpSessionManager } = await import("./mcpSession");
+const { connectTestClient } = await import("./mcpTestClient");
 
 const mockedList = vi.mocked(getAllActivities);
 const mockedById = vi.mocked(getActivityById);
@@ -138,60 +137,6 @@ describe("CallTool progress notifications", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
-  /** Drive a real initialize + tools/call over the transport. */
-  async function callOverTheWire(body: unknown): Promise<string> {
-    const manager = createMcpSessionManager(createServer);
-    const init = await manager.handleRequest(
-      new Request("http://localhost/mcp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json, text/event-stream",
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "initialize",
-          params: {
-            protocolVersion: "2025-06-18",
-            capabilities: {},
-            clientInfo: { name: "progress-test", version: "1.0" },
-          },
-        }),
-      }),
-    );
-    const sessionId = init.headers.get("mcp-session-id") ?? "";
-    await init.text();
-
-    await manager.handleRequest(
-      new Request("http://localhost/mcp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json, text/event-stream",
-          "mcp-session-id": sessionId,
-        },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          method: "notifications/initialized",
-        }),
-      }),
-    );
-
-    const response = await manager.handleRequest(
-      new Request("http://localhost/mcp", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json, text/event-stream",
-          "mcp-session-id": sessionId,
-        },
-        body: JSON.stringify(body),
-      }),
-    );
-    return response.text();
-  }
-
   it("puts progress on the same stream as the result when a token is sent", async () => {
     mockedList.mockResolvedValueOnce([run("1")]);
     mockedById.mockResolvedValue({
@@ -200,15 +145,11 @@ describe("CallTool progress notifications", () => {
       best_efforts: [],
     } as never);
 
-    const body = await callOverTheWire({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: {
-        name: "get-best-efforts",
-        arguments: { maxActivities: 1 },
-        _meta: { progressToken: "scan-1" },
-      },
+    const client = await connectTestClient("progress-test");
+    const body = await client.sendRaw("tools/call", {
+      name: "get-best-efforts",
+      arguments: { maxActivities: 1 },
+      _meta: { progressToken: "scan-1" },
     });
 
     // Asserted over the wire, not against the reporter: a notification the
@@ -226,11 +167,10 @@ describe("CallTool progress notifications", () => {
       best_efforts: [],
     } as never);
 
-    const body = await callOverTheWire({
-      jsonrpc: "2.0",
-      id: 2,
-      method: "tools/call",
-      params: { name: "get-best-efforts", arguments: { maxActivities: 1 } },
+    const client = await connectTestClient("progress-test");
+    const body = await client.sendRaw("tools/call", {
+      name: "get-best-efforts",
+      arguments: { maxActivities: 1 },
     });
 
     expect(body).not.toContain("notifications/progress");

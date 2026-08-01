@@ -1,7 +1,7 @@
 import { type ActivityStreamData } from "../types";
 
 export const poolSwim: ActivityStreamData = {
-  activityId: 17303634939,
+  activityId: "17303634939",
   activityType: "Swim",
   name: "Pool Swim",
   streams: {

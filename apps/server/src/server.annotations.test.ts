@@ -11,7 +11,7 @@
  */
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { describe, expect, it } from "vitest";
-import { createMcpSessionManager } from "./mcpSession";
+import { connectTestClient } from "./mcpTestClient";
 import { createServer, TOOLS } from "./server";
 import {
   READ_ONLY,
@@ -195,61 +195,10 @@ describe("tool annotations exhaustiveness", () => {
  * tools/list through the transport and reads the JSON that comes back.
  */
 async function listToolsOverTheWire(): Promise<Array<Record<string, unknown>>> {
-  const manager = createMcpSessionManager(createServer);
-  const post = (body: unknown, headers: Record<string, string> = {}) =>
-    new Request("http://localhost/mcp", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/event-stream",
-        ...headers,
-      },
-      body: JSON.stringify(body),
-    });
-
-  const init = await manager.handleRequest(
-    post({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-      params: {
-        protocolVersion: "2025-06-18",
-        capabilities: {},
-        clientInfo: { name: "annotations-test", version: "1.0" },
-      },
-    }),
-  );
-  const sessionId = init.headers.get("mcp-session-id");
-  expect(sessionId).toBeTruthy();
-  await init.body?.cancel();
-
-  await manager.handleRequest(
-    post(
-      { jsonrpc: "2.0", method: "notifications/initialized" },
-      { "mcp-session-id": sessionId as string },
-    ),
-  );
-
-  const response = await manager.handleRequest(
-    post(
-      { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} },
-      { "mcp-session-id": sessionId as string },
-    ),
-  );
-  const raw = await response.text();
-  // The transport answers on an SSE stream, so the payload is the data: line.
-  const line = raw
-    .split("\n")
-    .find((l) => l.startsWith("data:"))
-    ?.slice("data:".length)
-    .trim();
-  expect(line, `no SSE data line in tools/list response: ${raw}`).toBeTruthy();
-
-  const parsed = JSON.parse(line as string) as {
-    result?: { tools?: Array<Record<string, unknown>> };
-  };
-  await manager.closeAllSessions();
-  return parsed.result?.tools ?? [];
+  const client = await connectTestClient("annotations-test");
+  const { result } = await client.send("tools/list");
+  await client.close();
+  return (result?.tools as Array<Record<string, unknown>>) ?? [];
 }
 
 describe("annotations on the wire", () => {

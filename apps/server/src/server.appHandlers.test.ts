@@ -201,7 +201,7 @@ describe("app handlers with no Strava token", () => {
     await dispatchToolCall("view-activity-chart", { activity_id: "123" });
 
     expect(mockedToken).toHaveBeenCalledTimes(1);
-    expect(mockedById).toHaveBeenCalledWith("test-token", 123);
+    expect(mockedById).toHaveBeenCalledWith("test-token", "123");
   });
 
   it("does not run the handler when the token cannot be resolved", async () => {
@@ -225,7 +225,7 @@ describe("view-activity-chart", () => {
     const text = result.content[0]?.text ?? "";
     expect(text).toContain("Activity: Morning Run");
     expect(text).toContain("Distance: 10.00 km");
-    expect(mockedById).toHaveBeenCalledWith("test-token", 123);
+    expect(mockedById).toHaveBeenCalledWith("test-token", "123");
   });
 
   it("surfaces a Strava failure as a structured tool error", async () => {
@@ -269,7 +269,9 @@ describe("get-activity-streams-raw", () => {
 
     expect(result.isError).toBeUndefined();
     const parsed = JSON.parse(result.content[0]?.text ?? "");
-    expect(parsed.activityId).toBe(123);
+    // A string, not a number: ids are 64-bit and `Number()` here used to
+    // round anything past 2^53 (#270).
+    expect(parsed.activityId).toBe("123");
     expect(parsed.streams.heartrate).toEqual([140, 150, 160]);
     expect(parsed.laps).toEqual([
       {
