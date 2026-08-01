@@ -60,9 +60,9 @@ export function RunSelectList({
   return (
     <div className={styles.wrapper} data-compact={isMobile || undefined}>
       <div className={styles.header}>
-        <span id={headingId} className={styles.heading}>
+        <h3 id={headingId} className={styles.heading}>
           Compare runs
-        </span>
+        </h3>
         <span id={statusId} className={styles.count} aria-live="polite">
           {selectedCount} of {maxSelected} selected
         </span>

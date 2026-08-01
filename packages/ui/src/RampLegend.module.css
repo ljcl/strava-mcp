@@ -1,0 +1,21 @@
+.scale {
+  display: inline-flex;
+  gap: var(--space-2);
+  align-items: center;
+  min-width: 0;
+}
+
+.scaleBar {
+  display: inline-block;
+  flex: 0 1 96px;
+  min-width: 48px;
+  height: 8px;
+  border-radius: var(--border-radius-full);
+}
+
+.scaleLabel {
+  font-family: var(--font-sans);
+  font-size: var(--font-text-xs-size);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}

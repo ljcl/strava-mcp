@@ -63,6 +63,39 @@ export const LegendToggleHidesSeries = meta.story({
   },
 });
 
+/**
+ * Keyboard parity for the legend's hover isolation (#251). Hovering a legend
+ * entry dims the other series; before this, a keyboard user tabbing to the
+ * same control got the focus ring and none of the isolation. The dimming is
+ * driven by `data-hovered` on the chart area, so that is what is asserted.
+ */
+export const LegendFocusIsolatesSeries = meta.story({
+  args: {
+    data: toChartData(tempoRun),
+    meta: extractMeta(tempoRun),
+    laps: toLapData(tempoRun),
+  },
+  play: async ({ canvas, canvasElement, userEvent }) => {
+    const area = () => canvasElement.querySelector("[data-hovered]");
+    await waitFor(() =>
+      expect(
+        canvas.getByRole("button", { name: "Toggle Heart Rate" }),
+      ).toBeInTheDocument(),
+    );
+    expect(area()).toBeNull();
+
+    const hrToggle = canvas.getByRole("button", { name: "Toggle Heart Rate" });
+    hrToggle.focus();
+    await waitFor(() =>
+      expect(area()).toHaveAttribute("data-hovered", "heartrate"),
+    );
+
+    // ...and blurring clears it, so focus does not leave the chart stuck dim.
+    await userEvent.tab();
+    await waitFor(() => expect(area()).toBeNull());
+  },
+});
+
 export const CyclingRide = meta.story({
   args: {
     data: toChartData(tempoRun),

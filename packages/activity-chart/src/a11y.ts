@@ -1,4 +1,5 @@
 import { formatPace, formatTime } from "@strava-mcp/data";
+import { METRIC_LABELS } from "./contextSummary";
 import {
   type ActivityMeta,
   type ChartDataPoint,
@@ -21,6 +22,13 @@ export interface ChartA11yInput {
   /** Laps drawn as shaded bands (zero-width swim rests already excluded). */
   lapCount?: number;
   smoothed?: boolean;
+  /**
+   * Metrics the activity recorded but this layout does not draw (#256).
+   * Grade is dropped on mobile because it crowds the altitude axis, which
+   * silently made the same activity look like it had different data
+   * depending on device. Naming the omission costs no pixels.
+   */
+  omittedMetrics?: MetricKey[];
 }
 
 function seriesRange(
@@ -69,7 +77,8 @@ export function buildChartA11yTitle(meta: ActivityMeta): string {
 }
 
 export function buildChartA11yDescription(input: ChartA11yInput): string {
-  const { meta, data, visibleMetrics, lapCount, smoothed } = input;
+  const { meta, data, visibleMetrics, lapCount, smoothed, omittedMetrics } =
+    input;
   const parts: string[] = [];
 
   const lastPoint = data[data.length - 1];
@@ -90,6 +99,13 @@ export function buildChartA11yDescription(input: ChartA11yInput): string {
     parts.push("No metrics are currently shown.");
   } else {
     parts.push(...described);
+  }
+
+  if (omittedMetrics?.length) {
+    const names = omittedMetrics.map((key) => METRIC_LABELS[key] ?? key);
+    parts.push(
+      `${names.join(" and ")} ${names.length === 1 ? "was" : "were"} recorded but ${names.length === 1 ? "is" : "are"} not shown at this screen size.`,
+    );
   }
 
   if (lapCount) {
