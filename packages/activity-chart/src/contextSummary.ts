@@ -1,4 +1,6 @@
-const METRIC_LABELS: Record<string, string> = {
+/** Human names for the metric keys, shared with the a11y narration (#256)
+ * so the legend, the model context, and the screen reader agree. */
+export const METRIC_LABELS: Record<string, string> = {
   heartrate: "heart rate",
   power: "power",
   pace: "pace",

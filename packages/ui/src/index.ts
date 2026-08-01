@@ -26,6 +26,7 @@ export { Legend, LegendItem } from "./Legend";
 export { LoadingState, type LoadingStateProps } from "./LoadingState";
 export { MobileCardShell } from "./MobileCardShell";
 export { Pill, PillGroup } from "./Pill";
+export { RampLegend, type RampLegendProps } from "./RampLegend";
 export { Skeleton } from "./Skeleton";
 export {
   SummaryBar,

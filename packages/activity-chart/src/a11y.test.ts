@@ -115,4 +115,25 @@ describe("buildChartA11yDescription", () => {
     });
     expect(desc).toContain("No metrics are currently shown.");
   });
+  it("names a metric recorded but not drawn at this size (#256)", () => {
+    const desc = buildChartA11yDescription({
+      meta: runMeta,
+      data: runData,
+      visibleMetrics: ["heartrate"],
+      omittedMetrics: ["grade"],
+    });
+    // Otherwise the same activity reads as having different data on mobile.
+    expect(desc).toContain("not shown at this screen size");
+    expect(desc).toContain("grade");
+  });
+
+  it("says nothing about omissions when there are none", () => {
+    const desc = buildChartA11yDescription({
+      meta: runMeta,
+      data: runData,
+      visibleMetrics: ["heartrate"],
+      omittedMetrics: [],
+    });
+    expect(desc).not.toContain("not shown at this screen size");
+  });
 });
