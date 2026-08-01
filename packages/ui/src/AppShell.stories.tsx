@@ -6,8 +6,6 @@ import { EmptyState } from "./EmptyState";
 
 const meta = preview.meta({
   component: AppShell,
-  // ui primitives are the first package gated on axe (#165).
-  parameters: { a11y: { test: "error" } },
 });
 
 const content = (

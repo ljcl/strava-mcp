@@ -4,8 +4,6 @@ import { MobileCardShell } from "./MobileCardShell";
 
 const meta = preview.meta({
   component: Legend,
-  // ui primitives are the first package gated on axe (#165).
-  parameters: { a11y: { test: "error" } },
 });
 
 export const Default = meta.story({

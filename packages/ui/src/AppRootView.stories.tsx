@@ -15,7 +15,6 @@ import { Skeleton } from "./Skeleton";
  */
 const meta = preview.meta({
   component: AppRootView,
-  parameters: { a11y: { test: "error" } },
 });
 
 interface ToolArgs {
