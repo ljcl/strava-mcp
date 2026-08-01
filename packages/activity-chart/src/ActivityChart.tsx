@@ -11,6 +11,8 @@ import {
   TooltipEntry,
   Tooltip as UiTooltip,
   useModelContextSync,
+  useViewTool,
+  type ViewToolRegistry,
 } from "@strava-mcp/ui";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -27,6 +29,7 @@ import {
 } from "recharts";
 import styles from "./ActivityChart.module.css";
 import { buildChartA11yDescription, buildChartA11yTitle } from "./a11y";
+import { describeZoomWindow, indexRangeForValues } from "./brushWindow";
 import { buildChartContextSummary } from "./contextSummary";
 import { selectLapLabels } from "./lapLabels";
 import { type ChartLap, smoothData } from "./normalize";
@@ -275,6 +278,8 @@ interface ActivityChartProps {
   laps?: ChartLap[];
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
+  /** Where `set-brush-window`'s implementation is installed (#278). */
+  viewToolRegistry?: ViewToolRegistry | null;
 }
 
 export function ActivityChart({
@@ -282,6 +287,7 @@ export function ActivityChart({
   meta,
   laps,
   mode = "desktop",
+  viewToolRegistry = null,
   app,
 }: ActivityChartProps) {
   const isMobile = mode === "mobile";
@@ -336,6 +342,62 @@ export function ActivityChart({
     endIndex?: number;
   }>({});
 
+  /**
+   * `set-brush-window` (#278): the model zooms the chart to the part of the
+   * run under discussion — "the surge in the last km" — instead of asking the
+   * user to drag the handles there. Installed rather than declared here: the
+   * tool is registered before `connect()`, long before this component mounts.
+   *
+   * It writes the same controlled `zoomRange` the handles do, so a
+   * model-driven zoom survives preset, legend, and smooth toggles exactly as
+   * a dragged one does.
+   */
+  useViewTool(viewToolRegistry, "set-brush-window", (args) => {
+    if (args.reset === true) {
+      setZoomRange({});
+      return { text: `Showing all of ${meta.name}.` };
+    }
+
+    const byDistance =
+      args.fromKm !== undefined || args.toKm !== undefined || meta.isSwimming;
+    const values = byDistance
+      ? data.map((p) => p.distance)
+      : data.map((p) => p.time);
+
+    if (byDistance && values.every((v) => v === undefined)) {
+      return {
+        text: "This activity has no distance stream, so the chart can only be zoomed by time (fromSeconds / toSeconds).",
+        isError: true,
+      };
+    }
+
+    const scale = byDistance ? 1000 : 1;
+    const lo = byDistance ? args.fromKm : args.fromSeconds;
+    const hi = byDistance ? args.toKm : args.toSeconds;
+    const first = values.find((v) => v !== undefined) ?? 0;
+    const last = [...values].reverse().find((v) => v !== undefined) ?? 0;
+
+    const range = indexRangeForValues(
+      values,
+      typeof lo === "number" ? lo * scale : first,
+      typeof hi === "number" ? hi * scale : last,
+    );
+    if (!range) {
+      const unit = byDistance ? "km" : "s";
+      const extent = byDistance ? (last / 1000).toFixed(1) : String(last);
+      return {
+        text: `That window is outside this activity, which runs to ${extent} ${unit}.`,
+        isError: true,
+      };
+    }
+
+    setZoomRange(range);
+    const shown = byDistance
+      ? `${((values[range.startIndex] ?? 0) / 1000).toFixed(2)}–${((values[range.endIndex] ?? 0) / 1000).toFixed(2)} km`
+      : `${formatTime(values[range.startIndex] ?? 0)}–${formatTime(values[range.endIndex] ?? 0)}`;
+    return { text: `Zoomed the chart to ${shown} of ${meta.name}.` };
+  });
+
   useModelContextSync(
     app,
     () =>
@@ -344,8 +406,14 @@ export function ActivityChart({
         availableMetrics: [...availableMetrics],
         hidden,
         smooth,
+        zoomWindow: describeZoomWindow(
+          data,
+          meta.isSwimming === true,
+          zoomRange,
+          formatTime,
+        ),
       }),
-    [meta.name, hidden, smooth, availableMetrics],
+    [meta, hidden, smooth, availableMetrics, data, zoomRange],
   );
 
   const displayData = useMemo(

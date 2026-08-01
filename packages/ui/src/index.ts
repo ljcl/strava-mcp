@@ -32,6 +32,11 @@ export {
   type SummaryBarProps,
   type SummaryStat,
 } from "./SummaryBar";
+export {
+  type MinimalStandardSchema,
+  optionalObjectSchema,
+  type SchemaField,
+} from "./standardSchema";
 export { Tooltip, TooltipEntry } from "./Tooltip";
 export {
   detectMobile,
@@ -53,3 +58,10 @@ export {
   type ServerToolFetcher,
   useServerToolFetcher,
 } from "./useServerToolFetcher";
+export {
+  useViewTool,
+  type ViewToolDefinition,
+  type ViewToolHandler,
+  ViewToolRegistry,
+  type ViewToolResult,
+} from "./viewTools";

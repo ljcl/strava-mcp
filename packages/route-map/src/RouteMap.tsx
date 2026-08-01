@@ -11,6 +11,8 @@ import {
   TooltipEntry,
   Tooltip as UiTooltip,
   useModelContextSync,
+  useViewTool,
+  type ViewToolRegistry,
 } from "@strava-mcp/ui";
 import {
   type KeyboardEvent,
@@ -63,11 +65,14 @@ import {
   selectOutlineSegments,
 } from "./segments";
 import { type RouteMapData } from "./types";
+import { frameForIndexRange, indexRangeForDistance } from "./viewport";
 
 interface RouteMapProps {
   data: RouteMapData;
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
+  /** Where `set-viewport`'s implementation is installed (#278). */
+  viewToolRegistry?: ViewToolRegistry | null;
   /** Set false to force the offline grid view (stories — the basemap renders
    * live tiles, which need the network and can't render deterministically). */
   basemapEnabled?: boolean;
@@ -168,6 +173,7 @@ export function RouteMap({
   data,
   mode = "desktop",
   app,
+  viewToolRegistry = null,
   basemapEnabled = true,
 }: RouteMapProps) {
   const isMobile = mode === "mobile";
@@ -347,6 +353,62 @@ export function RouteMap({
   const zoomByCenter = (factor: number) =>
     applyView(zoomAboutCenter(viewRef.current, base, factor));
   const resetView = () => applyView(base);
+
+  /**
+   * `set-viewport` (#278): the model frames a stretch of the course by
+   * distance, so "show me the climb at 14 km" moves the map instead of
+   * describing it. Installed here rather than declared here — the tool is
+   * registered before `connect()`, which is long before this component exists.
+   *
+   * It reuses `applyView`, so a model-driven move clamps, counter-scales, and
+   * announces itself exactly as the zoom buttons do.
+   */
+  useViewTool(viewToolRegistry, "set-viewport", (args) => {
+    if (args.reset === true) {
+      resetView();
+      return { text: `Showing the whole route (${distanceKm.toFixed(1)} km).` };
+    }
+
+    const distanceStream = data.streams?.distance;
+    if (!distanceStream || distanceStream.length === 0) {
+      // The polyline fallback has coordinates but no distances, so there is
+      // nothing to measure a kilometre against. Say that rather than guess a
+      // position from the point index, which is only right at constant speed.
+      return {
+        text: "This track has no recorded distances, so the map cannot be positioned by kilometre. Ask to reset the view instead.",
+        isError: true,
+      };
+    }
+    if (!projected) {
+      return {
+        text: "This track has no GPS geometry to frame.",
+        isError: true,
+      };
+    }
+
+    const fromKm = typeof args.fromKm === "number" ? args.fromKm : 0;
+    const toKm = typeof args.toKm === "number" ? args.toKm : distanceKm;
+    const range = indexRangeForDistance(
+      distanceStream,
+      fromKm * 1000,
+      toKm * 1000,
+    );
+    if (!range) {
+      return {
+        text: `That stretch is not on this route, which is ${distanceKm.toFixed(1)} km long.`,
+        isError: true,
+      };
+    }
+
+    const next = frameForIndexRange(projected.points, range, base);
+    if (!next) {
+      return { text: "That stretch has no geometry to frame.", isError: true };
+    }
+    applyView(next);
+    return {
+      text: `Framed ${fromKm.toFixed(1)}–${Math.min(toKm, distanceKm).toFixed(1)} km of ${data.name}.`,
+    };
+  });
 
   // Arrow keys pan (only meaningful when zoomed), +/- zoom about the centre,
   // 0 resets — reusing the same clamping/counter-scaling as the pointer paths.
@@ -551,6 +613,9 @@ export function RouteMap({
         elevationGain: data.elevationGain,
         hasGeometry: projected !== null,
         colorMetric: activeSeries?.label ?? null,
+        // `zoomMessage` is already the phrasing the screen reader hears, so
+        // the model and the narration cannot describe different views.
+        zoom: isZoomed(view, base) ? zoomMessage : null,
       }),
     [
       data.name,
@@ -559,6 +624,9 @@ export function RouteMap({
       data.elevationGain,
       projected !== null,
       activeSeries?.label,
+      zoomMessage,
+      view,
+      base,
     ],
   );
 

@@ -1,5 +1,6 @@
 import preview, { darkGlobals } from "@strava-mcp/design-system/preview";
-import { MobileCardShell } from "@strava-mcp/ui";
+import { MobileCardShell, ViewToolRegistry } from "@strava-mcp/ui";
+import { useState } from "react";
 import { expect, waitFor } from "storybook/test";
 import {
   annotatedActivity,
@@ -11,6 +12,7 @@ import {
   waypointedRoute,
 } from "./__fixtures__/routes";
 import { RouteMap } from "./RouteMap";
+import { type RouteMapData } from "./types";
 
 const meta = preview.meta({ component: RouteMap });
 
@@ -231,4 +233,77 @@ export const MobileSavedRoute = meta.story({
       </MobileCardShell>
     ),
   ],
+});
+
+/**
+ * Host-driven view tool (#278): the model calls `set-viewport` and the map
+ * frames that stretch of the course. Asserted through the SVG `viewBox`,
+ * which is the actual zoom state — the registry, the distance lookup, and the
+ * component's `applyView` all have to line up for it to move.
+ */
+function ModelDriven({ data }: { data: RouteMapData }) {
+  // Stable across renders: a registry rebuilt each render would have the
+  // handler installed on an instance the button no longer holds.
+  const [registry] = useState(() => new ViewToolRegistry());
+  const [said, setSaid] = useState("");
+  const call = (args: Record<string, unknown>) => {
+    void registry.invoke("set-viewport", args).then((r) => setSaid(r.text));
+  };
+  return (
+    <>
+      <RouteMap
+        data={data}
+        basemapEnabled={false}
+        viewToolRegistry={registry}
+      />
+      <button
+        type="button"
+        data-testid="call-set-viewport"
+        onClick={() => call({ fromKm: 1, toKm: 1.2 })}
+      >
+        call set-viewport
+      </button>
+      <button
+        type="button"
+        data-testid="call-reset"
+        onClick={() => call({ reset: true })}
+      >
+        call reset
+      </button>
+      <p data-testid="tool-said">{said}</p>
+    </>
+  );
+}
+
+export const ModelDrivenViewport = meta.story({
+  args: { data: streamLoopActivity, basemapEnabled: false },
+  render: ({ data }) => <ModelDriven data={data} />,
+  play: async ({ canvasElement, userEvent }) => {
+    const svg = () => canvasElement.querySelector("svg[role='img']");
+    const said = () =>
+      canvasElement.querySelector("[data-testid='tool-said']")?.textContent;
+    const full = svg()?.getAttribute("viewBox");
+    expect(full).toBeTruthy();
+
+    await userEvent.click(
+      canvasElement.querySelector<HTMLButtonElement>(
+        "[data-testid='call-set-viewport']",
+      )!,
+    );
+    // A ~200 m stretch of a 2.2 km loop: a small bounding box, so the frame
+    // must genuinely shrink. (Half the loop would legitimately fill it.)
+    await waitFor(() => expect(said()).toMatch(/Framed 1\.0.1\.2 km/));
+    const zoomed = svg()!.getAttribute("viewBox")!;
+    expect(zoomed).not.toBe(full);
+    expect(Number(zoomed.split(" ")[2])).toBeLessThan(
+      Number(full!.split(" ")[2]),
+    );
+
+    await userEvent.click(
+      canvasElement.querySelector<HTMLButtonElement>(
+        "[data-testid='call-reset']",
+      )!,
+    );
+    await waitFor(() => expect(svg()?.getAttribute("viewBox")).toBe(full));
+  },
 });
