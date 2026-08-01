@@ -313,6 +313,33 @@ describe("find-segments-on-route execute", () => {
     expect(mockedExplore.mock.calls.length).toBeLessThan(tiles);
   });
 
+  it("reports search progress and names the rate-limit abort (#279)", async () => {
+    const coordinates: Array<[number, number]> = [];
+    for (let i = 0; i < 220; i++) coordinates.push([-37.8 + i * 0.001, 144.9]);
+    mockedTrack.mockResolvedValueOnce(
+      course({
+        coordinates,
+        distances: cumulativeDistances(coordinates),
+        declaredDistanceM: 24000,
+      }),
+    );
+    mockedExplore
+      .mockResolvedValueOnce(response([explored("s1", 2)]))
+      .mockRejectedValue(new Error("Strava rate limit exceeded in explore."));
+
+    const messages: string[] = [];
+    await findSegmentsOnRouteTool.execute({ routeId: "9" }, "test-token", (m) =>
+      messages.push(m),
+    );
+
+    expect(messages[0]).toMatch(/^Searching \d+ stretches of the course…$/);
+    // A search that dies half way says so, rather than leaving a progress
+    // line frozen at "4 of 12" with no explanation.
+    expect(messages).toContain(
+      "Strava rate limit reached — stopping the search",
+    );
+  });
+
   it("warns when course distances were derived rather than recorded", async () => {
     mockedTrack.mockResolvedValueOnce(course({ distanceSource: "haversine" }));
 

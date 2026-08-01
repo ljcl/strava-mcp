@@ -19,8 +19,8 @@ interface ToolArgs {
   days?: number;
 }
 
-const LoadingSkeleton = () => (
-  <LoadingState label="Loading training load">
+const LoadingSkeleton = ({ progress }: { progress?: string | null }) => (
+  <LoadingState label="Loading training load" progress={progress}>
     <Skeleton variant="bar" />
     <Skeleton variant="chart" />
   </LoadingState>
@@ -34,16 +34,15 @@ interface AppContentProps {
 }
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
-  const { data, loading, error, retry } = useServerToolData<TrainingLoadData>(
-    app,
-    "get-training-load-data",
-    { days: toolArgs.days ?? 84 },
-  );
+  const { data, loading, error, progress, retry } =
+    useServerToolData<TrainingLoadData>(app, "get-training-load-data", {
+      days: toolArgs.days ?? 84,
+    });
 
   return (
     <AppShell hostCtx={hostCtx} mode={mode} app={app}>
       {loading ? (
-        <LoadingSkeleton />
+        <LoadingSkeleton progress={progress} />
       ) : error || !data ? (
         <ErrorState
           message={error ?? "No training load data available"}

@@ -19,8 +19,8 @@ interface ToolArgs {
   weeks?: number;
 }
 
-const LoadingSkeleton = () => (
-  <LoadingState label="Loading cadence trends">
+const LoadingSkeleton = ({ progress }: { progress?: string | null }) => (
+  <LoadingState label="Loading cadence trends" progress={progress}>
     <Skeleton variant="bar" />
     <Skeleton variant="pills" />
     <Skeleton variant="chart" />
@@ -35,16 +35,15 @@ interface AppContentProps {
 }
 
 function AppContent({ app, toolArgs, hostCtx, mode }: AppContentProps) {
-  const { data, loading, error, retry } = useServerToolData<CadenceTrendData>(
-    app,
-    "get-cadence-trend-data",
-    { weeks: toolArgs.weeks ?? 6 },
-  );
+  const { data, loading, error, progress, retry } =
+    useServerToolData<CadenceTrendData>(app, "get-cadence-trend-data", {
+      weeks: toolArgs.weeks ?? 6,
+    });
 
   return (
     <AppShell hostCtx={hostCtx} mode={mode} app={app}>
       {loading ? (
-        <LoadingSkeleton />
+        <LoadingSkeleton progress={progress} />
       ) : error || !data ? (
         <ErrorState
           message={error ?? "No cadence data available"}

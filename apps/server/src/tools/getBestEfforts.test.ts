@@ -47,6 +47,7 @@ describe("getBestEffortsTool.execute", () => {
       perPage: 200,
       maxItems: 1000,
       countActivity: expect.any(Function),
+      onProgress: expect.any(Function),
     });
 
     // The cap must count runs only, so mixed histories keep paginating
@@ -273,6 +274,7 @@ describe("getBestEffortsTool.execute", () => {
       perPage: 100,
       maxItems: 100,
       countActivity: expect.any(Function),
+      onProgress: expect.any(Function),
       after: Math.floor(Date.parse("2026-01-01") / 1000),
       before: Math.floor(Date.parse("2026-06-30T23:59:59Z") / 1000),
     });

@@ -69,6 +69,39 @@ describe("handleHealth", () => {
     expect(body.athlete_id).toBeUndefined();
   });
 
+  it("reports per-tool call counters (#241)", async () => {
+    const { recordToolCall, resetToolCallStats } = await import("./telemetry");
+    const stderr = vi.spyOn(console, "error").mockImplementation(() => {});
+    resetToolCallStats();
+    recordToolCall({ tool: "get-segment", duration_ms: 120, outcome: "ok" });
+    recordToolCall({ tool: "get-segment", duration_ms: 80, outcome: "error" });
+    stderr.mockRestore();
+
+    const response = await handleHealth(
+      new Request("http://localhost/health"),
+      new URL("http://localhost/health"),
+    );
+    const body = await response.json();
+
+    expect(body.tools["get-segment"]).toMatchObject({
+      calls: 2,
+      errors: 1,
+      mean_ms: 100,
+    });
+  });
+
+  it("keeps the counters behind the same secret as the rest of the detail", async () => {
+    process.env.MCP_AUTH_TOKEN = "s3cret";
+
+    const response = await handleHealth(
+      new Request("http://localhost/health"),
+      new URL("http://localhost/health"),
+    );
+    const body = await response.json();
+
+    expect(body.tools).toBeUndefined();
+  });
+
   it("advertises the release version from root package.json, not a hardcoded one", () => {
     const rootVersion = createRequire(import.meta.url)(
       "../../../package.json",

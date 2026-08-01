@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { formatDuration } from "../formatters";
+import { listingProgress, NO_PROGRESS, type ReportProgress } from "../progress";
 import { getAllActivities } from "../stravaClient";
 import { computeWeekWarnings, getWeekStart } from "../trainingLoad";
 import { READ_ONLY } from "./_annotations";
@@ -82,6 +83,7 @@ export const getTrainingLoadTool = {
   execute: async (
     { days, activityTypes }: GetTrainingLoadInput,
     token: string,
+    progress: ReportProgress = NO_PROGRESS,
   ) => {
     try {
       console.error(`Fetching training load for last ${days} days...`);
@@ -92,9 +94,11 @@ export const getTrainingLoadTool = {
       );
 
       // Fetch all activities in the date range
+      progress("Listing activities…", { important: true });
       const allActivities = await getAllActivities(token, {
         after: Math.floor(startDate.getTime() / 1000),
         before: Math.floor(endDate.getTime() / 1000),
+        onProgress: listingProgress(progress),
       });
 
       // Filter to requested activity types

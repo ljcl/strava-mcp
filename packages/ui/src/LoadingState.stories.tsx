@@ -24,3 +24,32 @@ export const Dark = meta.story({
     </LoadingState>
   ),
 });
+
+/**
+ * A long server-side scan reports what it is doing (#279). The line sits
+ * inside the same status region as the label, so each update is announced.
+ */
+export const WithProgress = meta.story({
+  render: () => (
+    <LoadingState
+      label="Loading fitness trend"
+      progress="Listed 400 activities"
+    >
+      <Skeleton variant="bar" />
+      <Skeleton variant="chart" />
+    </LoadingState>
+  ),
+});
+
+export const WithProgressDark = meta.story({
+  globals: darkGlobals,
+  render: () => (
+    <LoadingState
+      label="Loading fitness trend"
+      progress="Reading 87 of 120 activities"
+    >
+      <Skeleton variant="bar" />
+      <Skeleton variant="chart" />
+    </LoadingState>
+  ),
+});

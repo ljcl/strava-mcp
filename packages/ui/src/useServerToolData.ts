@@ -6,6 +6,11 @@ export interface ServerToolData<T> {
   data: T | null;
   loading: boolean;
   error: string | null;
+  /**
+   * Latest progress message from the server, or null when the tool has sent
+   * none. Only meaningful while `loading` (#279).
+   */
+  progress: string | null;
   /** Re-invokes the fetch (wired to the ErrorState retry control). */
   retry: () => void;
 }
@@ -18,6 +23,13 @@ export interface ServerToolData<T> {
  *
  * `args` may be an inline object literal; the fetch is keyed on its JSON
  * serialization, so a new-but-equal object does not refetch.
+ *
+ * Progress (#279): the tools behind training-load, fitness-trend, and
+ * cadence-trends page through an athlete's history and can outrun the host's
+ * default request timeout on a long one. `resetTimeoutOnProgress` restarts
+ * that clock on every notification, so a scan that is still working is not
+ * killed for taking a while, and the message it carries replaces a skeleton
+ * that says nothing with one that says what is happening.
  */
 export function useServerToolData<T>(
   app: App | null,
@@ -27,6 +39,7 @@ export function useServerToolData<T>(
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<string | null>(null);
 
   const argsKey = JSON.stringify(args);
 
@@ -35,10 +48,21 @@ export function useServerToolData<T>(
     try {
       setLoading(true);
       setError(null);
-      const result = await app.callServerTool({
-        name: toolName,
-        arguments: JSON.parse(argsKey) as Record<string, unknown>,
-      });
+      // A retry starts from no progress rather than the stale message of the
+      // attempt that failed.
+      setProgress(null);
+      const result = await app.callServerTool(
+        {
+          name: toolName,
+          arguments: JSON.parse(argsKey) as Record<string, unknown>,
+        },
+        {
+          resetTimeoutOnProgress: true,
+          onprogress: ({ message }) => {
+            if (message) setProgress(message);
+          },
+        },
+      );
       const parsed = parseTextContent<T>(result);
       if (parsed === null) {
         setError(`Failed to parse ${toolName} response`);
@@ -56,5 +80,5 @@ export function useServerToolData<T>(
     void fetchData();
   }, [fetchData]);
 
-  return { data, loading, error, retry: () => void fetchData() };
+  return { data, loading, error, progress, retry: () => void fetchData() };
 }

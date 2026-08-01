@@ -4,6 +4,7 @@ import {
   type FitnessTrendDay,
   type TaperWeek,
 } from "../fitnessTrend";
+import { listingProgress, NO_PROGRESS, type ReportProgress } from "../progress";
 import { getAllActivities } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
 import { FitnessTrendOutputSchema, warnOnSchemaDrift } from "./outputs";
@@ -135,6 +136,7 @@ export const getFitnessTrendTool = {
       targetTsb,
     }: GetFitnessTrendInput,
     token: string,
+    progress: ReportProgress = NO_PROGRESS,
   ) => {
     try {
       console.error(`Fetching fitness trend for last ${days} days...`);
@@ -144,9 +146,11 @@ export const getFitnessTrendTool = {
         endDate.getTime() - days * 24 * 60 * 60 * 1000,
       );
 
+      progress("Listing activities…", { important: true });
       const allActivities = await getAllActivities(token, {
         after: Math.floor(startDate.getTime() / 1000),
         before: Math.floor(endDate.getTime() / 1000),
+        onProgress: listingProgress(progress),
       });
 
       const activities =
