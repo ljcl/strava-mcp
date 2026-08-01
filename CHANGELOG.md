@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.13.0](https://github.com/ljcl/strava-mcp/compare/v2.12.0...v2.13.0) (2026-08-01)
+
+
+### Features
+
+* **mcp-app:** let the model drive the map and chart via view-exposed tools ([#318](https://github.com/ljcl/strava-mcp/issues/318)) ([7c33ba8](https://github.com/ljcl/strava-mcp/commit/7c33ba82cc5235c651ac2eb894d71d861fa439f7))
+* **server:** advertise logging, record per-call telemetry, and report scan progress ([#316](https://github.com/ljcl/strava-mcp/issues/316)) ([46df3b0](https://github.com/ljcl/strava-mcp/commit/46df3b0524e8cc4bd134cd137c1ccfd071d71fc4))
+
+
+### Bug Fixes
+
+* **design-system:** pair tier badges with a theme-invariant foreground and gate axe repo-wide ([#320](https://github.com/ljcl/strava-mcp/issues/320)) ([e9f19a1](https://github.com/ljcl/strava-mcp/commit/e9f19a15a86023924f6a4a87ff20f1b981cd9eef))
+
 ## [2.12.0](https://github.com/ljcl/strava-mcp/compare/v2.11.0...v2.12.0) (2026-07-31)
 
 
