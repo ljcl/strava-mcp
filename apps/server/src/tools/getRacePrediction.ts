@@ -281,7 +281,7 @@ export const getRacePredictionTool = {
       const warnings: string[] = [];
       if (abort.rateLimit) {
         warnings.push(
-          `Strava's rate limit was reached part-way through the scan, so ${skipped} of ${runningActivities.length} activities were not read. The predictions below rest on a partial set of efforts. ${abort.rateLimit.message} Retry after the window resets, or narrow the scan with after/before.`,
+          `Strava's rate limit was reached part-way through the scan, so ${skipped} of ${runningActivities.length} activities were not read. The predictions below rest on a partial set of efforts. ${abort.rateLimit.detail} Retry after the window resets, or narrow the scan with after/before.`,
         );
       } else if (failedFetches > 0) {
         warnings.push(

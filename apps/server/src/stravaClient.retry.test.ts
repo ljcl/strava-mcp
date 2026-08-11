@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { HttpError, stravaApi } from "./fetchClient";
+import { basicRunActivity } from "./__fixtures__";
+import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
 import {
   exploreSegments,
+  exportRouteGpx,
+  getActivityById,
   getActivityStreams,
+  getAllActivities,
   getSegmentEffort,
+  StravaApiError,
 } from "./stravaClient";
 import { refreshAccessToken } from "./tokenManager";
 
@@ -111,5 +116,88 @@ describe("401 refresh-retry", () => {
       `/segment_efforts/${bigEffortId}`,
       expect.anything(),
     );
+  });
+});
+
+/**
+ * What a client call throws once `handleApiError` has interpreted it. Both
+ * shapes were being flattened to a plain `Error`, which quietly killed the two
+ * places that branch on them: the scan tools' rate-limit abort and
+ * `loadRouteProfile`'s 404 fallback.
+ */
+describe("handled error shapes", () => {
+  beforeEach(() => {
+    mockedGet.mockReset();
+    mockedRefresh.mockReset();
+    mockedRefresh.mockResolvedValue({
+      access_token: "refreshed-token",
+      refresh_token: "refreshed-refresh",
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+    });
+  });
+
+  const rateLimited = () =>
+    new RateLimitError(
+      "15-minute rate limit reached (100/100 requests).",
+      { status: 429, statusText: "Too Many Requests", data: "" },
+      { observedAt: Date.now(), shortTerm: { limit: 100, usage: 100 } },
+      60,
+    );
+
+  it("keeps a 429 typed so a scan can stop on it", async () => {
+    mockedGet.mockRejectedValue(rateLimited());
+
+    const error = await getActivityById("token", "123").catch((e) => e);
+
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect(error.message).toBe(
+      "Strava rate limit exceeded in getActivityById for ID 123. 15-minute rate limit reached (100/100 requests).",
+    );
+    // The window description survives without the context in front of it, so a
+    // tool can quote it in its own sentence.
+    expect(error.detail).toBe(
+      "15-minute rate limit reached (100/100 requests).",
+    );
+    expect(error.rateLimit.shortTerm).toEqual({ limit: 100, usage: 100 });
+    expect(mockedRefresh).not.toHaveBeenCalled();
+  });
+
+  it("keeps the status on a 404 so a caller can degrade on it", async () => {
+    mockedGet.mockRejectedValue(
+      new HttpError("HTTP 404", {
+        status: 404,
+        statusText: "Not Found",
+        data: '{"message":"Record Not Found"}',
+      }),
+    );
+
+    const error = await exportRouteGpx("token", "456").catch((e) => e);
+
+    expect(error).toBeInstanceOf(StravaApiError);
+    expect(error.response.status).toBe(404);
+    expect(error.message).toBe(
+      "Strava API Error in exporting route 456 as GPX (404): Record Not Found",
+    );
+  });
+
+  it("refreshes on a 401 that lands after the first page of a scan", async () => {
+    // The guard used to be `currentPage === 1`, so a token expiring part-way
+    // through a long history scan surfaced the raw 401 with no refresh and no
+    // mention of /auth/start. Retrying restarts pagination from page 1.
+    mockedGet
+      .mockResolvedValueOnce({ data: [{ ...basicRunActivity, id: 1 }] })
+      .mockRejectedValueOnce(unauthorized())
+      .mockResolvedValueOnce({ data: [{ ...basicRunActivity, id: 1 }] })
+      .mockResolvedValueOnce({ data: [] });
+
+    const activities = await getAllActivities("stale-token", { perPage: 1 });
+
+    expect(activities).toHaveLength(1);
+    expect(mockedRefresh).toHaveBeenCalledTimes(1);
+    expect(mockedGet).toHaveBeenCalledTimes(4);
+    expect(mockedGet).toHaveBeenLastCalledWith("/athlete/activities", {
+      headers: { Authorization: "Bearer refreshed-token" },
+      params: { page: 2, per_page: 1 },
+    });
   });
 });

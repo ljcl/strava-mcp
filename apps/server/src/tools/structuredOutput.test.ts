@@ -7,6 +7,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createActivity,
+  getActivityById,
+  getActivityLaps,
   getActivityPhotos,
   getActivityZones,
   getAuthenticatedAthlete,
@@ -20,6 +22,7 @@ import {
   updateActivity,
 } from "../stravaClient";
 import {
+  ActivityLapsOutputSchema,
   ActivityPhotosOutputSchema,
   ActivityWriteOutputSchema,
   ActivityZonesOutputSchema,
@@ -45,6 +48,8 @@ vi.mock("../stravaClient", async (importOriginal) => {
     listAthleteRoutes: vi.fn(),
     getActivityZones: vi.fn(),
     getActivityPhotos: vi.fn(),
+    getActivityById: vi.fn(),
+    getActivityLaps: vi.fn(),
     starSegment: vi.fn(),
     createActivity: vi.fn(),
     updateActivity: vi.fn(),
@@ -281,6 +286,29 @@ describe("activity read tools", () => {
     // Strava's -1 open-ended top bucket is normalised, as in the app mapper.
     expect(set.buckets[1]!.max).toBeNull();
     expect(set.buckets[0]!.pct).toBe(60);
+  });
+
+  it("get-activity-laps still answers with data when nothing was lapped", async () => {
+    // A successful call from a tool that advertises an outputSchema must carry
+    // structuredContent — the SDK client raises InvalidRequest otherwise, so a
+    // text-only "no laps recorded" reached the host as a protocol error.
+    vi.mocked(getActivityById).mockResolvedValueOnce({
+      id: "777",
+      name: "Rest Day Walk",
+      sport_type: "Walk",
+    } as never);
+    vi.mocked(getActivityLaps).mockResolvedValueOnce([] as never);
+
+    const result = await dispatchToolCall("get-activity-laps", { id: "777" });
+
+    expect(result.isError).toBeUndefined();
+    expect(ActivityLapsOutputSchema.parse(result.structuredContent)).toEqual({
+      activity_id: "777",
+      activity_name: "Rest Day Walk",
+      sport_type: "Walk",
+      lap_count: 0,
+      laps: [],
+    });
   });
 
   it("get-activity-photos picks the largest URL per photo", async () => {

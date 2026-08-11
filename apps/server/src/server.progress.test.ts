@@ -4,6 +4,7 @@
  * caller who did not ask for progress sees no change at all.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledRateLimit } from "./__fixtures__";
 import {
   getActivityById,
   getAllActivities,
@@ -74,16 +75,9 @@ describe("dispatchToolCall progress", () => {
   });
 
   it("reports the rate-limit abort rather than simply stopping", async () => {
-    const { RateLimitError } = await import("./fetchClient");
     mockedList.mockResolvedValueOnce([run("1"), run("2")]);
-    mockedById.mockRejectedValue(
-      new RateLimitError(
-        "quota exhausted",
-        { status: 429, statusText: "Too Many Requests", data: "" },
-        { observedAt: 0 },
-        null,
-      ),
-    );
+    // The shape the client really hands back once the quota is spent.
+    mockedById.mockRejectedValue(handledRateLimit("getActivityById for ID 1"));
 
     const messages: string[] = [];
     await dispatchToolCall(

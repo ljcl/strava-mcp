@@ -1,6 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { DEFAULT_TIMEOUT_MS, isAbortError } from "./fetchClient";
+import { DEFAULT_TIMEOUT_MS, isAbortError, stravaApi } from "./fetchClient";
 
 // Calculate paths — monorepo root is 3 levels up from apps/server/src/
 const projectRoot = path.resolve(import.meta.dirname, "..", "..", "..");
@@ -576,6 +576,13 @@ export async function exchangeCodeForTokens(
 
   // Persist to file
   await saveTokens(tokens);
+
+  // The athlete who just authorized may not be the one whose responses are
+  // cached. The response cache keys on the bare URL, and `/athlete` and
+  // `/segment_efforts` are athlete-scoped behind athlete-independent URLs, so
+  // without this the next few minutes serve the previous athlete's profile —
+  // and the stats get-athlete-stats resolves from that id — to the new one.
+  stravaApi.clearResponseCache();
 
   console.error("[TokenManager] OAuth token exchange successful");
   return tokens;

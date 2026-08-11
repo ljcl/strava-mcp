@@ -18,6 +18,7 @@ import {
   dominantBucket,
   mapActivityZones,
 } from "./activityZones";
+import { RateLimitError } from "./fetchClient";
 import { buildFitnessTrend } from "./fitnessTrend";
 import {
   type FitnessTrendAppData,
@@ -1235,6 +1236,9 @@ interface RouteMapData {
   annotations?: RouteMapAnnotations;
   /** Human-readable notes about waypoints that could not be placed. */
   waypointWarnings?: string[];
+  /** Human-readable notes about optional annotation layers that could not be
+   * fetched, each naming the layer and the reason. */
+  layerWarnings?: string[];
 }
 
 const ROUTE_MAP_METRIC_STREAM_KEYS = [
@@ -1374,7 +1378,7 @@ async function loadRouteMapGeometry(
     // Prefer the latlng stream over the polyline: it is index-aligned with
     // the metric streams, so the app can color the track by them.
     if (streamData) {
-      const annotations = await loadRouteMapAnnotations(
+      const { annotations, layerWarnings } = await loadRouteMapAnnotations(
         token,
         activityId,
         activity,
@@ -1393,6 +1397,7 @@ async function loadRouteMapGeometry(
         end: streamData.coordinates[streamData.coordinates.length - 1] ?? null,
         streams: streamData.streams,
         annotations,
+        ...(layerWarnings ? { layerWarnings } : {}),
       };
     }
     const encoded =
@@ -1452,10 +1457,49 @@ async function loadRouteMapGeometry(
 const MAX_SEGMENT_ANNOTATIONS = 60;
 
 /**
+ * An optional annotation layer could not be fetched: drop the layer, keep the
+ * map.
+ *
+ * The geometry is already in hand by the time these layers are fetched, so
+ * failing the call would turn "a map without lap markers" into "no map at all"
+ * — strictly worse for the athlete, an exhausted quota included. What #237
+ * forbids is misreporting a failure as an absence, and the honest way to honour
+ * that is to still render and say what was lost: the reason is logged and
+ * recorded in `layerWarnings`, which `view-route-map`'s text surfaces beside
+ * `waypointWarnings`. A rate limit quotes `RateLimitError.detail` — the bare
+ * window description — rather than the internal call that happened to hit it.
+ * Every cause is reported, not only the quota: a refused token and a malformed
+ * response look exactly as much like "this activity has no photos" as a 429
+ * does, which is the `catch {}` this replaced.
+ */
+function dropOptionalLayer(
+  layer: string,
+  activityId: string,
+  error: unknown,
+  warnings: string[],
+): void {
+  console.error(
+    `route-map: ${layer} unavailable for activity ${activityId} (${
+      error instanceof Error ? error.message : String(error)
+    }); the map renders without them.`,
+  );
+  const reason =
+    error instanceof RateLimitError
+      ? error.detail
+      : error instanceof Error
+        ? error.message
+        : String(error);
+  warnings.push(
+    `Dropped ${layer}: ${reason.trim().replace(/\.$/, "")}. The map renders without them.`,
+  );
+}
+
+/**
  * Resolve lap boundaries, segment efforts, and geotagged photos into indices
  * on the (downsampled) coordinate stream. Each layer degrades independently:
- * a failed laps or photos fetch, or efforts without lat/lng, simply drop that
- * layer rather than failing the map.
+ * a failed laps or photos fetch, or efforts without lat/lng, drop that layer —
+ * with a log line and a caller-visible `layerWarnings` note saying why — rather
+ * than failing the map. See {@link dropOptionalLayer}.
  */
 async function loadRouteMapAnnotations(
   token: string,
@@ -1463,8 +1507,12 @@ async function loadRouteMapAnnotations(
   activity: StravaDetailedActivity,
   coordinates: Array<[number, number]>,
   distanceStream: number[] | undefined,
-): Promise<RouteMapAnnotations | undefined> {
+): Promise<{
+  annotations?: RouteMapAnnotations;
+  layerWarnings?: string[];
+}> {
   const annotations: RouteMapAnnotations = {};
+  const layerWarnings: string[] = [];
 
   // Laps: anchor each lap's end by cumulative distance. Strava's lap
   // start/end indices refer to the full-resolution stream, so they cannot be
@@ -1490,8 +1538,8 @@ async function loadRouteMapAnnotations(
         }
         if (lapMarkers.length > 0) annotations.laps = lapMarkers;
       }
-    } catch {
-      // Lap layer is optional.
+    } catch (error) {
+      dropOptionalLayer("lap markers", activityId, error, layerWarnings);
     }
   }
 
@@ -1551,11 +1599,14 @@ async function loadRouteMapAnnotations(
       photoMarkers.push({ index, caption: photo.caption ?? null });
     }
     if (photoMarkers.length > 0) annotations.photos = photoMarkers;
-  } catch {
-    // Photo layer is optional.
+  } catch (error) {
+    dropOptionalLayer("photo pins", activityId, error, layerWarnings);
   }
 
-  return Object.keys(annotations).length > 0 ? annotations : undefined;
+  return {
+    ...(Object.keys(annotations).length > 0 ? { annotations } : {}),
+    ...(layerWarnings.length > 0 ? { layerWarnings } : {}),
+  };
 }
 
 async function handleGetRouteMapData(
@@ -1586,6 +1637,9 @@ async function handleViewRouteMap(
     );
   }
   for (const warning of data.waypointWarnings ?? []) {
+    lines.push(`Warning: ${warning}`);
+  }
+  for (const warning of data.layerWarnings ?? []) {
     lines.push(`Warning: ${warning}`);
   }
   lines.push("", "[Interactive route map rendered above]");

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledRateLimit } from "../__fixtures__";
 import { cumulativeDistances } from "../mapAnchors";
+import { buildTiles } from "../routeSegments";
 import {
   exploreSegments,
   listAllStarredSegments,
@@ -296,7 +298,9 @@ describe("find-segments-on-route execute", () => {
     );
     mockedExplore
       .mockResolvedValueOnce(response([explored("s1", 2)]))
-      .mockRejectedValue(new Error("Strava rate limit exceeded in explore."));
+      // What `exploreSegments` really throws once the quota is spent: the
+      // typed error handleApiError rethrows, not a plain Error.
+      .mockRejectedValue(handledRateLimit("exploring segments"));
 
     const result = await findSegmentsOnRouteTool.execute(
       { routeId: "9" },
@@ -308,9 +312,21 @@ describe("find-segments-on-route execute", () => {
     expect(warnings.join(" ")).toContain("rate limit");
     expect(result.content[0]?.text).toContain("Warning:");
     // The scan gave up rather than spending the rest of the tiles on 429s.
-    const tiles = result.structuredContent?.tiles_searched ?? 0;
-    expect(tiles).toBeGreaterThan(3);
-    expect(mockedExplore.mock.calls.length).toBeLessThan(tiles);
+    const tileCount = buildTiles(
+      coordinates,
+      cumulativeDistances(coordinates),
+    ).length;
+    const attempted = mockedExplore.mock.calls.length;
+    expect(attempted).toBeGreaterThan(1);
+    expect(attempted).toBeLessThan(tileCount);
+    // tiles_searched counts the stretches that answered — not the ones that
+    // 429'd, and not the ones the abort never reached.
+    const searched = result.structuredContent?.tiles_searched ?? 0;
+    expect(searched).toBeGreaterThan(0);
+    expect(searched).toBeLessThan(attempted);
+    expect(result.content[0]?.text).toContain(
+      `searched in ${searched} stretch`,
+    );
   });
 
   it("reports search progress and names the rate-limit abort (#279)", async () => {
@@ -325,7 +341,9 @@ describe("find-segments-on-route execute", () => {
     );
     mockedExplore
       .mockResolvedValueOnce(response([explored("s1", 2)]))
-      .mockRejectedValue(new Error("Strava rate limit exceeded in explore."));
+      // What `exploreSegments` really throws once the quota is spent: the
+      // typed error handleApiError rethrows, not a plain Error.
+      .mockRejectedValue(handledRateLimit("exploring segments"));
 
     const messages: string[] = [];
     await findSegmentsOnRouteTool.execute({ routeId: "9" }, "test-token", (m) =>

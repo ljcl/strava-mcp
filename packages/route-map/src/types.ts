@@ -57,6 +57,12 @@ export interface RouteMapData {
    * (e.g. beyond the track length). Informational; the view tool's text
    * surfaces them to the model. */
   waypointWarnings?: string[];
+  /** Server notes about optional annotation layers (laps, photos) that could
+   * not be fetched — a rate limit, an auth failure — each naming the layer and
+   * the reason. Informational, and the map still renders: the geometry was
+   * already loaded when the layer failed. Surfaced to the model by the view
+   * tool's text, like `waypointWarnings`. */
+  layerWarnings?: string[];
 }
 
 /**
