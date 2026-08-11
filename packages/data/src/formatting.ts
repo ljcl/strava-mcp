@@ -115,6 +115,13 @@ export function formatSpeedAsKmh(metresPerSecond: number): string {
  * printing a nonsense pace for a stop-and-wait effort the other two rendered
  * as an em dash. Same reasoning as the `formatPace` rollover bug in #216:
  * the only defence is not making the copy.
+ *
+ * The floor is deliberately applied to BOTH branches here, unlike bare
+ * `formatSpeedAsKmh` — one list rendering "—" for a paused run and
+ * "0.7 km/h" for a paused ride reads as two different bugs. Do not delete
+ * this guard as redundant with the one inside `formatSpeedAsPace`: it is the
+ * only thing flooring the speed branch, and dropping it silently changes what
+ * activity-segments and segment-progress show for a stop-and-wait effort.
  */
 export function formatPaceOrSpeed(
   metresPerSecond: number,
