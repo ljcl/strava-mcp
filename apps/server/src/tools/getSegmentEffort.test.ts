@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getSegmentEffort as fetchSegmentEffort,
   type StravaDetailedSegmentEffort,
@@ -63,12 +63,7 @@ describe("get-segment-effort input schema", () => {
 
 describe("get-segment-effort execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedFetch.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("passes a string effort id through to the client untouched", async () => {

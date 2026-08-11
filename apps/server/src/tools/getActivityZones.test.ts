@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { activityZones as activityZonesFixture } from "../__fixtures__";
 import {
   getActivityZones as getActivityZonesClient,
@@ -45,12 +45,7 @@ describe("formatActivityZones", () => {
 
 describe("getActivityZonesTool.execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedClient.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("returns a formatted summary plus raw data", async () => {

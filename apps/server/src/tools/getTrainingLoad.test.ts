@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAllActivities, type StravaSummaryActivity } from "../stravaClient";
 import { getTrainingLoadTool } from "./getTrainingLoad";
 import { TrainingLoadOutputSchema } from "./outputs";
@@ -35,12 +35,7 @@ function run(
 
 describe("get-training-load execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedList.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("aggregates runs into weekly totals and structured output", async () => {

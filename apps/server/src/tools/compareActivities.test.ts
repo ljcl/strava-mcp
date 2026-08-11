@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getActivityById, type StravaDetailedActivity } from "../stravaClient";
 import { buildComparison, compareActivitiesTool } from "./compareActivities";
 import { CompareActivitiesOutputSchema } from "./outputs";
@@ -99,12 +99,7 @@ describe("buildComparison", () => {
 
 describe("compare-activities execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedById.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("fetches both activities and returns text plus structured output", async () => {

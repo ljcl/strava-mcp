@@ -4,7 +4,7 @@
  * hillAnalysis.test.ts; these pin the fetch wiring, cadence doubling,
  * degradation paths, and text shape.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError, RateLimitError, stravaApi } from "../fetchClient";
 import { getActivityById, type StravaDetailedActivity } from "../stravaClient";
 import { HillAnalysisOutputSchema } from "./outputs";
@@ -96,12 +96,7 @@ function hillyStreams() {
 }
 
 beforeEach(() => {
-  process.env.STRAVA_ACCESS_TOKEN = "test-token";
   vi.clearAllMocks();
-});
-
-afterEach(() => {
-  delete process.env.STRAVA_ACCESS_TOKEN;
 });
 
 describe("get-hill-analysis", () => {

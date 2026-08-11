@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getRouteById, type StravaRoute } from "../stravaClient";
 import { getRouteTool } from "./getRoute";
 
@@ -32,12 +32,7 @@ describe("get-route input schema", () => {
 
 describe("get-route execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedGetRoute.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("formats the route summary", async () => {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAthleteStats as getAthleteStatsClient,
   getAuthenticatedAthlete as getAuthenticatedAthleteClient,
@@ -54,13 +54,8 @@ const stats: StravaStats = {
 
 describe("getAthleteStatsTool.execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedStats.mockReset();
     mockedAthlete.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("resolves the authenticated athlete when athleteId is omitted", async () => {

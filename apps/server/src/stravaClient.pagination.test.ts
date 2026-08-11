@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { basicRunActivity, rideActivity } from "./__fixtures__";
 import { stravaApi } from "./fetchClient";
 import {
@@ -27,11 +27,6 @@ const page = (activities: unknown[]) => ({ data: activities });
 describe("getAllActivities pagination bounds", () => {
   beforeEach(() => {
     mockedGet.mockReset();
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("pages until a short page when no cap is set", async () => {

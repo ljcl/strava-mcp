@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   activityWithBestEfforts,
   basicRunActivity,
@@ -26,13 +26,8 @@ const asDetail = (a: unknown) => a as unknown as StravaDetailedActivity;
 
 describe("getBestEffortsTool.execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedList.mockReset();
     mockedById.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("caps perPage at 200 and bounds pagination to running activities", async () => {

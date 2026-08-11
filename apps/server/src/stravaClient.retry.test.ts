@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError, stravaApi } from "./fetchClient";
 import {
   exploreSegments,
@@ -39,20 +39,13 @@ describe("401 refresh-retry", () => {
   beforeEach(() => {
     mockedGet.mockReset();
     mockedRefresh.mockReset();
-    // Mirror the real refresh: a successful exchange rotates the env token.
     mockedRefresh.mockImplementation(async () => {
-      process.env.STRAVA_ACCESS_TOKEN = "refreshed-token";
       return {
         access_token: "refreshed-token",
         refresh_token: "refreshed-refresh",
         expires_at: Math.floor(Date.now() / 1000) + 3600,
       };
     });
-    process.env.STRAVA_ACCESS_TOKEN = "stale-token";
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("retries exploreSegments once with all original filters preserved", async () => {

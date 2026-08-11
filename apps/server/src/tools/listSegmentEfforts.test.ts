@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listSegmentEfforts as fetchSegmentEfforts,
   type StravaDetailedSegmentEffort,
@@ -23,12 +23,7 @@ const effort = {
 
 describe("list-segment-efforts execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedFetch.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("lists efforts and forwards the date filters", async () => {

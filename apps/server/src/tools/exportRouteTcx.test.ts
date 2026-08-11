@@ -16,13 +16,11 @@ describe("exportRouteTcx.execute", () => {
 
   beforeEach(() => {
     exportDir = fs.mkdtempSync(path.join(os.tmpdir(), "route-export-"));
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     process.env.ROUTE_EXPORT_PATH = exportDir;
     mockedFetch.mockReset();
   });
 
   afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
     delete process.env.ROUTE_EXPORT_PATH;
     fs.rmSync(exportDir, { recursive: true, force: true });
   });

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   listAthleteRoutes as fetchAthleteRoutes,
   type StravaRoute,
@@ -22,12 +22,7 @@ const route = {
 
 describe("list-athlete-routes execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedFetch.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("lists routes with pagination args passed through", async () => {

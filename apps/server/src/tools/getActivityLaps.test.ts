@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getActivityById,
   getActivityLaps,
@@ -86,13 +86,8 @@ describe("mapLap", () => {
 
 describe("getActivityLapsTool.execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedById.mockReset();
     mockedLaps.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("renders run laps with pace and structured output", async () => {
