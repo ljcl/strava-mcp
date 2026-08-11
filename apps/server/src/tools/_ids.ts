@@ -43,6 +43,18 @@ export function stravaIdJsonSchemaOverride(ctx: {
 }
 
 /**
+ * Appended to every id's description, steering generation toward the quoted
+ * digit string the schema advertises.
+ *
+ * Exported so the guard over the whole advertised surface
+ * (`server.integration.test.ts`) matches on this text rather than on a copy
+ * of it — a copy would drift and quietly stop identifying which ids actually
+ * went through `stravaIdInput`.
+ */
+export const STRAVA_ID_HINT =
+  'Pass the id as a quoted string of digits, exactly as it appears in the Strava URL (e.g. "3516039180561708486") — Strava ids can exceed 2^53, so an unquoted number loses precision.';
+
+/**
  * Tool-input schema for a Strava resource id (activity, segment, effort,
  * athlete, route).
  *
@@ -97,9 +109,7 @@ export const stravaIdInput = (description: string) => {
       }),
     ])
     .transform((value) => String(value))
-    .describe(
-      `${description} Pass the id as a quoted string of digits, exactly as it appears in the Strava URL (e.g. "3516039180561708486") — Strava ids can exceed 2^53, so an unquoted number loses precision.`,
-    );
+    .describe(`${description} ${STRAVA_ID_HINT}`);
   stravaIds.add(schema, { isStravaId: true });
   return schema;
 };
