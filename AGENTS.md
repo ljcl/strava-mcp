@@ -308,12 +308,12 @@ Every app's `main.tsx` is the same four-branch state machine, so it lives in
 - **An app with a required id declares `missingArgsMessage`.** `parseToolInput`
   returning `null` then means "the host spoke and the input is unusable" — an
   `ErrorState` naming the missing id, not an endless skeleton. Omit the message
-  only when every argument is optional (cadence-trends, training-load); omitting
-  it on an app that needs an id is what put four apps on a permanent loading
-  skeleton and had segment-progress call the server with `segment_id:
-  undefined`. The classification is pure and unit-tested (`classifyToolInput`);
-  the branches are storied on `AppRootView`, the pure half of `AppRoot`, since a
-  live host is not reachable from Storybook.
+  only when every argument is optional (cadence-trends, training-load,
+  fitness-trend); omitting it on an app that needs an id is what put four apps
+  on a permanent loading skeleton and had segment-progress call the server with
+  `segment_id: undefined`. The classification is pure and unit-tested
+  (`classifyToolInput`); the branches are storied on `AppRootView`, the pure
+  half of `AppRoot`, since a live host is not reachable from Storybook.
 - **Fetching.** `useServerToolData` is the mount-time single fetch every app
   makes. Anything keyed and on-demand — a stream per selected run — goes through
   `useServerToolFetcher` instead of a hand-rolled effect (#250). Its state
@@ -552,7 +552,7 @@ Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough t
 
 Three properties of `ci.yml`'s `check` job are load-bearing and easy to undo by accident (#271, #273, #274):
 
-- **The specs run once, in the Coverage step.** `test` is absent from the `turbo run` line on purpose — `test:coverage` runs the same specs and is the pass that gates, since the thresholds live in the vitest configs. Adding `test` back doubles every spec. That step is also deliberately **not** `--affected`: turbo restores `coverage/**` for unchanged packages from cache, so a full run is cheap and every package in the summary table still has a coverage file and a checked threshold. It sits ahead of the Playwright/story steps so a failing spec surfaces before the browser run, not after it.
+- **The specs run once, in the Coverage step.** `test` is absent from the `turbo run` line on purpose — `test:coverage` runs the same specs and is the pass that gates, since the thresholds live in the vitest configs. Adding `test` back doubles every spec. That step is also deliberately **not** `--affected`: turbo restores `coverage/**` for unchanged packages from cache, so a full run is cheap and every package in the summary table still has a coverage file. Only the four packages with a vitest.config.ts (`apps/server`, `packages/data`, `packages/design-system`, `packages/ui`) set thresholds there; the nine MCP App packages emit a summary row nothing gates, and their floor is the story render-path report instead. It sits ahead of the Playwright/story steps so a failing spec surfaces before the browser run, not after it.
 - **Only jobs that run turbo tasks take the `.turbo` cache.** Cache entries are immutable and the first job to post one wins, so `audit` — which runs `bun audit` and nothing else, and finishes first — used to reserve the SHA key and leave `check` unable to save, quietly flattening the CI hit rate. It now passes `turbo-cache: "false"` to the setup composite. The key is namespaced `<os>-turbo-<workflow>-<job>-<sha>` for the same reason: `check` and Storybook's `deploy` both run turbo tasks against the same main-push SHA and would otherwise collide, with the bare prefix left in `restore-keys` so a new job still seeds from the newest cache.
 - **The Playwright install branches on the cache result.** The cache step carries `id: playwright-cache`; a miss runs `playwright install chromium --with-deps`, a hit runs only `playwright install-deps chromium`. The apt-get half is not cached and must run either way — dropping the split means re-downloading the browser on every run, and dropping the hit branch means a cached browser with no system libraries. The runner image belongs in the key, since those binaries link against its libraries — and it is resolved in the preceding `run:` step on purpose: the `env` context holds only workflow/job/step-defined variables, so `${{ env.ImageOS }}` inside the cache step's `with:` expands to the empty string and the key loses the segment without failing. The first CI run of this change saved `Linux-X64--playwright-1.61.1`, which is how that was caught.
 
@@ -712,7 +712,7 @@ curl -X POST http://localhost:3000/mcp \
 | `PUBLIC_URL` | Yes* | Public URL for OAuth callback (required for web auth) |
 | `STRAVA_ACCESS_TOKEN` | No | Initial access token (from `bun run setup-auth`) |
 | `STRAVA_REFRESH_TOKEN` | No | Initial refresh token (from `bun run setup-auth`) |
-| `MCP_AUTH_TOKEN` | No | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>` |
+| `MCP_AUTH_TOKEN` | No | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>`, and `/auth/start`, `/auth/status` and the authed half of `/health` require it too (header or `?token=`) |
 | `ROUTE_EXPORT_PATH` | No | Absolute path for saving exported files. Unset, the export tools return the document inline instead |
 | `TOKEN_DATA_DIR` | No | Override token storage directory (default: `./data`) |
 | `PORT` | No | Server port (default: `3000`) |
@@ -750,16 +750,18 @@ by session type:
   Discover item/field/option ids with `gh project item-list 1 --owner ljcl --format json`
   and `gh project field-list 1 --owner ljcl --format json`.
 - **Cloud and iOS sessions** (no gh, no project scope on the built-in GitHub
-  credential): use the hosted GitHub MCP server with `GH_MCP_PAT`. The projects
-  tools are **path-scoped**: they live at
-  `https://api.githubcopilot.com/mcp/x/projects`, which serves exactly
-  `projects_list` / `projects_get` / `projects_write` (use
-  `/x/projects/readonly` for the read-only pair). The base `/mcp/` endpoint does
-  **not** expose them, and an `X-MCP-Toolsets: projects` header does not add
-  them — it returns the same ~44 issue/PR/actions tools either way. That is the
-  trap: the base endpoint initializes fine and looks like it worked. Issue
-  filing and edits go through the ordinary `issue_write` / `search_issues`
-  tools.
+  credential): use the hosted GitHub MCP server with `GH_MCP_PAT`. The
+  `github-projects` entry in `.mcp.json` is the working configuration (verified
+  2026-08-11): the base `https://api.githubcopilot.com/mcp/` endpoint plus an
+  `X-MCP-Toolsets: projects,issues` header, which serves `projects_list` /
+  `projects_get` / `projects_write` alongside the issue tools and none of the
+  PR/actions ones. The path-scoped `/mcp/x/projects` endpoint serves the same
+  projects trio (`/x/projects/readonly` for the read-only pair) if a session
+  needs projects without issues. What to watch for is that the base endpoint
+  initializes fine whatever the header says, so a toolset that failed to load
+  does not announce itself — check the advertised tool names, not the
+  handshake. Issue filing and edits go through the ordinary `issue_write` /
+  `search_issues` tools.
 
 If the `github-projects` entry in `.mcp.json` is not connected in the session,
 drive the endpoint directly over JSON-RPC with curl: POST `initialize`, capture

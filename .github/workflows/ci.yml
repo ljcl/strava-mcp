@@ -54,9 +54,11 @@ jobs:
       # The unit gate, and now the only place the specs run. Deliberately NOT
       # --affected: turbo restores `coverage/**` for unchanged packages from
       # cache, so a full run costs little and every package the summary table
-      # lists still has a coverage file and a threshold checked. It sits ahead
-      # of the browser steps so a failing spec surfaces before the ~2-minute
-      # story run rather than after it (#135, #273).
+      # lists still has a coverage file. Only the four packages with a
+      # vitest.config.ts (apps/server, data, design-system, ui) check a
+      # threshold here; the MCP App packages' floor is the story render-path
+      # report. It sits ahead of the browser steps so a failing spec surfaces
+      # before the ~2-minute story run rather than after it (#135, #273).
       - name: Coverage
         run: bun run turbo run test:coverage
 

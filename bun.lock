@@ -197,7 +197,6 @@
     "packages/data": {
       "name": "@strava-mcp/data",
       "devDependencies": {
-        "@modelcontextprotocol/ext-apps": "1.7.5",
         "@strava-mcp/tsconfig": "workspace:*",
         "typescript": "7.0.2",
         "vitest": "4.1.10",

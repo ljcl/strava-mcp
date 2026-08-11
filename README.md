@@ -384,7 +384,7 @@ The setup script will guide you through the OAuth flow using `localhost` as the 
 | `PUBLIC_URL`           | Yes*     | Public URL for OAuth callback (required for web auth)      |
 | `STRAVA_ACCESS_TOKEN`  | No       | Initial access token (from `bun run setup-auth`)                  |
 | `STRAVA_REFRESH_TOKEN` | No       | Initial refresh token (from `bun run setup-auth`)                 |
-| `MCP_AUTH_TOKEN`       | No       | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>` |
+| `MCP_AUTH_TOKEN`       | No       | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>`, and `/auth/start`, `/auth/status` and the authed half of `/health` require it too (header or `?token=`) |
 | `ROUTE_EXPORT_PATH`    | No       | Absolute path for saving exported files. Unset, the export tools return the document inline instead |
 | `TOKEN_DATA_DIR`       | No       | Override token storage directory (default: `./data`)       |
 | `PORT`                 | No       | Server port (default: `3000`)                              |
