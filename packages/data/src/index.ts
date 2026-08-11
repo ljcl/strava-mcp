@@ -4,7 +4,10 @@ export {
   formatDistance,
   formatDurationShort,
   formatPace,
+  formatPaceOrSpeed,
   formatShortDate,
+  formatSpeedAsKmh,
+  formatSpeedAsPace,
   formatTime,
   type ShortDateYear,
 } from "./formatting";

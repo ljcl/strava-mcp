@@ -63,12 +63,12 @@ export function useServerToolData<T>(
           },
         },
       );
-      const parsed = parseTextContent<T>(result);
-      if (parsed === null) {
-        setError(`Failed to parse ${toolName} response`);
+      const parsed = parseTextContent<T>(result, toolName);
+      if (!parsed.ok) {
+        setError(parsed.error);
         return;
       }
-      setData(parsed);
+      setData(parsed.data);
     } catch (err) {
       setError(String(err));
     } finally {

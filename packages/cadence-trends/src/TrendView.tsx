@@ -1,3 +1,4 @@
+import { formatShortDate } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import { EmptyState } from "@strava-mcp/ui";
 import { useMemo } from "react";
@@ -62,10 +63,7 @@ export function TrendView({
     () =>
       sorted.map((a, i) => ({
         ...a,
-        dateFormatted: new Date(a.date).toLocaleDateString(undefined, {
-          month: "short",
-          day: "numeric",
-        }),
+        dateFormatted: formatShortDate(a.date),
         dateTs: new Date(a.date).getTime(),
         trendCadence: trend[i]?.cadence ?? null,
         size: dotSize(a.distance, maxDistance) * tokens.dotScale,

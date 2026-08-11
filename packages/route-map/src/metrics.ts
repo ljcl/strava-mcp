@@ -8,7 +8,8 @@
  */
 
 import {
-  formatPace,
+  formatSpeedAsKmh,
+  formatSpeedAsPace,
   isRunning,
   normalizeValue,
   percentileDomain,
@@ -39,18 +40,6 @@ export interface MetricSeries {
   max: number;
   /** Format a raw value for the scrub tooltip, unit included. */
   format: (value: number) => string;
-}
-
-/** Slower than a walk: treat as paused rather than formatting a huge pace. */
-const MIN_PACE_SPEED = 0.3;
-
-function formatSpeedAsPace(metresPerSecond: number): string {
-  if (metresPerSecond < MIN_PACE_SPEED) return "—";
-  return `${formatPace(1000 / metresPerSecond / 60)} /km`;
-}
-
-function formatSpeedAsKmh(metresPerSecond: number): string {
-  return `${(metresPerSecond * 3.6).toFixed(1)} km/h`;
 }
 
 /**

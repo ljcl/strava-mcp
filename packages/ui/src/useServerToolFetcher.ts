@@ -38,11 +38,9 @@ export function useServerToolFetcher<T>(
           name: toolName,
           arguments: buildArgsRef.current(key),
         });
-        const parsed = parseTextContent<T>(result);
-        if (parsed === null) {
-          throw new Error(`Failed to parse ${toolName} response`);
-        }
-        return parsed;
+        const parsed = parseTextContent<T>(result, toolName);
+        if (!parsed.ok) throw new Error(parsed.error);
+        return parsed.data;
       }),
     [app, toolName],
   );

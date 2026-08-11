@@ -1,4 +1,8 @@
-import { formatDurationShort, formatPace } from "@strava-mcp/data";
+import {
+  formatDurationShort,
+  formatPace,
+  formatShortDate,
+} from "@strava-mcp/data";
 import { Tooltip, TooltipEntry } from "@strava-mcp/ui";
 import styles from "./SharedTooltip.module.css";
 
@@ -25,7 +29,7 @@ export function SharedTooltip({ active, payload }: SharedTooltipProps) {
   const run = payload[0]?.payload;
   if (!run) return null;
 
-  const date = run.date ? new Date(run.date).toLocaleDateString() : "";
+  const date = run.date ? formatShortDate(run.date, "short") : "";
 
   return (
     <Tooltip timestamp={date}>

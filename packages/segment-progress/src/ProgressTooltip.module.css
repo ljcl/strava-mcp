@@ -5,7 +5,10 @@
   font-size: var(--font-text-xs-size);
   font-weight: var(--font-weight-semibold);
   line-height: var(--line-height-tight);
-  color: var(--color-text-inverse);
+  /* Paired with the theme-invariant tier backgrounds below; `text-inverse`
+   * flips per theme and went white-on-amber in light mode (#286). axe never
+   * saw this one — the badge only exists inside a hover tooltip. */
+  color: var(--color-tier-text);
   white-space: nowrap;
   border-radius: var(--border-radius-full);
 }

@@ -87,3 +87,41 @@ export function formatPace(minPerUnit: number): string {
   if (secs === 60) return `${mins + 1}'00"`;
   return `${mins}'${String(secs).padStart(2, "0")}"`;
 }
+
+/**
+ * Slower than a walk: a pace derived from such a sample is a nonsense number
+ * ("41'40 /km"), so it is rendered as paused instead. Speed in km/h needs no
+ * such floor — zero is a true and useful reading — which is why
+ * `formatSpeedAsKmh` has none.
+ */
+const MIN_PACE_SPEED = 0.3;
+
+/** "4'10 /km" from metres per second, or "—" when the sample reads as paused. */
+export function formatSpeedAsPace(metresPerSecond: number): string {
+  if (metresPerSecond < MIN_PACE_SPEED) return "—";
+  return `${formatPace(1000 / metresPerSecond / 60)} /km`;
+}
+
+/** "28.4 km/h" from metres per second. */
+export function formatSpeedAsKmh(metresPerSecond: number): string {
+  return `${(metresPerSecond * 3.6).toFixed(1)} km/h`;
+}
+
+/**
+ * Pace for runs, speed for everything else, "—" for a sample too slow to be
+ * either. The three MCP Apps that show an effort's speed cannot import each
+ * other, so this had been copied into route-map, activity-segments, and
+ * segment-progress — and the third copy had already lost the paused floor,
+ * printing a nonsense pace for a stop-and-wait effort the other two rendered
+ * as an em dash. Same reasoning as the `formatPace` rollover bug in #216:
+ * the only defence is not making the copy.
+ */
+export function formatPaceOrSpeed(
+  metresPerSecond: number,
+  running: boolean,
+): string {
+  if (metresPerSecond < MIN_PACE_SPEED) return "—";
+  return running
+    ? formatSpeedAsPace(metresPerSecond)
+    : formatSpeedAsKmh(metresPerSecond);
+}

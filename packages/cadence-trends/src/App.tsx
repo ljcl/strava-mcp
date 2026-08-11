@@ -1,4 +1,5 @@
 import { type useApp } from "@modelcontextprotocol/ext-apps/react";
+import { formatShortDate } from "@strava-mcp/data";
 import {
   CardHeader,
   Pill,
@@ -221,7 +222,7 @@ export function App({ app, data, mode = "desktop" }: AppProps) {
           {selectedRuns.map((run) => (
             <div key={run.id} className={styles.selectedRun}>
               <span>
-                {run.name} · {new Date(run.date).toLocaleDateString()}
+                {run.name} · {formatShortDate(run.date, "short")}
               </span>
               <button
                 type="button"

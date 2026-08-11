@@ -1,3 +1,4 @@
+import { formatShortDate } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import { EmptyState } from "@strava-mcp/ui";
 import { useMemo } from "react";
@@ -46,10 +47,7 @@ export function LoadChart({
     () =>
       weeks.map((week) => ({
         ...week,
-        weekLabel: new Date(`${week.weekStarting}T00:00:00`).toLocaleDateString(
-          undefined,
-          { month: "short", day: "numeric" },
-        ),
+        weekLabel: formatShortDate(week.weekStarting),
       })),
     [weeks],
   );
