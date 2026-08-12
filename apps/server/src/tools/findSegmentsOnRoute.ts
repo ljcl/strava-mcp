@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RateLimitError } from "../fetchClient";
 import { formatDistance } from "../formatters";
 import { NO_PROGRESS, type ReportProgress } from "../progress";
 import {
@@ -160,7 +161,7 @@ export const findSegmentsOnRouteTool = {
       // so stop and report the partial coverage rather than hiding it.
       const failed: number[] = [];
       let stopped = false;
-      let searched = 0;
+      let completed = 0;
 
       progress(`Searching ${tiles.length} stretches of the course…`, {
         important: true,
@@ -177,9 +178,10 @@ export const findSegmentsOnRouteTool = {
               filter,
             );
           } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            if (/rate limit/i.test(message)) {
+            // The typed error, not a message match: every client call routes
+            // its 429 through handleApiError, which now rethrows a
+            // RateLimitError rather than flattening it into a plain Error.
+            if (error instanceof RateLimitError) {
               stopped = true;
               progress("Strava rate limit reached — stopping the search", {
                 important: true,
@@ -190,8 +192,8 @@ export const findSegmentsOnRouteTool = {
           } finally {
             // Completion-ordered: TILE_CONCURRENCY tiles are in flight, so
             // this counts stretches finished, not a position along the course.
-            searched += 1;
-            progress(`Searched ${searched} of ${tiles.length} stretches`);
+            completed += 1;
+            progress(`Searched ${completed} of ${tiles.length} stretches`);
           }
         },
         () => stopped,
@@ -233,10 +235,15 @@ export const findSegmentsOnRouteTool = {
       }
       const found = dedupeInCourseOrder(candidates);
 
+      // What the sweep actually covered: a stopped scan never reaches the last
+      // tiles, and a failed one answers null. Reporting `tiles.length` as
+      // `tiles_searched` promised a caller a count the sweep had not earned.
+      const searched = responses.filter(Boolean).length;
+
       const warnings: string[] = [];
       if (stopped) {
         warnings.push(
-          `Strava's rate limit stopped the scan after ${responses.filter(Boolean).length} of ${tiles.length} stretches, so segments later in the course may be missing.`,
+          `Strava's rate limit stopped the scan after ${searched} of ${tiles.length} stretches, so segments later in the course may be missing.`,
         );
       } else if (failed.length > 0) {
         warnings.push(
@@ -255,7 +262,7 @@ export const findSegmentsOnRouteTool = {
         name: course.name,
         activity_type: course.activityType,
         distance_m: course.declaredDistanceM,
-        tiles_searched: tiles.length,
+        tiles_searched: searched,
         tile_length_m: tiles[0] ? tiles[0].endM - tiles[0].startM : 0,
         tolerance_m: tolerance,
         segment_count: found.length,
@@ -285,7 +292,7 @@ export const findSegmentsOnRouteTool = {
       const label = course.source === "route" ? "Route" : "Activity";
       const lines = [
         `Segments on ${label}: ${course.name} (ID: ${course.id})`,
-        `${formatDistance(course.declaredDistanceM)} course, searched in ${tiles.length} stretch${tiles.length === 1 ? "" : "es"}; ${found.length} segment${found.length === 1 ? "" : "s"} on course`,
+        `${formatDistance(course.declaredDistanceM)} course, searched in ${searched} stretch${searched === 1 ? "" : "es"}; ${found.length} segment${found.length === 1 ? "" : "s"} on course`,
         "",
       ];
 

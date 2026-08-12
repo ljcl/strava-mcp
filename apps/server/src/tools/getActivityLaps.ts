@@ -132,7 +132,24 @@ export const getActivityLapsTool = {
         getActivityLapsClient(token, id),
       ]);
 
+      const sportType = activity.sport_type ?? activity.type ?? "Workout";
+      const isRun = RUNNING_TYPES.includes(sportType);
+
       if (laps.length === 0) {
+        // A tool that publishes an outputSchema must answer with structured
+        // content every time it succeeds: the official SDK client rejects a
+        // text-only success as a protocol error, so "no laps recorded" used to
+        // reach the host as a hard failure. The empty payload is also the
+        // honest one — a caller branching on structuredContent should never
+        // have to handle "absent" as a third case.
+        const empty = {
+          activity_id: String(activity.id),
+          activity_name: activity.name,
+          sport_type: sportType,
+          lap_count: 0,
+          laps: [],
+        };
+        warnOnSchemaDrift("get-activity-laps", ActivityLapsOutputSchema, empty);
         return {
           content: [
             {
@@ -140,11 +157,10 @@ export const getActivityLapsTool = {
               text: `✅ No laps recorded for activity ID: ${id}`,
             },
           ],
+          structuredContent: empty,
         };
       }
 
-      const sportType = activity.sport_type ?? activity.type ?? "Workout";
-      const isRun = RUNNING_TYPES.includes(sportType);
       const entries = [...laps]
         .sort((a, b) => a.lap_index - b.lap_index)
         .map((lap) => mapLap(lap, isRun));

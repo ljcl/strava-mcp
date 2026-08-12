@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { basicRunActivity, rideActivity } from "../__fixtures__";
-import { RateLimitError } from "../fetchClient";
+import {
+  basicRunActivity,
+  handledRateLimit,
+  rideActivity,
+} from "../__fixtures__";
 import {
   getActivityById,
   getAllActivities,
@@ -369,14 +372,8 @@ describe("getRacePredictionTool.execute", () => {
     let calls = 0;
     mockedById.mockImplementation(async () => {
       calls += 1;
-      if (calls > 5) {
-        throw new RateLimitError(
-          "15-minute rate limit reached (100/100 requests).",
-          { status: 429, statusText: "Too Many Requests", data: "" },
-          { observedAt: Date.now(), shortTerm: { limit: 100, usage: 100 } },
-          60,
-        );
-      }
+      // The shape `getActivityById` really throws — see handledRateLimit.
+      if (calls > 5) throw handledRateLimit(`getActivityById for ID ${calls}`);
       return asDetail(activityWithEffort(calls, "10K", 10000, 2400));
     });
 
@@ -387,6 +384,8 @@ describe("getRacePredictionTool.execute", () => {
     expect(result.structuredContent?.activities_skipped).toBeGreaterThan(0);
     const warning = result.structuredContent?.warnings?.[0] ?? "";
     expect(warning).toContain("rate limit was reached part-way");
+    expect(warning).toContain("15-minute rate limit reached");
+    expect(warning).not.toContain("getActivityById");
     expect(result.content[0]?.text).toContain("partial set");
   });
 

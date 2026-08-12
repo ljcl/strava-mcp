@@ -429,6 +429,28 @@ export {
 const authRetryContext = new AsyncLocalStorage<true>();
 
 /**
+ * A Strava API failure that {@link handleApiError} has already interpreted:
+ * the user-facing message, with the HTTP status still attached.
+ *
+ * It extends {@link HttpError} so the status survives the translation. A caller
+ * that degrades on one specific status — `loadRouteProfile` treats a 404 from
+ * the GPX export as "this route stored no profile" and anything else as a real
+ * failure — used to test `error instanceof HttpError` against an error this
+ * function had already flattened into a plain `Error`, so the branch could
+ * never run and a 404 surfaced as a raw API error instead. Degrading on a
+ * status is only expressible if the status is still there.
+ */
+export class StravaApiError extends HttpError {
+  constructor(
+    message: string,
+    response: { status: number; statusText: string; data: string },
+  ) {
+    super(message, response);
+    this.name = "StravaApiError";
+  }
+}
+
+/**
  * Helper function to handle API errors with token refresh capability
  * @param error - The caught error
  * @param context - The context in which the error occurred
@@ -483,17 +505,28 @@ async function handleApiError<T>(
   // (which window, when it resets) instead of the raw "Strava API Error (429)".
   if (error instanceof RateLimitError) {
     console.error(`⏳ Strava rate limit hit in ${context}: ${error.message}`);
-    throw new Error(
+    // Rethrown typed, not as a plain `Error`: `get-best-efforts` and
+    // `get-race-prediction` stop their scans on `instanceof RateLimitError`,
+    // and flattening it here left that predicate permanently false — the pool
+    // kept spending an exhausted quota, and every activity it could not read
+    // was reported as a failed fetch rather than as skipped. The message is
+    // unchanged; only the type it arrives as is.
+    throw new RateLimitError(
       `Strava rate limit exceeded in ${context}. ${error.message}`,
+      error.response,
+      error.rateLimit,
+      error.retryAfterSeconds,
+      error.detail,
     );
   }
 
   // Check for subscription error (402)
-  if (status === 402) {
+  if (isHttpError && status === 402) {
     console.error(`🔒 Subscription Required in ${context}. Status: 402`);
     // Throw a specific error type or use a unique message
-    throw new Error(
+    throw new StravaApiError(
       `SUBSCRIPTION_REQUIRED: Access to this feature requires a Strava subscription. Context: ${context}`,
+      error.response,
     );
   }
 
@@ -520,7 +553,10 @@ async function handleApiError<T>(
     if (responseData) {
       console.error(`Response data (${context}):`, responseData);
     }
-    throw new Error(`Strava API Error in ${context} (${status}): ${message}`);
+    throw new StravaApiError(
+      `Strava API Error in ${context} (${status}): ${message}`,
+      error.response,
+    );
   }
   if (error instanceof Error) {
     console.error(`An unexpected error occurred in ${context}:`, error);
@@ -625,18 +661,19 @@ export async function getAllActivities(
 
     return allActivities;
   } catch (error) {
-    // If it's an auth error and we're on first page, try token refresh
-    if (currentPage === 1) {
-      return await handleApiError<StravaSummaryActivity[]>(
-        error,
-        "getAllActivities",
-        async (newToken) => {
-          return getAllActivities(newToken, params);
-        },
-      );
-    }
-    // For subsequent pages, just throw the error
-    throw error;
+    // Every page, not only the first: a token expiring part-way through a long
+    // history scan used to skip the refresh and surface the raw `HTTP 401` to
+    // the athlete with no mention of /auth/start. The retry restarts pagination
+    // from the first page — the same result for a few extra requests — and
+    // `authRetryContext` still caps recovery at one attempt per call, which is
+    // what the page guard was standing in for.
+    return await handleApiError<StravaSummaryActivity[]>(
+      error,
+      "getAllActivities",
+      async (newToken) => {
+        return getAllActivities(newToken, params);
+      },
+    );
   }
 }
 

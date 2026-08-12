@@ -154,6 +154,16 @@ describe("getActivityLapsTool.execute", () => {
 
     expect(result.isError).toBeUndefined();
     expect(result.content[0]?.text).toContain("No laps recorded");
+    // A tool that publishes an outputSchema must still answer with structured
+    // content: the SDK client rejects a text-only success as a protocol error,
+    // so "no laps" used to reach the host as a hard failure.
+    expect(result.structuredContent).toEqual({
+      activity_id: "777",
+      activity_name: "Rest Day Walk",
+      sport_type: "Walk",
+      lap_count: 0,
+      laps: [],
+    });
   });
 
   it("returns a friendly error for a missing activity", async () => {

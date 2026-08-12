@@ -54,17 +54,28 @@ export interface RateLimitSnapshot {
 export class RateLimitError extends HttpError {
   rateLimit: RateLimitSnapshot;
   retryAfterSeconds: number | null;
+  /**
+   * The window description on its own — which window is exhausted and when it
+   * resets — with no caller context in front of it. `handleApiError` rethrows
+   * this error with `in <context>` prefixed onto `message`, so a tool composing
+   * its own sentence ("the scan stopped after 5 of 20 activities…") reads the
+   * useful half from here rather than quoting an internal function name at the
+   * athlete.
+   */
+  detail: string;
 
   constructor(
     message: string,
     response: { status: number; statusText: string; data: string },
     rateLimit: RateLimitSnapshot,
     retryAfterSeconds: number | null,
+    detail: string = message,
   ) {
     super(message, response);
     this.name = "RateLimitError";
     this.rateLimit = rateLimit;
     this.retryAfterSeconds = retryAfterSeconds;
+    this.detail = detail;
   }
 }
 

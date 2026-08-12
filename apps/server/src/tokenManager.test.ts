@@ -78,6 +78,35 @@ afterEach(() => {
 });
 
 describe("exchangeCodeForTokens", () => {
+  it("clears the response cache so a re-auth cannot serve the previous athlete", async () => {
+    // The cache keys on the bare URL, and /athlete is athlete-scoped behind an
+    // athlete-independent one. Without the clear, the athlete who just
+    // authorized reads the previous athlete's profile — and the stats
+    // get-athlete-stats resolves from that id — for the rest of the TTL.
+    const fetchMock = mockFetchOnceJson({
+      access_token: "acc",
+      refresh_token: "ref",
+      expires_at: 9_999_999_999,
+      athlete: { id: 42 },
+    });
+
+    const { exchangeCodeForTokens } = await importTokenManager();
+    const { stravaApi } = await import("./fetchClient");
+
+    const read = () =>
+      stravaApi.get("/athlete", { headers: { Authorization: "Bearer a" } });
+    await read();
+    await read();
+    // Second read was served from the cache, so the athlete swap matters.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await exchangeCodeForTokens("auth-code-123");
+    await read();
+
+    // The OAuth POST, plus a genuine re-read rather than the cached athlete.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
   it("persists and returns tokens on a 200 response", async () => {
     const fetchMock = mockFetchOnceJson({
       access_token: "acc",

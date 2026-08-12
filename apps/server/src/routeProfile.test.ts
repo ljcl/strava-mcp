@@ -5,11 +5,12 @@
  * boundary around it: only a genuinely profile-less route may degrade.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { HttpError } from "./fetchClient";
+import { handledRateLimit } from "./__fixtures__";
 import { loadRouteProfile } from "./routeProfile";
 import {
   exportRouteGpx,
   getRouteStreams,
+  StravaApiError,
   type StravaStreamSet,
   StreamsUnavailableError,
 } from "./stravaClient";
@@ -32,12 +33,17 @@ const gpxWithElevation = `<?xml version="1.0"?>
   <trkpt lat="-37.8020" lon="144.9000"><ele>15</ele></trkpt>
 </trkseg></trk></gpx>`;
 
+/**
+ * What `exportRouteGpx` really throws for a missing route: the error
+ * handleApiError hands back, status intact. Rejecting with the raw `HttpError`
+ * off the fetch layer is a shape production never produces — and it is what hid
+ * this fallback being dead, since the client used to flatten the status away.
+ */
 const notFound = () =>
-  new HttpError("HTTP 404", {
-    status: 404,
-    statusText: "Not Found",
-    data: "Record Not Found",
-  });
+  new StravaApiError(
+    "Strava API Error in exporting route 456 as GPX (404): Record Not Found",
+    { status: 404, statusText: "Not Found", data: "Record Not Found" },
+  );
 
 describe("loadRouteProfile", () => {
   beforeEach(() => {
@@ -139,7 +145,7 @@ describe("loadRouteProfile", () => {
 
   it("propagates a rate-limit failure rather than reporting a flat route", async () => {
     mockedStreams.mockRejectedValueOnce(
-      new Error("Strava rate limit exceeded in getRouteStreams for ID 456."),
+      handledRateLimit("getRouteStreams for ID 456"),
     );
 
     await expect(loadRouteProfile("token", "456")).rejects.toThrow(
@@ -152,10 +158,29 @@ describe("loadRouteProfile", () => {
     mockedStreams.mockRejectedValueOnce(
       new StreamsUnavailableError("456", "route"),
     );
-    mockedGpx.mockRejectedValueOnce(new Error("Strava authentication failed"));
+    mockedGpx.mockRejectedValueOnce(
+      new Error(
+        "Strava authentication failed in exporting route 456 as GPX: refresh token revoked",
+      ),
+    );
 
     await expect(loadRouteProfile("token", "456")).rejects.toThrow(
       /authentication/,
+    );
+  });
+
+  it("propagates a rate limit from the GPX fallback", async () => {
+    // A 429 is not a route without a profile: the quota is spent, and reading
+    // it as flat ground is the #237 failure.
+    mockedStreams.mockRejectedValueOnce(
+      new StreamsUnavailableError("456", "route"),
+    );
+    mockedGpx.mockRejectedValueOnce(
+      handledRateLimit("exporting route 456 as GPX"),
+    );
+
+    await expect(loadRouteProfile("token", "456")).rejects.toThrow(
+      /rate limit/,
     );
   });
 

@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   activityWithBestEfforts,
   basicRunActivity,
+  handledRateLimit,
   rideActivity,
 } from "../__fixtures__";
-import { RateLimitError } from "../fetchClient";
 import {
   getActivityById,
   getAllActivities,
@@ -226,14 +226,11 @@ describe("getBestEffortsTool.execute", () => {
     let calls = 0;
     mockedById.mockImplementation(async () => {
       calls += 1;
-      if (calls > 5) {
-        throw new RateLimitError(
-          "15-minute rate limit reached (100/100 requests).",
-          { status: 429, statusText: "Too Many Requests", data: "" },
-          { observedAt: Date.now(), shortTerm: { limit: 100, usage: 100 } },
-          60,
-        );
-      }
+      // The shape `getActivityById` really throws: handleApiError rethrows a
+      // typed RateLimitError with the context prefixed onto the message. It
+      // used to flatten it into a plain Error, which left this scan's abort
+      // predicate permanently false.
+      if (calls > 5) throw handledRateLimit(`getActivityById for ID ${calls}`);
       return asDetail(activityWithBestEfforts);
     });
 
@@ -249,6 +246,8 @@ describe("getBestEffortsTool.execute", () => {
     const warning = result.structuredContent?.warnings?.[0] ?? "";
     expect(warning).toContain("rate limit was reached part-way");
     expect(warning).toContain("15-minute rate limit reached");
+    // The window description, not the client function that happened to hit it.
+    expect(warning).not.toContain("getActivityById");
     expect(result.content[0]?.text).toContain("results below are incomplete");
   });
 

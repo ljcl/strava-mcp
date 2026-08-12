@@ -5,6 +5,7 @@
  * those early returns lacked `isError: true` and surfaced as ordinary content.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledRateLimit } from "./__fixtures__";
 import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
 import {
   exportRouteGpx,
@@ -666,6 +667,81 @@ describe("route map handlers", () => {
     ]);
   });
 
+  it("get-route-map-data still renders the map when the lap layer hits a rate limit", async () => {
+    // The lap and photo layers sat behind a bare `catch {}`, so an exhausted
+    // quota lost the markers with nothing said — #237 again, one layer down.
+    // The geometry is already fetched by then, so the fix is a warning naming
+    // the exhausted window, not the loss of the whole map.
+    const coords: Array<[number, number]> = [
+      [38.5, -120.2],
+      [40.7, -120.95],
+      [43.252, -126.453],
+    ];
+    mockedById.mockResolvedValueOnce(detailedActivity());
+    mockedApiGet.mockResolvedValueOnce({
+      data: [
+        { type: "latlng", data: coords },
+        { type: "distance", data: [0, 5000, 10000] },
+      ],
+    } as never);
+    mockedLaps.mockRejectedValueOnce(handledRateLimit("getActivityLaps(123)"));
+    mockedPhotos.mockResolvedValueOnce([]);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await dispatchToolCall("get-route-map-data", {
+      activity_id: "123",
+    });
+
+    expect(result.isError).toBeUndefined();
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.coordinates).toEqual(coords);
+    expect(parsed.annotations?.laps).toBeUndefined();
+    expect(parsed.layerWarnings).toEqual([
+      "Dropped lap markers: 15-minute rate limit reached (100/100 requests). The map renders without them.",
+    ]);
+    // The bare window description, not the internal call that hit it.
+    expect(parsed.layerWarnings[0]).not.toContain("getActivityLaps");
+    logged.mockRestore();
+  });
+
+  it("get-route-map-data drops the photo layer with a reason, not in silence", async () => {
+    const coords: Array<[number, number]> = [
+      [38.5, -120.2],
+      [40.7, -120.95],
+      [43.252, -126.453],
+    ];
+    mockedById.mockResolvedValueOnce(detailedActivity());
+    mockedApiGet.mockResolvedValueOnce({
+      data: [
+        { type: "latlng", data: coords },
+        { type: "distance", data: [0, 5000, 10000] },
+      ],
+    } as never);
+    mockedLaps.mockResolvedValueOnce([]);
+    mockedPhotos.mockRejectedValueOnce(new Error("Invalid data format"));
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await dispatchToolCall("get-route-map-data", {
+      activity_id: "123",
+    });
+
+    // The map still renders; the failure is on the record rather than nowhere.
+    expect(result.isError).toBeUndefined();
+    expect(
+      logged.mock.calls.some(
+        (call) =>
+          typeof call[0] === "string" &&
+          call[0].includes("photo pins unavailable for activity 123") &&
+          call[0].includes("Invalid data format"),
+      ),
+    ).toBe(true);
+    const parsed = JSON.parse(result.content[0]?.text ?? "");
+    expect(parsed.layerWarnings).toEqual([
+      "Dropped photo pins: Invalid data format. The map renders without them.",
+    ]);
+    logged.mockRestore();
+  });
+
   it("get-route-map-data falls back to the polyline for a stream-less activity", async () => {
     mockedById.mockResolvedValueOnce(detailedActivity());
     // Strava answers 404 for an activity that recorded no samples.
@@ -874,7 +950,7 @@ describe("route map handlers", () => {
     } as unknown as StravaRoute);
     mockedRouteStreams.mockReset();
     mockedRouteStreams.mockRejectedValueOnce(
-      new Error("Strava rate limit exceeded in getRouteStreams for ID 9."),
+      handledRateLimit("getRouteStreams for ID 9"),
     );
 
     const result = await dispatchToolCall("get-route-map-data", {
