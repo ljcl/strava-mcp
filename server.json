@@ -52,6 +52,13 @@
           "format": "string"
         },
         {
+          "name": "MCP_AUTH_TOKEN",
+          "description": "Shared secret gating /mcp and the OAuth web routes (recommended when internet-facing)",
+          "isRequired": false,
+          "isSecret": true,
+          "format": "string"
+        },
+        {
           "name": "PORT",
           "description": "Server port (default 3000)",
           "isRequired": false,

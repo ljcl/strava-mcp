@@ -61,11 +61,6 @@ export default {
       entry: ["src/main.tsx"],
       project: ["src/**/*.{ts,tsx}"],
     },
-    "packages/data": {
-      // useHostLayout.ts imports `McpUiHostContext` as a type-only import,
-      // which knip does not count toward dependency usage.
-      ignoreDependencies: ["@modelcontextprotocol/ext-apps"],
-    },
     "packages/design-system": {
       project: ["src/**/*.{ts,tsx}"],
     },
