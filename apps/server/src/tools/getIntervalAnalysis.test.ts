@@ -4,7 +4,7 @@
  * intervalAnalysis.test.ts; these pin the fetch wiring (including the
  * `moving` stream type and the lap fetch), degradation paths, and text shape.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError, stravaApi } from "../fetchClient";
 import {
   getActivityById,
@@ -118,13 +118,8 @@ const urbanLongRun = () =>
   ]);
 
 beforeEach(() => {
-  process.env.STRAVA_ACCESS_TOKEN = "test-token";
   vi.clearAllMocks();
   mockedLaps.mockResolvedValue([]);
-});
-
-afterEach(() => {
-  delete process.env.STRAVA_ACCESS_TOKEN;
 });
 
 describe("get-interval-analysis", () => {

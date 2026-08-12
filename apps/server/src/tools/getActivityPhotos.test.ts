@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getActivityPhotos as getActivityPhotosClient,
   type StravaPhoto,
@@ -23,12 +23,7 @@ const photo = {
 
 describe("get-activity-photos execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedFetch.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("summarises photos and appends the raw JSON payload", async () => {

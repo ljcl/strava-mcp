@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { basicRunActivity, rideActivity } from "../__fixtures__";
 import {
   getActivityById,
@@ -43,7 +43,6 @@ const sampleLap = {
 
 describe("getRunningSummaryTool.execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedById.mockReset();
     mockedLaps.mockReset();
     mockedZones.mockReset();
@@ -52,10 +51,6 @@ describe("getRunningSummaryTool.execute", () => {
     mockedStreams.mockRejectedValue(new StreamsUnavailableError("12345678"));
     mockedZones.mockRejectedValue(new Error("no zones"));
     mockedLaps.mockResolvedValue([]);
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("rejects non-running activities", async () => {

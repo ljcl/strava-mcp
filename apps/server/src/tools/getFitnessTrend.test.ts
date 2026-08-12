@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getAllActivities, type StravaSummaryActivity } from "../stravaClient";
 import { getFitnessTrendTool } from "./getFitnessTrend";
 import { FitnessTrendOutputSchema } from "./outputs";
@@ -39,12 +39,7 @@ function run(
 
 describe("get-fitness-trend execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedList.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("computes CTL/ATL/TSB and valid structured output", async () => {

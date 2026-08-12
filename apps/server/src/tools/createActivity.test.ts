@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createActivity as postActivity,
   type StravaDetailedActivity,
@@ -56,12 +56,7 @@ describe("createActivityTool input schema", () => {
 
 describe("createActivityTool.execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedPost.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("creates a manual activity from the required fields", async () => {

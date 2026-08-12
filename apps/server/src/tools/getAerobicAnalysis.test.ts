@@ -3,7 +3,7 @@
  * Strava client mocked. The math itself is covered in aerobicAnalysis.test.ts;
  * these pin the fetch wiring, FTP fallback, degradation paths, and text shape.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError, stravaApi } from "../fetchClient";
 import {
   getActivityById,
@@ -70,12 +70,7 @@ function steadyStreams() {
 }
 
 beforeEach(() => {
-  process.env.STRAVA_ACCESS_TOKEN = "test-token";
   vi.clearAllMocks();
-});
-
-afterEach(() => {
-  delete process.env.STRAVA_ACCESS_TOKEN;
 });
 
 describe("get-aerobic-analysis", () => {

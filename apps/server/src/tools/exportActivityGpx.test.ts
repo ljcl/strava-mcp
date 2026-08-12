@@ -50,7 +50,6 @@ describe("exportActivityGpx.execute", () => {
   let exportDir: string;
 
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     exportDir = fs.mkdtempSync(path.join(os.tmpdir(), "gpx-export-"));
     process.env.ROUTE_EXPORT_PATH = exportDir;
     mockedById.mockReset();
@@ -58,7 +57,6 @@ describe("exportActivityGpx.execute", () => {
   });
 
   afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
     delete process.env.ROUTE_EXPORT_PATH;
     fs.rmSync(exportDir, { recursive: true, force: true });
   });

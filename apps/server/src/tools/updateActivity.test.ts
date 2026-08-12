@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getActivityById as fetchActivityById,
   updateActivity as putActivity,
@@ -53,13 +53,8 @@ describe("updateActivityTool input schema", () => {
 
 describe("updateActivityTool.execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedFetch.mockReset();
     mockedPut.mockReset();
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("rejects a call with no mutating fields", async () => {

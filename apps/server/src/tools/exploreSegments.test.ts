@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { detailedAthlete } from "../__fixtures__";
 import {
   exploreSegments as fetchExploreSegments,
@@ -43,14 +43,9 @@ const athlete = (pref: "meters" | "feet"): StravaAthlete =>
 
 describe("exploreSegments.execute", () => {
   beforeEach(() => {
-    process.env.STRAVA_ACCESS_TOKEN = "test-token";
     mockedExplore.mockReset();
     mockedAthlete.mockReset();
     mockedAthlete.mockResolvedValue(athlete("meters"));
-  });
-
-  afterEach(() => {
-    delete process.env.STRAVA_ACCESS_TOKEN;
   });
 
   it("rejects climb-category filters without riding activityType", async () => {
