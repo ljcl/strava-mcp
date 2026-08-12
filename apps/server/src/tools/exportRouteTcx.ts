@@ -10,15 +10,13 @@ import {
   truncationNotice,
   writeExport,
 } from "./_exportOutput";
+import { stravaIdInput } from "./_ids";
 import { ExportOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "export-route-tcx";
 
 const ExportRouteTcxInputSchema = z.object({
-  routeId: z
-    .string()
-    .regex(/^\d+$/, "Route ID must contain only digits")
-    .describe("The ID of the Strava route to export."),
+  routeId: stravaIdInput("The ID of the Strava route to export."),
   output: exportOutputInput,
 });
 

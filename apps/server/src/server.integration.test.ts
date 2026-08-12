@@ -15,6 +15,7 @@
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getActivityById, getSegmentById } from "./stravaClient";
+import { STRAVA_ID_HINT } from "./tools/_ids";
 
 vi.mock("./stravaClient", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./stravaClient")>();
@@ -61,6 +62,53 @@ describe("initialize", () => {
     });
   });
 });
+
+/**
+ * Every input field naming a Strava resource id, in each spelling the surface
+ * uses: `id`, `activity_id`, `activity_id_1`, `activityId`, `activityId2`.
+ * The narrower `/(^|_)(id|Id)$/` this replaced matched only the first two,
+ * skipping 28 of the 43 id arguments — the camelCase and numbered ones,
+ * including all four tools that were still hand-rolling their id schema.
+ */
+const ID_FIELD = /(^|_)id(_\d+)?$|Id\d*$/;
+
+/** Id arguments across the advertised surface when this floor was set. */
+const ID_FIELD_COUNT = 43;
+
+/**
+ * Gear ids are alphanumeric (`g123456`), not digit strings, so they are the
+ * one id argument `stravaIdInput` does not serve.
+ */
+const NON_NUMERIC_ID_FIELDS = new Set(["gearId"]);
+
+interface AdvertisedIdField {
+  tool: string;
+  field: string;
+  prop: { type?: unknown; pattern?: unknown; description?: string };
+}
+
+/** Every id argument as a host sees it, flattened across tools/list. */
+async function advertisedIdFields(): Promise<AdvertisedIdField[]> {
+  const client = await connectTestClient();
+  const { result } = await client.send("tools/list");
+  const tools = result?.tools as Array<Record<string, unknown>>;
+
+  const fields: AdvertisedIdField[] = [];
+  for (const tool of tools) {
+    const schema = tool.inputSchema as {
+      properties?: Record<string, unknown>;
+    };
+    for (const [field, raw] of Object.entries(schema.properties ?? {})) {
+      if (!ID_FIELD.test(field)) continue;
+      fields.push({
+        tool: String(tool.name),
+        field,
+        prop: raw as AdvertisedIdField["prop"],
+      });
+    }
+  }
+  return fields;
+}
 
 describe("tools/list", () => {
   it("returns every advertised tool", async () => {
@@ -112,24 +160,39 @@ describe("tools/list", () => {
   });
 
   it("advertises Strava ids as strings, never as numbers", async () => {
-    const client = await connectTestClient();
-    const { result } = await client.send("tools/list");
-    const tools = result?.tools as Array<Record<string, unknown>>;
+    const ids = await advertisedIdFields();
 
     // Route and segment-effort ids already exceed 2^53, so a host that
     // generates a JSON number loses digits before validation can see them.
-    for (const tool of tools) {
-      const schema = tool.inputSchema as {
-        properties?: Record<string, unknown>;
-      };
-      for (const [field, raw] of Object.entries(schema.properties ?? {})) {
-        if (!/(^|_)(id|Id)$/.test(field)) continue;
-        const prop = raw as { type?: unknown };
-        expect(
-          prop.type,
-          `${String(tool.name)}.${field} must be advertised as a string`,
-        ).toBe("string");
-      }
+    for (const { tool, field, prop } of ids) {
+      expect(prop.type, `${tool}.${field} must be advertised as a string`).toBe(
+        "string",
+      );
+    }
+    // A floor, not an equality, so a new tool's id does not fail here — but a
+    // filter that stops matching cannot pass on an empty set. The predecessor
+    // of `ID_FIELD` matched 15 of these 43 and was green the whole time.
+    expect(ids.length, "id arguments checked").toBeGreaterThanOrEqual(
+      ID_FIELD_COUNT,
+    );
+  });
+
+  it("routes every numeric id through stravaIdInput", async () => {
+    const ids = await advertisedIdFields();
+
+    // Advertising `type: "string"` is only half the convention: `stravaIdInput`
+    // also accepts a safe-integer number at runtime and normalises it, so a
+    // host emitting `routeId: 12345` is not left stuck on "expected string,
+    // received number" (#282). A hand-rolled `z.string().regex(/^\d+$/)`
+    // serialises to the same shape while rejecting that call, so the steer
+    // appended to every id's description is what distinguishes them here.
+    for (const { tool, field, prop } of ids) {
+      if (NON_NUMERIC_ID_FIELDS.has(field)) continue;
+      expect(prop.pattern, `${tool}.${field} pattern`).toBe("^\\d+$");
+      expect(
+        prop.description ?? "",
+        `${tool}.${field} must use stravaIdInput`,
+      ).toContain(STRAVA_ID_HINT);
     }
   });
 });
@@ -247,6 +310,10 @@ describe("tools/call", () => {
   });
 });
 
+/** The one app whose resource carries per-app `_meta.ui` extras (its CSP). */
+const ROUTE_MAP_URI = "ui://route-map/app.html";
+const TILE_ORIGIN = "https://tiles.openfreemap.org";
+
 describe("resources/list", () => {
   it("lists every MCP App resource with its ui:// uri", async () => {
     const client = await connectTestClient();
@@ -314,6 +381,33 @@ describe("resources/read", () => {
       _meta?: { ui?: Record<string, unknown> };
     }>;
     expect(contents[0]?._meta?.ui?.prefersBorder).toBe(false);
+  });
+
+  it("carries route-map's tile-origin CSP on the descriptor and the content", async () => {
+    const client = await connectTestClient();
+
+    const list = await client.send("resources/list");
+    const resources = list.result?.resources as Array<{
+      uri: string;
+      _meta?: { ui?: { csp?: { connectDomains?: string[] } } };
+    }>;
+    const descriptor = resources.find((r) => r.uri === ROUTE_MAP_URI);
+    expect(descriptor, `${ROUTE_MAP_URI} is not advertised`).toBeTruthy();
+
+    const { result } = await client.send("resources/read", {
+      uri: ROUTE_MAP_URI,
+    });
+    const contents = result?.contents as Array<{
+      _meta?: { ui?: { csp?: { connectDomains?: string[] } } };
+    }>;
+
+    // The per-app `ui` extras are the whole reason `appResourceMeta` spreads
+    // rather than returning a constant, and a dropped allowlist is invisible
+    // by design: the basemap silently falls back to the offline SVG grid with
+    // no error anywhere. Both halves of the spread are asserted because hosts
+    // read the CSP from either.
+    expect(descriptor?._meta?.ui?.csp?.connectDomains).toContain(TILE_ORIGIN);
+    expect(contents[0]?._meta?.ui?.csp?.connectDomains).toContain(TILE_ORIGIN);
   });
 
   it("rejects a uri the server does not serve", async () => {

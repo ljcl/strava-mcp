@@ -16,15 +16,13 @@ import {
   truncationNotice,
   writeExport,
 } from "./_exportOutput";
+import { stravaIdInput } from "./_ids";
 import { ExportOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "export-activity-gpx";
 
 const ExportActivityGpxInputSchema = z.object({
-  activityId: z
-    .string()
-    .regex(/^\d+$/, "Activity ID must contain only digits")
-    .describe("The ID of the Strava activity to export."),
+  activityId: stravaIdInput("The ID of the Strava activity to export."),
   output: exportOutputInput,
 });
 

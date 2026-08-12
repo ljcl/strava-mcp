@@ -2,6 +2,7 @@ import { z } from "zod";
 import { formatRouteSummary } from "../formatters"; // Import shared formatter
 import { getRouteById /*, handleApiError */ } from "../stravaClient"; // Removed handleApiError import
 import { READ_ONLY } from "./_annotations";
+import { stravaIdInput } from "./_ids";
 import {
   RouteOutputSchema,
   toRouteSummary,
@@ -10,11 +11,7 @@ import {
 
 // Zod schema for input validation
 const GetRouteInputSchema = z.object({
-  routeId: z
-    .string()
-    .regex(/^\d+$/, "Route ID must contain only digits")
-    .refine((val) => val.length > 0, "Route ID cannot be empty")
-    .describe("The unique identifier of the route to fetch."),
+  routeId: stravaIdInput("The unique identifier of the route to fetch."),
 });
 
 type GetRouteInput = z.infer<typeof GetRouteInputSchema>;
