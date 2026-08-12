@@ -44,6 +44,13 @@ describe("formatEffortSpeed", () => {
     expect(formatEffortSpeed(null, "Run")).toBe("—");
     expect(formatEffortSpeed(0, "Run")).toBe("—");
   });
+
+  it("reads a stop-and-wait effort as paused, like activity-segments", () => {
+    // 5000 s/km is 0.2 m/s — slower than a walk. This copy of the formatter
+    // had lost the shared floor and printed `83'20" /km` for it.
+    expect(formatEffortSpeed(5000, "Run")).toBe("—");
+    expect(formatEffortSpeed(5000, "Ride")).toBe("—");
+  });
 });
 
 describe("cadenceUnit", () => {

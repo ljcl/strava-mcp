@@ -1,3 +1,4 @@
+import { formatShortDate } from "@strava-mcp/data";
 import { GRID_DASHARRAY, getChartTokens } from "@strava-mcp/design-system";
 import {
   EmptyState,
@@ -313,7 +314,7 @@ export function OverlayView({
           {runs.map((r) => {
             const label = isMobile
               ? r.run.name
-              : `${r.run.name} · ${new Date(r.run.date).toLocaleDateString()}`;
+              : `${r.run.name} · ${formatShortDate(r.run.date, "short")}`;
             return (
               <LegendItem
                 key={r.run.id}

@@ -108,6 +108,32 @@ describe("useServerToolFetcher", () => {
     await harness.unmount();
   });
 
+  it("throws an isError result's prose rather than a parse failure", async () => {
+    const { app } = fakeApp(() => ({
+      isError: true,
+      content: [
+        { type: "text", text: "Not connected to Strava. Visit /auth/start." },
+      ],
+    }));
+
+    const harness = await renderHook(
+      () =>
+        useServerToolFetcher(app, "get-streams", (key) => ({
+          activity_id: key,
+        })),
+      undefined,
+    );
+
+    harness.current().request("10003");
+    await flush();
+
+    expect(harness.current().entries.get("10003")?.error).toBe(
+      "Error: Not connected to Strava. Visit /auth/start.",
+    );
+
+    await harness.unmount();
+  });
+
   it("keeps the store across renders that change the args builder", async () => {
     const { app, calls } = fakeApp(() => textResult(JSON.stringify({})));
 

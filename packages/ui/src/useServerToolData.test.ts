@@ -84,6 +84,47 @@ describe("useServerToolData", () => {
     await harness.unmount();
   });
 
+  it("surfaces an isError result's prose instead of a parse failure", async () => {
+    // What a non-subscriber actually gets back from get-segment-progress-data.
+    const { app } = fakeApp(() => ({
+      isError: true,
+      content: [
+        {
+          type: "text",
+          text: "Tool error: Segment effort history requires a Strava subscription.",
+        },
+      ],
+    }));
+
+    const harness = await renderHook(
+      () => useServerToolData(app, "get-data", {}),
+      undefined,
+    );
+    await flush();
+
+    expect(harness.current().error).toBe(
+      "Tool error: Segment effort history requires a Strava subscription.",
+    );
+    expect(harness.current().data).toBeNull();
+    expect(harness.current().loading).toBe(false);
+
+    await harness.unmount();
+  });
+
+  it("names the tool when an isError result carries no text", async () => {
+    const { app } = fakeApp(() => ({ isError: true, content: [] }));
+
+    const harness = await renderHook(
+      () => useServerToolData(app, "get-data", {}),
+      undefined,
+    );
+    await flush();
+
+    expect(harness.current().error).toBe("get-data failed");
+
+    await harness.unmount();
+  });
+
   it("surfaces a thrown call as the error", async () => {
     const { app } = fakeApp(() => {
       throw new Error("host disconnected");

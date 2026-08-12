@@ -1,5 +1,6 @@
 import { Toggle } from "@base-ui/react/toggle";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
+import { formatShortDate } from "@strava-mcp/data";
 import { useId, useMemo } from "react";
 import styles from "./RunSelectList.module.css";
 import { type RunSummary } from "./types";
@@ -76,7 +77,7 @@ export function RunSelectList({
         {ordered.map((run) => {
           const selected = selectedRunIds.has(run.id);
           const disabled = !selected && atCap;
-          const dateLabel = new Date(run.date).toLocaleDateString();
+          const dateLabel = formatShortDate(run.date, "short");
           const cadence = Math.round(run.averageCadence);
           return (
             <Toggle

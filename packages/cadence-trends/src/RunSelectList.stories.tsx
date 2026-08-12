@@ -12,6 +12,14 @@ export const Default = meta.story({
     selectedRunIds: new Set<number>(),
     onToggleRun: fn(),
   },
+  play: async ({ canvas }) => {
+    // Run dates read through the shared UTC formatter, so a chip names the
+    // same day the narration and the axis do. `toLocaleDateString` printed
+    // the host's locale format and shifted the day for viewers east of UTC.
+    await expect(
+      canvas.getByRole("button", { name: /^Easy 8k, 1 Jan 26, \d+ spm$/ }),
+    ).toBeInTheDocument();
+  },
 });
 
 export const SomeSelected = meta.story({

@@ -1,5 +1,5 @@
 import {
-  formatPace,
+  formatPaceOrSpeed,
   isRunning,
   normalizeValue,
   percentileDomain,
@@ -9,9 +9,6 @@ import { type SegmentEffortRow } from "./types";
 
 /** {min,max} speed window for the heat ramp. */
 export type Domain = { min: number; max: number };
-
-/** Slower than a walk: treat as paused rather than printing a huge pace. */
-const MIN_SPEED = 0.3;
 
 export function effortSpeed(e: SegmentEffortRow): number {
   return e.elapsedTime > 0 ? e.distanceMeters / e.elapsedTime : 0;
@@ -91,10 +88,6 @@ export function formatEffortPace(
   e: SegmentEffortRow,
   activityType: string | null,
 ): string {
-  const speed = effortSpeed(e);
-  if (speed < MIN_SPEED) return "—";
   const running = activityType ? isRunning(activityType) : true;
-  return running
-    ? `${formatPace(1000 / speed / 60)} /km`
-    : `${(speed * 3.6).toFixed(1)} km/h`;
+  return formatPaceOrSpeed(effortSpeed(e), running);
 }

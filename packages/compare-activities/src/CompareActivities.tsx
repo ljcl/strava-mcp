@@ -303,7 +303,17 @@ export function CompareActivities({
 }: CompareActivitiesProps) {
   const isMobile = mode === "mobile";
   const isCompact = isMobile;
-  const tokens = useMemo(() => getChartTokens(mode), [mode]);
+  const tokens = useMemo(
+    () => ({
+      ...getChartTokens(mode),
+      marginRight: 12,
+      marginLeft: isMobile ? -14 : -8,
+      marginTop: isMobile ? 8 : 5,
+      // Bottom margin must fit tick label descenders; see CLAUDE.md.
+      marginBottom: 24,
+    }),
+    [mode, isMobile],
+  );
 
   const category = paceCategory(a.activityType, b.activityType);
   const bothRunning = category === "run";
@@ -378,10 +388,10 @@ export function CompareActivities({
           desc={a11yDescription}
           data={aligned}
           margin={{
-            bottom: 5,
-            left: isMobile ? -14 : -8,
-            right: 12,
-            top: isMobile ? 8 : 5,
+            top: tokens.marginTop,
+            right: tokens.marginRight,
+            bottom: tokens.marginBottom,
+            left: tokens.marginLeft,
           }}
         >
           <CartesianGrid

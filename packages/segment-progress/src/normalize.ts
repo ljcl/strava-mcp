@@ -1,6 +1,6 @@
 import {
   formatClock,
-  formatPace,
+  formatPaceOrSpeed,
   formatShortDate,
   isRunning,
 } from "@strava-mcp/data";
@@ -22,8 +22,10 @@ export function formatSecondsDelta(delta: number): string {
 
 /**
  * Effort pace for run segments ("4'10 /km"), speed for everything else
- * ("28.4 km/h"). Mirrors activity-segments so the two segment surfaces read
- * alike. Returns "—" when the effort recorded no usable distance.
+ * ("28.4 km/h"). Shares `formatPaceOrSpeed` with activity-segments so the two
+ * segment surfaces read alike — including the paused floor this copy had
+ * drifted away from. Returns "—" when the effort recorded no usable
+ * distance, or moved too slowly to call it a pace.
  */
 export function formatEffortSpeed(
   paceSecondsPerKm: number | null,
@@ -31,8 +33,7 @@ export function formatEffortSpeed(
 ): string {
   if (paceSecondsPerKm == null || paceSecondsPerKm <= 0) return "—";
   const running = activityType ? isRunning(activityType) : true;
-  if (running) return `${formatPace(paceSecondsPerKm / 60)} /km`;
-  return `${(3600 / paceSecondsPerKm).toFixed(1)} km/h`;
+  return formatPaceOrSpeed(1000 / paceSecondsPerKm, running);
 }
 
 /**
