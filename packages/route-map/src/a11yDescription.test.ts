@@ -130,6 +130,30 @@ describe("buildRouteMapA11yDescription", () => {
     expect(singular).toContain("Marked along the route: 1 waypoint.");
   });
 
+  it("narrates altitude and colour metric for a route with a stored profile", () => {
+    // #264 gives a saved route distance + altitude, so both sentences are
+    // reachable for source: "route" — elevation being its only metric.
+    const description = buildRouteMapA11yDescription({
+      name: "Embarcadero Climb",
+      source: "route",
+      activityType: "Ride",
+      distanceKm: 12.54,
+      elevationGain: 205,
+      coordinates: pointToPointNorthEast,
+      altitude: [20.4, 96.2, 187.6],
+      colorMetric: "Elevation",
+      splitCount: 12,
+      splitKind: "splits",
+    });
+    expect(description).toBe(
+      'Map of Ride route "Embarcadero Climb". 12.5 km with 205 m of climbing. ' +
+        "Point-to-point heading north-east, spanning roughly 5.6 km east to west and 5.6 km north to south. " +
+        "Altitude ranges from 20 m to 188 m. " +
+        "The track is coloured by elevation. " +
+        "Marked along the route: 12 kilometre splits.",
+    );
+  });
+
   it("omits shape, altitude, metric, and annotation sentences when absent", () => {
     const description = buildRouteMapA11yDescription({
       name: "Bare Route",
