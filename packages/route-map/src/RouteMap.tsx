@@ -8,6 +8,7 @@ import {
   type ModelContextApp,
   Pill,
   PillGroup,
+  RampLegend,
   TooltipEntry,
   Tooltip as UiTooltip,
   useModelContextSync,
@@ -1121,18 +1122,12 @@ export function RouteMap({
             </PillGroup>
           )}
           {activeSeries && (
-            <div className={styles.scale}>
-              <span className={styles.scaleLabel}>
-                {activeSeries.format(activeSeries.min)}
-              </span>
-              <span
-                className={styles.scaleBar}
-                style={{ background: RAMP_GRADIENT_CSS }}
-              />
-              <span className={styles.scaleLabel}>
-                {activeSeries.format(activeSeries.max)}
-              </span>
-            </div>
+            <RampLegend
+              gradient={RAMP_GRADIENT_CSS}
+              minLabel={activeSeries.format(activeSeries.min)}
+              maxLabel={activeSeries.format(activeSeries.max)}
+              label={activeSeries.label.toLowerCase()}
+            />
           )}
         </div>
       )}

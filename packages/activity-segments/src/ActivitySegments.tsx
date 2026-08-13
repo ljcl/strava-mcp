@@ -1,13 +1,15 @@
 import { Collapsible } from "@base-ui/react/collapsible";
-import { formatClock, isRunning } from "@strava-mcp/data";
+import { formatClock, isRunning, RAMP_GRADIENT_CSS } from "@strava-mcp/data";
 import {
   CardHeader,
   EmptyState,
   type ModelContextApp,
+  RampLegend,
   useModelContextSync,
 } from "@strava-mcp/ui";
 import { type ReactNode, useCallback, useMemo, useState } from "react";
 import styles from "./ActivitySegments.module.css";
+import { buildRowLabel, buildSegmentsA11ySummary } from "./a11y";
 import { buildSegmentsContextSummary } from "./contextSummary";
 import {
   buildHeatDomain,
@@ -82,6 +84,25 @@ export function ActivitySegments({ data, mode, app }: ActivitySegmentsProps) {
         compact={isMobile}
       />
 
+      {/* The list's shape in words (#253). Visually hidden: sighted users
+       * read it off the rows and the key below. */}
+      <p className={styles.srOnly}>
+        {buildSegmentsA11ySummary(data.segments, domain, activityType)}
+      </p>
+
+      {/* The dot colour is this app's primary encoding and had no key at all
+       * (#254), so nothing said whether hotter meant faster or slower. */}
+      {data.segments.length > 1 && domain.max > domain.min && (
+        <div className={styles.key}>
+          <RampLegend
+            gradient={RAMP_GRADIENT_CSS}
+            minLabel="slower"
+            maxLabel="faster"
+            label="how each segment's pace compares with the rest of the activity"
+          />
+        </div>
+      )}
+
       {data.segments.length === 0 ? (
         <EmptyState>No segments in this activity</EmptyState>
       ) : (
@@ -129,7 +150,8 @@ function SegmentGroup({
 }: SegmentGroupProps) {
   return (
     <div className={styles.group}>
-      <div className={styles.groupTitle}>{title}</div>
+      {/* h3: the card's CardHeader owns the h2, so groups nest under it. */}
+      <h3 className={styles.groupTitle}>{title}</h3>
       <div className={styles.rows}>
         {rows.map((effort) => (
           <Row
@@ -197,10 +219,16 @@ function Row({ rowId, effort, domain, activityType, onOpenChange }: RowProps) {
       className={styles.row}
       onOpenChange={(open) => onOpenChange(rowId, open)}
     >
-      <Collapsible.Trigger className={styles.trigger}>
+      <Collapsible.Trigger
+        className={styles.trigger}
+        // Without this the trigger's name is the concatenation of its visible
+        // text, which omits the dot entirely (#253).
+        aria-label={buildRowLabel(effort, domain, activityType)}
+      >
         <span
           className={styles.dot}
           style={{ background: heatColor(effort, domain) }}
+          aria-hidden="true"
         />
         <span className={styles.body}>
           <span className={styles.line1}>
