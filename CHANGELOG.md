@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.13.0](https://github.com/ljcl/strava-mcp/compare/v2.12.0...v2.13.0) (2026-08-13)
+
+
+### Features
+
+* **mcp-app:** let the model drive the map and chart via view-exposed tools ([#318](https://github.com/ljcl/strava-mcp/issues/318)) ([7c33ba8](https://github.com/ljcl/strava-mcp/commit/7c33ba82cc5235c651ac2eb894d71d861fa439f7))
+* **server:** advertise logging, record per-call telemetry, and report scan progress ([#316](https://github.com/ljcl/strava-mcp/issues/316)) ([46df3b0](https://github.com/ljcl/strava-mcp/commit/46df3b0524e8cc4bd134cd137c1ccfd071d71fc4))
+
+
+### Bug Fixes
+
+* **design-system:** pair tier badges with a theme-invariant foreground and gate axe repo-wide ([#320](https://github.com/ljcl/strava-mcp/issues/320)) ([e9f19a1](https://github.com/ljcl/strava-mcp/commit/e9f19a15a86023924f6a4a87ff20f1b981cd9eef))
+* **mcp-app:** headings, keyboard legend parity, colour keys, and segment narration ([#321](https://github.com/ljcl/strava-mcp/issues/321)) ([8b1fecc](https://github.com/ljcl/strava-mcp/commit/8b1fecc467f79916461223d0849b309a97c86a03))
+* **mcp-app:** surface real tool errors and give the shared formatters one home ([#333](https://github.com/ljcl/strava-mcp/issues/333)) ([7782f78](https://github.com/ljcl/strava-mcp/commit/7782f789534fbe6ae6c9e6f3ff08b65c29c5807c))
+* **server:** keep API error types intact, clear the cache on re-auth, stop silent failures ([#338](https://github.com/ljcl/strava-mcp/issues/338)) ([dfb9af6](https://github.com/ljcl/strava-mcp/commit/dfb9af64e045b8409ff59bff28aeab232a6a6d74))
+* **server:** route every advertised id through stravaIdInput and widen the guards ([#335](https://github.com/ljcl/strava-mcp/issues/335)) ([0a9e707](https://github.com/ljcl/strava-mcp/commit/0a9e70731bc8642f94ec3ac46c36bdb8c538654c))
+
 ## [2.12.0](https://github.com/ljcl/strava-mcp/compare/v2.11.0...v2.12.0) (2026-07-31)
 
 
