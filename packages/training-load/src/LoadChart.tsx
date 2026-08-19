@@ -52,7 +52,10 @@ export function LoadChart({
     [weeks],
   );
 
-  const a11y = useMemo(() => buildLoadA11y(weeks), [weeks]);
+  const a11y = useMemo(
+    () => buildLoadA11y(weeks, { showTrend, showWarnings }),
+    [weeks, showTrend, showWarnings],
+  );
 
   if (chartData.length === 0) {
     return <EmptyState>No runs in this period.</EmptyState>;

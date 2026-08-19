@@ -6,28 +6,8 @@
  * fetch as prose; this feed carries per-bucket seconds and percentages so
  * the chart and the text can never disagree on the numbers.
  */
+import { type ZoneSet } from "@strava-mcp/data";
 import { type StravaActivityZone } from "./stravaClient";
-
-export interface ZoneBucket {
-  /** 1-based zone number (Z1 = 1). */
-  zone: number;
-  /** Lower bound in the set's unit (bpm or W). */
-  min: number;
-  /** Upper bound, or null for the open-ended top zone (Strava sends -1). */
-  max: number | null;
-  seconds: number;
-  /** Share of the set's total time, 0–100 with one decimal. */
-  pct: number;
-}
-
-export interface ZoneSet {
-  type: "heartrate" | "power";
-  unit: "bpm" | "W";
-  /** Whether the zones came from a real sensor (null when Strava omits it). */
-  sensorBased: boolean | null;
-  totalSeconds: number;
-  buckets: ZoneBucket[];
-}
 
 export interface ActivityZonesData {
   activityId: string;
@@ -68,11 +48,4 @@ export function mapActivityZones(zones: StravaActivityZone[]): ZoneSet[] {
     });
   }
   return sets;
-}
-
-/** The bucket with the most time in a set (first wins ties). */
-export function dominantBucket(set: ZoneSet): ZoneBucket {
-  return set.buckets.reduce((top, bucket) =>
-    bucket.seconds > top.seconds ? bucket : top,
-  );
 }

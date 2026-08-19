@@ -334,6 +334,51 @@ describe("cadence trends handlers", () => {
       averageCadence: 85,
     });
   });
+
+  it("a view-/get-…-data pair builds one quantized window, so the cached scan is shared (#329)", async () => {
+    // The two calls of one app open land seconds apart; a raw Date.now()
+    // per call gave them different `after` values, two URLs, and two full
+    // history scans. The bounds are floored to the minute so the pair keys
+    // onto one cached listing.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-19T10:00:05Z"));
+      mockedList.mockResolvedValue([summaryRun()]);
+
+      await dispatchToolCall("view-cadence-trends", { weeks: 4 });
+      vi.setSystemTime(new Date("2026-08-19T10:00:35Z")); // 30 s later
+      await dispatchToolCall("get-cadence-trend-data", { weeks: 4 });
+
+      const [viewCall, dataCall] = mockedList.mock.calls.slice(-2);
+      expect(viewCall?.[1]?.after).toBeDefined();
+      expect(viewCall?.[1]?.after).toBe(dataCall?.[1]?.after);
+      expect((viewCall?.[1]?.after ?? 0) % 60).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("the fitness-trend pair shares both window bounds (#329)", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-08-19T10:00:05Z"));
+      mockedList.mockResolvedValue([]);
+
+      await dispatchToolCall("view-fitness-trend", {});
+      vi.setSystemTime(new Date("2026-08-19T10:00:35Z"));
+      await dispatchToolCall("get-fitness-trend-data", {});
+
+      const [viewCall, dataCall] = mockedList.mock.calls.slice(-2);
+      expect(viewCall?.[1]?.after).toBe(dataCall?.[1]?.after);
+      expect(viewCall?.[1]?.before).toBe(dataCall?.[1]?.before);
+      // `before` still covers "now": the next minute boundary, not the last.
+      expect(viewCall?.[1]?.before).toBeGreaterThan(
+        new Date("2026-08-19T10:00:05Z").getTime() / 1000,
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe("training load handlers", () => {

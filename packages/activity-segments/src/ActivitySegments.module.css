@@ -147,16 +147,6 @@
   background: var(--color-tier-top10);
 }
 
-.chevron {
-  flex: 0 0 auto;
-  color: var(--color-text-tertiary);
-  transition: transform 120ms ease;
-}
-
-.trigger[data-panel-open] .chevron {
-  transform: rotate(90deg);
-}
-
 /* ── Expanded detail panel ────────────────────── */
 .panel {
   overflow: hidden;

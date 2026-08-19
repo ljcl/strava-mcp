@@ -578,24 +578,32 @@ export function RouteMap({
         coordinates: data.coordinates,
         altitude: data.streams?.altitude,
         colorMetric: activeSeries?.label ?? null,
-        splitCount: splitMarkers.length,
+        // Counts reflect the layers actually drawn (#328): a toggled-off
+        // layer narrates as absent, and segments count the outlined subset,
+        // not every effort fetched. Reads hiddenLayers directly (not the
+        // layerVisible closure) so the dependency list stays honest.
+        splitCount: hiddenLayers.has("splits") ? 0 : splitMarkers.length,
         splitKind: data.annotations?.laps?.length ? "laps" : "splits",
-        segmentCount: allSegments.length,
-        prCount: allSegments.filter((segment) => segment.isPr).length,
-        photoCount: photoMarkers.reduce(
-          (total, photo) => total + photo.count,
-          0,
-        ),
-        waypointCount: waypointMarkers.length,
+        segmentCount: hiddenLayers.has("segments") ? 0 : outlineSegments.length,
+        prCount: hiddenLayers.has("segments")
+          ? 0
+          : outlineSegments.filter((segment) => segment.isPr).length,
+        photoCount: hiddenLayers.has("photos")
+          ? 0
+          : photoMarkers.reduce((total, photo) => total + photo.count, 0),
+        waypointCount: hiddenLayers.has("waypoints")
+          ? 0
+          : waypointMarkers.length,
       }),
     [
       data,
       distanceKm,
       activeSeries?.label,
       splitMarkers,
-      allSegments,
+      outlineSegments,
       photoMarkers,
       waypointMarkers,
+      hiddenLayers,
     ],
   );
   const uid = useId();

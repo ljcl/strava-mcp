@@ -68,7 +68,7 @@ describe("buildRouteMapA11yDescription", () => {
         "A loop returning to its start, spanning roughly 2.2 km east to west and 2.2 km north to south. " +
         "Altitude ranges from 12 m to 148 m. " +
         "The track is coloured by heart rate. " +
-        "Marked along the route: 10 kilometre splits, 4 segment efforts including a personal record, 2 photos.",
+        "Marked along the route: 10 kilometre splits, 4 segment efforts highlighted including a personal record, 2 photos.",
     );
   });
 
@@ -102,7 +102,7 @@ describe("buildRouteMapA11yDescription", () => {
       photoCount: 1,
     });
     expect(description).toContain(
-      "Marked along the route: 5 lap markers, 1 segment effort including 2 personal records, 1 photo.",
+      "Marked along the route: 5 lap markers, 1 segment effort highlighted including 2 personal records, 1 photo.",
     );
   });
 

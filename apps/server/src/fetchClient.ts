@@ -669,6 +669,17 @@ export function stravaCacheTtl(path: string): number | null {
   // a new effort shows up promptly, long enough to cover one app open. The
   // cache key carries the query string, so each date window stays distinct.
   if (path === "/segment_efforts") return 2 * MINUTE_MS;
+  // The activity listing behind the cadence-trends, training-load, and
+  // fitness-trend pairs (#329) — the three most expensive scans, each a full
+  // pagination at up to a year of history. A bare TTL would hit zero times on
+  // its own: each handler recomputes `after`/`before` from `Date.now()`, so a
+  // pair's two calls built two URLs. server.ts therefore floors those bounds
+  // to the minute (`quantizedEpochAfter`/`quantizedEpochBefore`), making a
+  // pair share one key; this TTL then serves the second scan (every cached
+  // page of it) from memory. Short on purpose: a new activity shows up within
+  // two minutes, and no write invalidates this branch. Other listing shapes
+  // (ad-hoc pages, exports) still churn keys and simply miss.
+  if (path === "/athlete/activities") return 2 * MINUTE_MS;
   return null;
 }
 

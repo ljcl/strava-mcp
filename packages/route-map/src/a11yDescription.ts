@@ -23,6 +23,7 @@ export interface RouteMapA11yInput {
   colorMetric?: string | null;
   splitCount?: number;
   splitKind?: "laps" | "splits";
+  /** Segment halos actually drawn (the outlined subset), not every effort fetched (#328). */
   segmentCount?: number;
   prCount?: number;
   photoCount?: number;
@@ -166,7 +167,7 @@ function describeAnnotations(input: RouteMapA11yInput): string | null {
       ? ` including ${input.prCount === 1 ? "a personal record" : `${input.prCount} personal records`}`
       : "";
     parts.push(
-      `${input.segmentCount} segment effort${input.segmentCount === 1 ? "" : "s"}${prs}`,
+      `${input.segmentCount} segment effort${input.segmentCount === 1 ? "" : "s"} highlighted${prs}`,
     );
   }
   if (input.photoCount) {

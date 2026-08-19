@@ -4,7 +4,6 @@ import {
   buildSummaryStats,
   buildZoneRows,
   buildZonesSubtitle,
-  dominantBucket,
   formatZoneRange,
   intensitySplit,
 } from "./normalize";
@@ -46,13 +45,6 @@ describe("intensitySplit", () => {
       100,
       1,
     );
-  });
-});
-
-describe("dominantBucket", () => {
-  it("returns the bucket with the most time", () => {
-    expect(dominantBucket(hrZoneSet).zone).toBe(2);
-    expect(dominantBucket(powerZoneSet).zone).toBe(2);
   });
 });
 
