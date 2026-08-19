@@ -11,13 +11,10 @@ import {
   SetLevelRequestSchema,
   type ToolAnnotations,
 } from "@modelcontextprotocol/sdk/types.js";
+import { dominantBucket } from "@strava-mcp/data";
 import { z } from "zod";
 import { mapActivitySegments } from "./activitySegments";
-import {
-  type ActivityZonesData,
-  dominantBucket,
-  mapActivityZones,
-} from "./activityZones";
+import { type ActivityZonesData, mapActivityZones } from "./activityZones";
 import { RateLimitError } from "./fetchClient";
 import { buildFitnessTrend } from "./fitnessTrend";
 import {
@@ -848,15 +845,40 @@ async function handleGetActivityStreamsRaw(
 
 const RUNNING_TYPES = new Set(["Run", "VirtualRun", "TrailRun"]);
 
+/**
+ * Quantum for history-window bounds (#329). The three listing-driven apps
+ * are each a `view-` tool plus a `get-…-data` tool running the same
+ * `getAllActivities` scan seconds apart, and the response cache keys on the
+ * full URL — so an `after` recomputed from a raw `Date.now()` per call gave
+ * the pair two distinct URLs and two full pagination sweeps. Flooring the
+ * bounds to the minute makes the pair build one URL, which the
+ * `/athlete/activities` TTL in `stravaCacheTtl` then serves as one scan.
+ * The cost is that "last N days" can start up to a minute early.
+ */
+const WINDOW_QUANTUM_SECONDS = 60;
+
+/** Epoch seconds for `now - msAgo`, floored to the minute (#329). */
+function quantizedEpochAfter(msAgo: number): number {
+  const seconds = Math.floor((Date.now() - msAgo) / 1000);
+  return seconds - (seconds % WINDOW_QUANTUM_SECONDS);
+}
+
+/**
+ * Epoch seconds for an upper bound covering "now": the next minute boundary,
+ * so the key is stable across a pair while still including an activity
+ * finished moments ago.
+ */
+function quantizedEpochBefore(): number {
+  return quantizedEpochAfter(0) + WINDOW_QUANTUM_SECONDS;
+}
+
 async function handleGetCadenceTrendData(
   args: Record<string, unknown>,
   token: string,
   progress: ReportProgress,
 ): Promise<ToolCallResult> {
   const weeks = Number(args.weeks) || 6;
-  const after = Math.floor(
-    (Date.now() - weeks * 7 * 24 * 60 * 60 * 1000) / 1000,
-  );
+  const after = quantizedEpochAfter(weeks * 7 * 24 * 60 * 60 * 1000);
 
   // getAllActivities paginates internally until the `after` window is
   // exhausted; wrapping it in a second page loop would refetch everything.
@@ -894,9 +916,7 @@ async function handleViewCadenceTrends(
   progress: ReportProgress,
 ): Promise<ToolCallResult> {
   const weeks = Number(args.weeks) || 6;
-  const after = Math.floor(
-    (Date.now() - weeks * 7 * 24 * 60 * 60 * 1000) / 1000,
-  );
+  const after = quantizedEpochAfter(weeks * 7 * 24 * 60 * 60 * 1000);
   const activities = await getAllActivitiesFn(token, {
     page: 1,
     perPage: 200,
@@ -929,7 +949,7 @@ async function loadTrainingLoadRuns(
   days: number,
   progress: ReportProgress,
 ) {
-  const after = Math.floor((Date.now() - days * 24 * 60 * 60 * 1000) / 1000);
+  const after = quantizedEpochAfter(days * 24 * 60 * 60 * 1000);
   const allActivities = await getAllActivitiesFn(token, {
     perPage: 200,
     after,
@@ -989,8 +1009,8 @@ async function loadFitnessTrendAppData(
 
   const end = new Date();
   const activities = await getAllActivitiesFn(token, {
-    after: Math.floor((end.getTime() - days * 24 * 60 * 60 * 1000) / 1000),
-    before: Math.floor(end.getTime() / 1000),
+    after: quantizedEpochAfter(days * 24 * 60 * 60 * 1000),
+    before: quantizedEpochBefore(),
     onProgress: listingProgress(progress),
   });
 

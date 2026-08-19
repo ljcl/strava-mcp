@@ -52,6 +52,36 @@ describe("buildTrendA11y", () => {
     expect(desc).toContain("No periods are shaded");
   });
 
+  it("drops hidden series, the hidden plan, and hidden band kinds (#328)", () => {
+    const desc = buildTrendA11y(mockFitnessTrendData, {
+      showCtl: false,
+      showAtl: true,
+      showTsb: false,
+      showPlan: false,
+      hiddenBandKinds: [],
+    }).desc;
+    expect(desc).not.toContain("Fitness (CTL)");
+    expect(desc).not.toContain("form (TSB)");
+    expect(desc).not.toContain("over the last 7 days");
+    expect(desc).not.toContain("taper plan");
+    expect(desc).toContain("Fatigue (ATL)");
+  });
+
+  it("narrates only the band kinds still shaded", () => {
+    const kinds = [
+      ...new Set(mockFitnessTrendData.bands.map((band) => band.kind)),
+    ];
+    const allHidden = buildTrendA11y(mockFitnessTrendData, {
+      showCtl: true,
+      showAtl: true,
+      showTsb: true,
+      showPlan: true,
+      hiddenBandKinds: kinds,
+    }).desc;
+    expect(allHidden).toContain("No periods are shaded");
+    expect(allHidden).not.toContain("shaded period");
+  });
+
   it("degrades to a plain sentence with no days", () => {
     expect(buildTrendA11y({ ...mockFitnessTrendData, series: [] })).toEqual({
       title: "Fitness, fatigue, and form",

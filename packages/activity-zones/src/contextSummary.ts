@@ -1,4 +1,5 @@
-import { dominantBucket, intensitySplit } from "./normalize";
+import { dominantBucket } from "@strava-mcp/data";
+import { intensitySplit } from "./normalize";
 import { type ActivityZonesData } from "./types";
 
 /**

@@ -1,0 +1,29 @@
+import { describe, expect, it } from "vitest";
+import { dominantBucket, type ZoneSet } from "./zones";
+
+function hrSet(times: number[]): ZoneSet {
+  const total = times.reduce((sum, t) => sum + t, 0);
+  return {
+    type: "heartrate",
+    unit: "bpm",
+    sensorBased: true,
+    totalSeconds: total,
+    buckets: times.map((seconds, i) => ({
+      zone: i + 1,
+      min: i * 20,
+      max: i === times.length - 1 ? null : (i + 1) * 20,
+      seconds,
+      pct: total > 0 ? Math.round((seconds / total) * 1000) / 10 : 0,
+    })),
+  };
+}
+
+describe("dominantBucket", () => {
+  it("returns the bucket with the most time", () => {
+    expect(dominantBucket(hrSet([600, 1800, 900, 500, 200])).zone).toBe(2);
+  });
+
+  it("prefers the earlier bucket on a tie", () => {
+    expect(dominantBucket(hrSet([500, 500, 100, 0, 0])).zone).toBe(1);
+  });
+});

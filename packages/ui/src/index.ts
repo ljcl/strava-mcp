@@ -15,6 +15,7 @@ export {
   useHostRoot,
 } from "./AppShell";
 export { CardHeader, type CardHeaderProps } from "./CardHeader";
+export { Chevron } from "./Chevron";
 export { EmptyState, type EmptyStateProps } from "./EmptyState";
 export { ErrorState, type ErrorStateProps } from "./ErrorState";
 export {

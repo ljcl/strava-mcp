@@ -1,4 +1,5 @@
-import { buildZoneRows, dominantBucket } from "./normalize";
+import { dominantBucket } from "@strava-mcp/data";
+import { buildZoneRows } from "./normalize";
 import { type ZoneSet } from "./types";
 
 /**

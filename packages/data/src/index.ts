@@ -19,3 +19,4 @@ export {
   rampColor,
 } from "./ramp";
 export { smooth } from "./smoothing";
+export { dominantBucket, type ZoneBucket, type ZoneSet } from "./zones";

@@ -20,8 +20,25 @@ export interface ChartA11y {
   desc: string;
 }
 
-/** Weekly volume bars with a rolling trend line and warning highlights. */
-export function buildLoadA11y(weeks: WeekSummary[]): ChartA11y {
+/**
+ * What the chart is currently drawing, so the narration matches what a
+ * sighted user actually sees rather than everything fetched (#328).
+ */
+export interface LoadVisibility {
+  showTrend: boolean;
+  showWarnings: boolean;
+}
+
+const ALL_VISIBLE: LoadVisibility = { showTrend: true, showWarnings: true };
+
+/**
+ * Weekly volume bars with a rolling trend line and warning highlights.
+ * The trend and warning clauses drop out when those layers are toggled off.
+ */
+export function buildLoadA11y(
+  weeks: WeekSummary[],
+  visibility: LoadVisibility = ALL_VISIBLE,
+): ChartA11y {
   const title = "Weekly training volume";
   if (weeks.length === 0) return { title, desc: "No runs to display." };
 
@@ -36,19 +53,21 @@ export function buildLoadA11y(weeks: WeekSummary[]): ChartA11y {
 
   const parts = [
     `${weeks.length} week${weeks.length === 1 ? "" : "s"} of running volume from ${fullDate(first.weekStarting)} to ${fullDate(last.weekStarting)}.`,
-    `Weekly distance ranges from ${min} to ${max} km; a line shows the 3-week rolling average.`,
+    `Weekly distance ranges from ${min} to ${max} km${visibility.showTrend ? "; a line shows the 3-week rolling average" : ""}.`,
   ];
 
-  const flagged = weeks.filter((week) => week.warning);
-  if (flagged.length > 0) {
-    const names = flagged
-      .map((week) => `week of ${fullDate(week.weekStarting)}`)
-      .join(", ");
-    parts.push(
-      `${flagged.length} week${flagged.length === 1 ? " is" : "s are"} highlighted for injury risk: ${names}.`,
-    );
-  } else {
-    parts.push("No weeks are flagged for injury risk.");
+  if (visibility.showWarnings) {
+    const flagged = weeks.filter((week) => week.warning);
+    if (flagged.length > 0) {
+      const names = flagged
+        .map((week) => `week of ${fullDate(week.weekStarting)}`)
+        .join(", ");
+      parts.push(
+        `${flagged.length} week${flagged.length === 1 ? " is" : "s are"} highlighted for injury risk: ${names}.`,
+      );
+    } else {
+      parts.push("No weeks are flagged for injury risk.");
+    }
   }
 
   return { title, desc: parts.join(" ") };

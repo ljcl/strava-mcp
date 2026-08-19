@@ -1,4 +1,8 @@
-import { formatDurationShort, formatShortDate } from "@strava-mcp/data";
+import {
+  dominantBucket,
+  formatDurationShort,
+  formatShortDate,
+} from "@strava-mcp/data";
 import { type SummaryStat } from "@strava-mcp/ui";
 import { type ActivityZonesData, type ZoneBucket, type ZoneSet } from "./types";
 
@@ -50,13 +54,6 @@ export function intensitySplit(set: ZoneSet): {
   const total = set.totalSeconds || 1;
   const pct = (v: number) => Math.round((v / total) * 1000) / 10;
   return { easyPct: pct(easy), moderatePct: pct(moderate), hardPct: pct(hard) };
-}
-
-/** The bucket with the most time in a set (first wins ties). */
-export function dominantBucket(set: ZoneSet): ZoneBucket {
-  return set.buckets.reduce((top, bucket) =>
-    bucket.seconds > top.seconds ? bucket : top,
-  );
 }
 
 /**

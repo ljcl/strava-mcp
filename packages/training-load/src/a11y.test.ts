@@ -48,4 +48,24 @@ describe("buildLoadA11y", () => {
       "1 week is highlighted for injury risk: week of 8 Jun 2026.",
     );
   });
+
+  it("drops the trend clause when the trend line is hidden (#328)", () => {
+    const a11y = buildLoadA11y(
+      [week("2026-06-01", 20), week("2026-06-08", 30)],
+      { showTrend: false, showWarnings: true },
+    );
+    expect(a11y.desc).toContain("Weekly distance ranges from 20 to 30 km.");
+    expect(a11y.desc).not.toContain("rolling average");
+  });
+
+  it("says nothing about injury risk when warnings are hidden", () => {
+    const a11y = buildLoadA11y(
+      [
+        week("2026-06-01", 20),
+        week("2026-06-08", 40, { warning: true, warningReasons: ["spike"] }),
+      ],
+      { showTrend: true, showWarnings: false },
+    );
+    expect(a11y.desc).not.toContain("injury risk");
+  });
 });

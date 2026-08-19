@@ -1,24 +1,8 @@
-/** One zone bucket, as returned by get-activity-zones-data. */
-export interface ZoneBucket {
-  /** 1-based zone number (Z1 = 1). */
-  zone: number;
-  /** Lower bound in the set's unit (bpm or W). */
-  min: number;
-  /** Upper bound, or null for the open-ended top zone. */
-  max: number | null;
-  seconds: number;
-  /** Share of the set's total time, 0–100 with one decimal. */
-  pct: number;
-}
+import { type ZoneSet } from "@strava-mcp/data";
 
-/** One zone distribution (heart rate or power). */
-export interface ZoneSet {
-  type: "heartrate" | "power";
-  unit: "bpm" | "W";
-  sensorBased: boolean | null;
-  totalSeconds: number;
-  buckets: ZoneBucket[];
-}
+// ZoneBucket / ZoneSet are the shared wire types from @strava-mcp/data, the
+// same definitions the server's feed is built from (#331).
+export type { ZoneBucket, ZoneSet } from "@strava-mcp/data";
 
 /** Response from the get-activity-zones-data tool. */
 export interface ActivityZonesData {

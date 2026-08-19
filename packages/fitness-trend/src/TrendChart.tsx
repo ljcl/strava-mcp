@@ -69,7 +69,17 @@ export function TrendChart({
   };
 
   const rows = useMemo(() => buildChartRows(data), [data]);
-  const a11y = useMemo(() => buildTrendA11y(data), [data]);
+  const a11y = useMemo(
+    () =>
+      buildTrendA11y(data, {
+        showCtl,
+        showAtl,
+        showTsb,
+        showPlan,
+        hiddenBandKinds,
+      }),
+    [data, showCtl, showAtl, showTsb, showPlan, hiddenBandKinds],
+  );
   const handover = handoverLabel(data);
   const planned = isPlanned(data);
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dominantBucket, mapActivityZones } from "./activityZones";
+import { mapActivityZones } from "./activityZones";
 import { type StravaActivityZone } from "./stravaClient";
 
 function hrZone(times: number[]): StravaActivityZone {
@@ -72,17 +72,5 @@ describe("mapActivityZones", () => {
     const zone = hrZone([100, 0, 0, 0, 0]);
     (zone as { sensor_based?: boolean }).sensor_based = undefined;
     expect(mapActivityZones([zone])[0]!.sensorBased).toBeNull();
-  });
-});
-
-describe("dominantBucket", () => {
-  it("returns the bucket with the most time", () => {
-    const set = mapActivityZones([hrZone([600, 1800, 900, 500, 200])])[0]!;
-    expect(dominantBucket(set).zone).toBe(2);
-  });
-
-  it("prefers the earlier bucket on a tie", () => {
-    const set = mapActivityZones([hrZone([500, 500, 100, 0, 0])])[0]!;
-    expect(dominantBucket(set).zone).toBe(1);
   });
 });
