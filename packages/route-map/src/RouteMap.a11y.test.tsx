@@ -9,10 +9,10 @@ import { describe, expect, it, vi } from "vitest";
 import { loopActivity, profiledRoute } from "./__fixtures__/routes";
 import { RouteMap } from "./RouteMap";
 
-vi.mock("maplibre-gl/dist/maplibre-gl-csp", () => ({
-  default: { setWorkerUrl: vi.fn() },
+vi.mock("maplibre-gl", () => ({
+  setWorkerUrl: vi.fn(),
 }));
-vi.mock("maplibre-gl/dist/maplibre-gl-csp-worker.js?raw", () => ({
+vi.mock("maplibre-gl/dist/maplibre-gl-worker.mjs?bundled-raw", () => ({
   default: "",
 }));
 

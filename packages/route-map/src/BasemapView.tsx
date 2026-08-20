@@ -9,8 +9,8 @@
  * shared with the elevation strip through the scrub index.
  */
 
-import maplibregl from "maplibre-gl/dist/maplibre-gl-csp";
-import workerCode from "maplibre-gl/dist/maplibre-gl-csp-worker.js?raw";
+import * as maplibregl from "maplibre-gl";
+import workerCode from "maplibre-gl/dist/maplibre-gl-worker.mjs?bundled-raw";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import {
   type PhotoMarker,
@@ -33,15 +33,20 @@ import styles from "./RouteMap.module.css";
 import { type RouteAnnotations } from "./types";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-// MapLibre runs all source processing in a Web Worker. When our app is inlined
-// into a single HTML file by vite-plugin-singlefile, MapLibre's default
-// self-built worker loses its GeoJSON code path — the geojson-vt symbol ends up
-// referenced from a scope the worker cannot see — so vector tiles still render
-// but every GeoJSON overlay (the track, markers, segment halos) throws in the
-// worker and silently vanishes. The CSP build ships a pre-built, self-contained
-// worker; we inline it verbatim (`?raw`) as a Blob URL so it is never
-// re-bundled and geojson-vt stays intact. This is also the build MapLibre
-// intends for CSP-sandboxed hosts, which is exactly where this app runs.
+// MapLibre runs all source processing in a Web Worker, and by default (v6)
+// spawns it from `new URL("./maplibre-gl-worker.mjs", import.meta.url)` — a
+// sibling ES module importing a shared chunk. Inside the single HTML file
+// vite-plugin-singlefile produces there are no sibling files, and a worker
+// re-bundled naively by the app build historically lost its GeoJSON code path
+// (geojson-vt ended up referenced from a scope the worker cannot see), so
+// vector tiles still rendered but every GeoJSON overlay — the track, markers,
+// segment halos — threw in the worker and silently vanished. v5's answer was
+// its pre-built self-contained CSP worker; v6 dropped that build, so the
+// `?bundled-raw` import (the `bundledRawWorker` plugin in
+// @strava-mcp/vite-config) flattens the worker's import graph into one
+// self-contained script in a dedicated build, which we hand over as a Blob
+// URL exactly as before. The blob's origin matches the document's, so
+// MapLibre spawns it directly as a module worker.
 maplibregl.setWorkerUrl(
   URL.createObjectURL(
     new Blob([workerCode], { type: "application/javascript" }),

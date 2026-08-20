@@ -18,7 +18,8 @@
     "@strava-mcp/route-map": "workspace:*",
     "@strava-mcp/segment-progress": "workspace:*",
     "@strava-mcp/training-load": "workspace:*",
-    "@strava-mcp/ui": "workspace:*"
+    "@strava-mcp/ui": "workspace:*",
+    "@strava-mcp/vite-config": "workspace:*"
   },
   "devDependencies": {
     "@storybook/addon-a11y": "10.5.8",
