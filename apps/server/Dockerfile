@@ -47,6 +47,11 @@ LABEL io.modelcontextprotocol.server.name="io.github.ljcl/strava-mcp"
 COPY --from=prod-deps --chown=65534:65534 /app ./
 COPY --from=builder  --chown=65534:65534 /app/apps/server/src ./apps/server/src
 COPY --from=builder  --chown=65534:65534 /app/apps/server/scripts ./apps/server/scripts
+# JIT workspace dependency: @strava-mcp/data has no build step, its
+# `exports` points straight at ./src/index.ts, and bun resolves that at
+# runtime. Without the sources the image builds green and dies on the
+# first import (#341 shipped exactly that). dockerRuntime.test.ts pins it.
+COPY --from=builder  --chown=65534:65534 /app/packages/data/src ./packages/data/src
 COPY --from=builder  --chown=65534:65534 /app/packages/activity-chart/dist ./packages/activity-chart/dist
 COPY --from=builder  --chown=65534:65534 /app/packages/cadence-trends/dist ./packages/cadence-trends/dist
 COPY --from=builder  --chown=65534:65534 /app/packages/route-map/dist ./packages/route-map/dist
