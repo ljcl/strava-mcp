@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.13.1](https://github.com/ljcl/strava-mcp/compare/v2.13.0...v2.13.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **docker:** ship packages/data/src so the container can start ([#343](https://github.com/ljcl/strava-mcp/issues/343)) ([71adf1f](https://github.com/ljcl/strava-mcp/commit/71adf1ffadfff5f67b323d4b93a5f7772793a10f))
+* honest chart narration, one history scan per app open, shared homes, env-manifest gate ([#341](https://github.com/ljcl/strava-mcp/issues/341)) ([b446410](https://github.com/ljcl/strava-mcp/commit/b4464109fea81b81287128eef2e9ef51b4203f1f))
+
 ## [2.13.0](https://github.com/ljcl/strava-mcp/compare/v2.12.0...v2.13.0) (2026-08-13)
 
 
