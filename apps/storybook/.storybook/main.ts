@@ -7,6 +7,15 @@ export default defineMain({
   // Storybook dev/build and the story smoke tests resolve it.
   viteFinal: (config) => {
     config.plugins = [...(config.plugins ?? []), bundledRawWorker()];
+    // Keep maplibre-gl out of the dep optimizer: v6 is pure ESM (no CJS
+    // interop to pre-bundle), and letting the optimizer discover it mid-run
+    // re-hashes already-served chunks — on a cold cache (CI always is) that
+    // kills unrelated story suites with "Failed to fetch dynamically
+    // imported module". Excluded deps never trigger that reload.
+    config.optimizeDeps = {
+      ...config.optimizeDeps,
+      exclude: [...(config.optimizeDeps?.exclude ?? []), "maplibre-gl"],
+    };
     return config;
   },
   addons: [
