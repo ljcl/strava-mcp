@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.13.2](https://github.com/ljcl/strava-mcp/compare/v2.13.1...v2.13.2) (2026-08-20)
+
+
+### Bug Fixes
+
+* **deps:** bump maplibre-gl from 5.24.0 to 6.4.0 ([#345](https://github.com/ljcl/strava-mcp/issues/345)) ([07b27d4](https://github.com/ljcl/strava-mcp/commit/07b27d49b2d5dac37fd61c57c5b57fa7a8f1e157))
+* **deps:** bump the production-minor-patch group across 1 directory with 3 updates ([#326](https://github.com/ljcl/strava-mcp/issues/326)) ([fa77d26](https://github.com/ljcl/strava-mcp/commit/fa77d266b11a6b83a1d2cab834ff2081acf49d97))
+
 ## [2.13.1](https://github.com/ljcl/strava-mcp/compare/v2.13.0...v2.13.1) (2026-08-20)
 
 
