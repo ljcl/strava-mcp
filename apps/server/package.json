@@ -13,7 +13,7 @@
     "setup-auth": "bun run scripts/setup-auth.ts"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@strava-mcp/activity-chart": "workspace:*",
     "@strava-mcp/activity-zones": "workspace:*",
     "@strava-mcp/activity-segments": "workspace:*",

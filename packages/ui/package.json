@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@base-ui/react": "1.6.0",
+    "@base-ui/react": "1.7.0",
     "@modelcontextprotocol/ext-apps": "1.7.5",
     "@strava-mcp/design-system": "workspace:*",
     "react": "19.2.8"
