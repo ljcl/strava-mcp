@@ -2,12 +2,7 @@
  * Telemetry record shape and the rolling counters behind /health (#241).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  recordToolCall,
-  resetToolCallStats,
-  shouldSendLog,
-  toolCallStats,
-} from "./telemetry";
+import { recordToolCall, resetToolCallStats, toolCallStats } from "./telemetry";
 
 describe("recordToolCall", () => {
   let stderr: ReturnType<typeof vi.spyOn>;
@@ -114,20 +109,5 @@ describe("toolCallStats", () => {
     expect(toolCallStats()).toEqual({});
     recordToolCall({ tool: "get-segment", duration_ms: 1, outcome: "ok" });
     expect(Object.keys(toolCallStats())).toEqual(["get-segment"]);
-  });
-});
-
-describe("shouldSendLog", () => {
-  it("sends nothing until a client asks for a level", () => {
-    expect(shouldSendLog(null, "error")).toBe(false);
-    expect(shouldSendLog(null, "debug")).toBe(false);
-  });
-
-  it("sends at or above the requested severity", () => {
-    expect(shouldSendLog("info", "info")).toBe(true);
-    expect(shouldSendLog("info", "error")).toBe(true);
-    expect(shouldSendLog("error", "info")).toBe(false);
-    expect(shouldSendLog("debug", "debug")).toBe(true);
-    expect(shouldSendLog("emergency", "critical")).toBe(false);
   });
 });

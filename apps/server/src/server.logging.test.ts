@@ -16,12 +16,9 @@ const { resetToolCallStats, toolCallStats } = await import("./telemetry");
 
 describe("logging capability", () => {
   it("is advertised in the initialize result", async () => {
-    const { initializeResult } = await connectTestClient("logging-test");
+    const { handshake } = await connectTestClient("logging-test");
 
-    const capabilities = initializeResult.capabilities as Record<
-      string,
-      unknown
-    >;
+    const capabilities = handshake.capabilities as Record<string, unknown>;
     expect(capabilities).toHaveProperty("logging");
     // The pre-existing three are untouched.
     expect(capabilities).toHaveProperty("tools");
@@ -35,9 +32,41 @@ describe("logging capability", () => {
     const body = await client.sendRaw("logging/setLevel", { level: "info" });
 
     // Declaring the capability without a handler would answer -32601 here,
-    // which is worse than never advertising it.
+    // which is worse than never advertising it (#241). The SDK's built-in
+    // handler answers it now; stateless legacy serving cannot retain the
+    // level, so the call is compatibility, not configuration.
     expect(body).not.toContain("-32601");
     expect(body).not.toContain("Method not found");
+  });
+});
+
+describe("per-request log level (2026-07-28)", () => {
+  it("delivers the tool-call record when the request asks via logLevel", async () => {
+    const client = await connectTestClient("logging-test", "modern");
+
+    const body = await client.sendRaw("tools/call", {
+      name: "no-such-tool",
+      arguments: {},
+      _meta: { "io.modelcontextprotocol/logLevel": "debug" },
+    });
+
+    // The dispatcher's record reaches the caller on the same response
+    // stream, exactly as the sessionful logging/setLevel sink used to.
+    expect(body).toContain("notifications/message");
+    expect(body).toContain("tool_call");
+  });
+
+  it("stays silent when the request does not ask", async () => {
+    const client = await connectTestClient("logging-test", "modern");
+
+    const body = await client.sendRaw("tools/call", {
+      name: "no-such-tool",
+      arguments: {},
+    });
+
+    // The spec's MUST: no notifications/message for a request that did not
+    // carry the logLevel envelope key.
+    expect(body).not.toContain("notifications/message");
   });
 });
 

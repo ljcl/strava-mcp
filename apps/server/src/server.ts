@@ -1,16 +1,15 @@
 import fs from "node:fs/promises";
 import { createRequire } from "node:module";
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import {
-  CallToolRequestSchema,
-  GetPromptRequestSchema,
-  ListPromptsRequestSchema,
-  ListResourcesRequestSchema,
-  ListToolsRequestSchema,
-  ReadResourceRequestSchema,
-  SetLevelRequestSchema,
+  type CallToolResult,
+  type ListResourcesResult,
+  type ListToolsResult,
+  LOG_LEVEL_META_KEY,
+  type ReadResourceResult,
+  ResourceNotFoundError,
+  Server,
   type ToolAnnotations,
-} from "@modelcontextprotocol/sdk/types.js";
+} from "@modelcontextprotocol/server";
 import { dominantBucket } from "@strava-mcp/data";
 import { z } from "zod";
 import { mapActivitySegments } from "./activitySegments";
@@ -57,9 +56,7 @@ import {
   StreamsUnavailableError,
 } from "./stravaClient";
 import {
-  type LogLevel,
   recordToolCall,
-  shouldSendLog,
   type ToolCallRecord,
   type ToolOutcome,
 } from "./telemetry";
@@ -1909,6 +1906,16 @@ export async function dispatchToolCall(
   }
 }
 
+/**
+ * How long a 2026-07-28 caller may cache the cacheable results (`ttlMs`).
+ * The advertised surface is static per deployment — tools, prompts, and the
+ * app resources only change on a redeploy — so an hour trades staleness
+ * bounded by that window for fewer list round-trips. `cacheScope` is left on
+ * the SDK's conservative `private` default: `/mcp` can sit behind
+ * `MCP_AUTH_TOKEN`, and an authed response has no business in a shared cache.
+ */
+const STATIC_SURFACE_TTL_MS = 60 * 60 * 1000;
+
 export function createServer(): Server {
   const server = new Server(
     { name: "Strava MCP Server", version: SERVER_VERSION },
@@ -1917,69 +1924,93 @@ export function createServer(): Server {
         tools: {},
         resources: {},
         prompts: {},
-        // Advertised so a host can call logging/setLevel and receive the
-        // per-call records the dispatcher already emits to stderr (#241).
+        // Advertised so a caller can receive the per-call records the
+        // dispatcher already emits to stderr (#241). Declaring it also makes
+        // the SDK register its built-in logging/setLevel handler, so a legacy
+        // client calling it gets `{}` rather than -32601 — the capability
+        // contract from #241 — even though stateless legacy serving cannot
+        // retain the level it sets.
         logging: {},
+      },
+      cacheHints: {
+        "tools/list": { ttlMs: STATIC_SURFACE_TTL_MS },
+        "prompts/list": { ttlMs: STATIC_SURFACE_TTL_MS },
+        "resources/list": { ttlMs: STATIC_SURFACE_TTL_MS },
+        "resources/read": { ttlMs: STATIC_SURFACE_TTL_MS },
+        "server/discover": { ttlMs: STATIC_SURFACE_TTL_MS },
       },
     },
   );
 
-  server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: TOOLS,
+  // The SDK's result types spell out every reserved `_meta` envelope key,
+  // which the Record-typed schema/meta tables here cannot satisfy
+  // structurally; the wire shape these serialize to is what the integration
+  // suite asserts, so the casts below are confined to this seam.
+  server.setRequestHandler("tools/list", async () => ({
+    tools: TOOLS as unknown as ListToolsResult["tools"],
   }));
 
-  server.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  server.setRequestHandler("prompts/list", async () => ({
     prompts: listPrompts(),
   }));
 
-  server.setRequestHandler(GetPromptRequestSchema, async (request) =>
+  server.setRequestHandler("prompts/get", async (request) =>
     getPrompt(request.params.name, request.params.arguments),
   );
 
-  // The advertised `logging` capability has to be backed by a handler, or a
-  // client calling logging/setLevel gets "method not found" — worse than not
-  // advertising it at all. The level is per session, like the server itself.
-  let logLevel: LogLevel | null = null;
-  server.setRequestHandler(SetLevelRequestSchema, async (request) => {
-    logLevel = request.params.level as LogLevel;
-    return {};
-  });
-
-  server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
+  server.setRequestHandler("tools/call", async (request, ctx) => {
     const { name, arguments: args } = request.params;
-    return dispatchToolCall(name, args, {
+    const result = await dispatchToolCall(name, args, {
       onRecord: (record) => {
-        const level: LogLevel = record.outcome === "ok" ? "info" : "error";
-        if (!shouldSendLog(logLevel, level)) return;
+        // Log-level state died with sessions: stateless legacy serving has
+        // nowhere to keep a logging/setLevel choice, and the 2026-07-28
+        // revision replaced it with the per-request logLevel envelope key —
+        // which is also the spec's MUST-NOT-emit-unrequested gate. So records
+        // go only to callers whose request asked, and `ctx.mcpReq.log`
+        // applies their threshold.
+        const envelope = ctx.mcpReq.envelope as
+          | Record<string, unknown>
+          | undefined;
+        if (envelope?.[LOG_LEVEL_META_KEY] === undefined) return;
+        const level = record.outcome === "ok" ? "info" : "error";
         // Never let a logging failure fail the tool call it describes.
-        void server
-          .sendLoggingMessage({ level, logger: "tool-call", data: record })
-          .catch(() => {});
+        void ctx.mcpReq.log(level, record, "tool-call").catch(() => {});
       },
-      // `extra.sendNotification` is already scoped to this request, which is
-      // what lets a streamable-HTTP transport put the notification on the same
-      // SSE stream the response will arrive on (#279).
+      // `ctx.mcpReq.notify` is already scoped to this request, which is what
+      // lets the transport put the notification on the same SSE stream the
+      // response will arrive on (#279).
       progress: createProgressReporter(
-        request.params._meta?.progressToken,
-        extra.sendNotification,
+        ctx.mcpReq._meta?.progressToken,
+        (notification) => ctx.mcpReq.notify(notification),
       ),
     });
+    // The era-aware projection (SEP-2106 §4.3 text auto-append; identity for
+    // this server's always-text, object-structured results) lives in the SDK
+    // codec — low-level tools/call handlers route through it themselves.
+    // `ToolCallResult.content` is typed `{ type: string }` for the handler
+    // table's sake; every emitted block is a spec text block.
+    return server.projectCallToolResult(
+      result as unknown as CallToolResult,
+      TOOLS.find((tool) => tool.name === name)?.outputSchema,
+    );
   });
 
-  server.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  server.setRequestHandler("resources/list", async () => ({
     resources: APP_RESOURCES.map((resource) => ({
       uri: resource.uri,
       name: resource.name,
       mimeType: MCP_APP_MIME_TYPE,
       _meta: appResourceMeta(resource),
-    })),
+    })) as unknown as ListResourcesResult["resources"],
   }));
 
-  server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  server.setRequestHandler("resources/read", async (request) => {
     const { uri } = request.params;
     const resource = APP_RESOURCES.find((r) => r.uri === uri);
     if (!resource) {
-      throw new Error(`Unknown resource: ${uri}`);
+      // The typed error serialises as Invalid Params (-32602), where the
+      // 2026-07-28 revision moved resource-not-found.
+      throw new ResourceNotFoundError(uri);
     }
     const html = await fs.readFile(resource.htmlPath, "utf-8");
     return {
@@ -1991,7 +2022,7 @@ export function createServer(): Server {
           _meta: appResourceMeta(resource),
         },
       ],
-    };
+    } as unknown as ReadResourceResult;
   });
 
   return server;
