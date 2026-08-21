@@ -7,7 +7,7 @@ import {
 } from "./authRoutes";
 import { handleHealth } from "./health";
 import { unauthorizedMcpResponse, warnIfMcpUnprotected } from "./mcpAuth";
-import { createMcpSessionManager } from "./mcpSession";
+import { createMcpEndpoint } from "./mcpEndpoint";
 import { createServer } from "./server";
 import { ensureValidToken } from "./tokenManager";
 
@@ -19,7 +19,7 @@ dotenv.config({
 const PORT = Number(process.env.PORT ?? 3000);
 const HOST = "0.0.0.0";
 
-const sessions = createMcpSessionManager(createServer);
+const mcp = createMcpEndpoint(createServer);
 
 // --- Server Startup ---
 
@@ -38,7 +38,7 @@ const httpServer = Bun.serve({
     if (url.pathname === "/mcp") {
       const denied = unauthorizedMcpResponse(req);
       if (denied) return denied;
-      return sessions.handleRequest(req);
+      return mcp.handleRequest(req);
     }
 
     if (url.pathname === "/health") {
@@ -67,12 +67,12 @@ console.error(`Health check: http://${HOST}:${PORT}/health`);
 
 // Graceful shutdown. SIGINT covers Ctrl-C; SIGTERM is what `docker stop` and
 // orchestrators send — without a handler the container is hard-killed after
-// the grace period with transports left open.
+// the grace period with exchanges left open.
 async function shutdown(signal: string): Promise<void> {
   console.error(`Received ${signal}, shutting down...`);
-  // Stop accepting new connections while draining existing sessions.
+  // Stop accepting new connections while draining in-flight exchanges.
   httpServer.stop();
-  await sessions.closeAllSessions();
+  await mcp.close();
   process.exit(0);
 }
 

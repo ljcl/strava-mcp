@@ -9,7 +9,7 @@
  * serialization into a real `tools/list` response, and nothing opts into an
  * unconditional prompt.
  */
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { Server } from "@modelcontextprotocol/server";
 import { describe, expect, it } from "vitest";
 import { connectTestClient } from "./mcpTestClient";
 import { createServer, TOOLS } from "./server";

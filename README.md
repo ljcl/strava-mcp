@@ -270,14 +270,20 @@ Add to `.vscode/mcp.json` in your workspace (or run **MCP: Add Server** from the
 #### Other clients (generic Streamable HTTP)
 
 Any client that speaks [Streamable HTTP](https://modelcontextprotocol.io/docs/concepts/transports)
-can connect to the `/mcp` endpoint directly:
+can connect to the `/mcp` endpoint directly. The endpoint serves two protocol
+eras from one URL, so clients on either side of the 2026-07-28 revision work:
 
-- POST JSON-RPC messages to `https://your-public-url/mcp` with an
+- **2026-07-28 clients** send each request stateless, carrying the
+  `io.modelcontextprotocol/*` envelope keys in `params._meta` plus the
+  `Mcp-Method` / `Mcp-Name` headers; `server/discover` advertises the
+  supported revisions and capabilities.
+- **2025-era clients** use the `initialize` handshake as before. Serving is
+  stateless (each request stands alone): no `Mcp-Session-Id` is issued, which
+  the 2025 spec allows, and the standalone GET stream answers 405.
+- Either way, POST JSON-RPC messages to `https://your-public-url/mcp` with an
   `Accept: application/json, text/event-stream` header.
 - If `MCP_AUTH_TOKEN` is set, also send `Authorization: Bearer <token>`
   on every request.
-- The `initialize` response includes an `Mcp-Session-Id` header; echo it on every
-  subsequent request in the same session.
 
 ### Tool permissions
 

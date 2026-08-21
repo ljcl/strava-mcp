@@ -109,30 +109,3 @@ export function toolCallStats(): Record<
 export function resetToolCallStats(): void {
   counters.clear();
 }
-
-/** MCP logging levels, ordered least to most severe (spec order). */
-const LEVELS = [
-  "debug",
-  "info",
-  "notice",
-  "warning",
-  "error",
-  "critical",
-  "alert",
-  "emergency",
-] as const;
-
-export type LogLevel = (typeof LEVELS)[number];
-
-/**
- * Whether a message at `level` should be delivered, given what the client
- * asked for. A client that never sent `logging/setLevel` gets nothing — the
- * spec's default is to send only what was requested.
- */
-export function shouldSendLog(
-  requested: LogLevel | null,
-  level: LogLevel,
-): boolean {
-  if (!requested) return false;
-  return LEVELS.indexOf(level) >= LEVELS.indexOf(requested);
-}
