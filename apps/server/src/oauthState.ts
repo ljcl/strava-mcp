@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 
 /**
- * Single-use OAuth `state` nonces (#109). `/auth/start` mints one into the
+ * Single-use OAuth `state` nonces. `/auth/start` mints one into the
  * authorize URL; `/auth/callback` must present it back before any code is
  * exchanged. Without this, a CSRF-ed callback carrying an attacker's code
  * could rebind the server to their Strava account. In-memory is enough:

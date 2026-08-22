@@ -1,5 +1,5 @@
 /**
- * Where time was won or lost between two efforts on the same segment (#269).
+ * Where time was won or lost between two efforts on the same segment.
  * Pure functions over stream slices, unit-tested next to `hillAnalysis.ts`.
  *
  * `view-segment-progress` can say you lost 8 seconds to your PR; it can never

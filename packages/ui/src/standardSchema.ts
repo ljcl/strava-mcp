@@ -1,5 +1,5 @@
 /**
- * A minimal Standard Schema for view-tool arguments (#278).
+ * A minimal Standard Schema for view-tool arguments.
  *
  * `App.registerTool` takes a Standard Schema and needs two things from it: a
  * `validate` that returns either a value or issues, and a `jsonSchema.input()`

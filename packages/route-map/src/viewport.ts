@@ -1,5 +1,5 @@
 /**
- * Resolving a distance range on the course to a map viewBox (#278).
+ * Resolving a distance range on the course to a map viewBox.
  *
  * The `set-viewport` view tool lets the model answer "show me the climb at
  * 14 km" by moving the map itself. Turning a kilometre range into a viewBox

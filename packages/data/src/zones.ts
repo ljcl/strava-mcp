@@ -2,7 +2,7 @@
  * Zone-distribution wire types shared by the server's activity-zones feed
  * and the activity-zones MCP App, plus the one derivation both surfaces
  * print. Living here keeps the `get-activity-zones` text tool and the chart
- * agreeing on the same dominant zone for the same activity (#331).
+ * agreeing on the same dominant zone for the same activity.
  */
 
 /** One zone bucket, as returned by get-activity-zones-data. */

@@ -15,7 +15,7 @@ export interface ServerToolFetcher<T> {
 /**
  * `useServerToolData`'s sibling for the on-demand case: many payloads from
  * one tool, fetched as the user asks for them, each with its own loading,
- * error, and retry (#250). `useServerToolData` covers the mount-time single
+ * error, and retry. `useServerToolData` covers the mount-time single
  * fetch; anything keyed — a stream per selected run — belongs here rather
  * than in a hand-rolled effect.
  *

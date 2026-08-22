@@ -1,5 +1,5 @@
 /**
- * Screen-reader narration for the segment-effort list (#253).
+ * Screen-reader narration for the segment-effort list.
  *
  * Seven of the eight MCP Apps ship a narration builder; this was the one
  * without. It is also the most information-dense — per-effort heart rate,

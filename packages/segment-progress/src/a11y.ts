@@ -3,7 +3,7 @@ import { formatSecondsDelta } from "./normalize";
 import { type ProgressSummary, type SegmentSummary } from "./types";
 
 /**
- * Screen-reader narration for the segment-progress chart (#184). Recharts'
+ * Screen-reader narration for the segment-progress chart. Recharts'
  * accessibilityLayer gives keyboard focus and arrow-key tooltip stepping, but
  * the SVG carries no accessible name or content summary; this builder feeds
  * the chart's `title`/`desc` props (rendered as SVG <title>/<desc>), per the

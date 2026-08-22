@@ -64,7 +64,7 @@ export function TrendChart({
     // clips "100" to "0".
     marginLeft: 0,
     marginTop: 8,
-    // Bottom margin must fit tick label descenders; see CLAUDE.md.
+    // Bottom margin must fit tick label descenders; see docs/mcp-apps.md.
     marginBottom: 24,
   };
 

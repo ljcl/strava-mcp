@@ -73,7 +73,7 @@ async function fetchStreams(
   } catch (error) {
     // Streams may not be available for all activities — but only a genuinely
     // sample-less one degrades silently; auth and rate-limit failures
-    // propagate so the summary does not claim the run had no samples (#237).
+    // propagate so the summary does not claim the run had no samples.
     if (error instanceof StreamsUnavailableError) return {};
     throw error;
   }

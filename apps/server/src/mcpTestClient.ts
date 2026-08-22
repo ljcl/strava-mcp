@@ -19,8 +19,9 @@
  *   `io.modelcontextprotocol/*` envelope keys in `params._meta` plus the
  *   `Mcp-Method` header, and capabilities come from `server/discover`.
  *
- * The bootstrap had been copied into three suites before this file existed;
- * a protocol change is fixed once, here.
+ * Every protocol-surface suite drives the endpoint through this client, so a
+ * protocol change is fixed once, here — never by re-bootstrapping in a new
+ * suite.
  */
 
 import {

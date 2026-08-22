@@ -85,7 +85,7 @@ async function fetchStreams(
   } catch (error) {
     // Only a genuinely sample-less activity degrades to the no-streams message
     // below; auth and rate-limit failures propagate so the user is told what to
-    // fix instead of being told their GPS run is a manual entry (#237).
+    // fix instead of being told their GPS run is a manual entry.
     if (error instanceof StreamsUnavailableError) return {};
     throw error;
   }

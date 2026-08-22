@@ -38,7 +38,7 @@ export function TrendView({
     ...chartTokens,
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
-    // Bottom margin must fit tick label descenders; see CLAUDE.md.
+    // Bottom margin must fit tick label descenders; see docs/mcp-apps.md.
     marginBottom: 24,
     // Alias for call-site clarity.
     trendStrokeWidth: chartTokens.strokeWidth,

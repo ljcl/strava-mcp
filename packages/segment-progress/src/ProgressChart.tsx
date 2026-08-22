@@ -57,7 +57,7 @@ export function ProgressChart({
     marginRight: isMobile ? 12 : 20,
     marginLeft: 0,
     marginTop: 8,
-    // Bottom margin must fit tick label descenders; see CLAUDE.md.
+    // Bottom margin must fit tick label descenders; see docs/mcp-apps.md.
     marginBottom: 24,
   };
 

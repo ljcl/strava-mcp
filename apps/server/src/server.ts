@@ -120,7 +120,7 @@ function toInputSchema(schema: z.ZodType): Record<string, unknown> {
 }
 
 /**
- * Zod schemas for the MCP App tools (#107). Single source of truth: the
+ * Zod schemas for the MCP App tools. Single source of truth: the
  * advertised JSON Schemas in buildToolDefs derive from these, and dispatch
  * validates every call against them, so a host omitting or mistyping an
  * argument gets a structured error instead of `"undefined"`/NaN flowing
@@ -197,7 +197,7 @@ const segmentProgressInput = z.object({
 });
 
 /**
- * Fitness-trend args, shared by the view and data tools (#262). Mirrors the
+ * Fitness-trend args, shared by the view and data tools. Mirrors the
  * `get-fitness-trend` text tool's inputs, since both surfaces run one solve:
  * a lookback window, how far to project, and an optional taper target. The
  * projection defaults to a fortnight here rather than the text tool's zero —
@@ -293,9 +293,9 @@ const APP_TOOL_INPUT_SCHEMAS: Record<string, z.ZodType> = {
 };
 
 /**
- * Basemap spike (#60): allowlist the OpenFreeMap tile origin so the route-map
- * app can attempt an external tile fetch through the host's sandbox CSP.
- * Tiles, styles, glyphs, and sprites are all served from this one origin.
+ * Allowlist the OpenFreeMap tile origin so the route-map app can fetch
+ * basemap tiles through the host's sandbox CSP. Tiles, styles, glyphs, and
+ * sprites are all served from this one origin.
  * MapLibre loads everything via fetch (connect-src); the origin is mirrored
  * into resourceDomains in case a host routes images through img-src instead.
  * Declared once on the APP_RESOURCES entry; `appResourceMeta` emits it on
@@ -729,7 +729,7 @@ export const TOOLS = buildToolDefs();
 /**
  * Map of tool name → execute function for existing Strava tools.
  *
- * The third argument is the call's progress reporter (#279). It is always
+ * The third argument is the call's progress reporter. It is always
  * supplied — {@link NO_PROGRESS} when the caller asked for none — so a handler
  * that reports progress needs no capability check, and one that does not can
  * keep its two-argument signature.
@@ -761,7 +761,7 @@ for (const tool of STRAVA_TOOLS) {
   );
 }
 
-/** Tool name → zod input schema, enforced at dispatch time (#107). */
+/** Tool name → zod input schema, enforced at dispatch time. */
 const TOOL_INPUT_SCHEMAS = new Map<string, z.ZodType>();
 for (const tool of STRAVA_TOOLS) {
   const schema = (tool as { inputSchema?: z.ZodType }).inputSchema;
@@ -828,7 +828,7 @@ async function handleGetActivityStreamsRaw(
   }));
 
   const result = {
-    // A string, like every Strava id on the wire (#270): ids are
+    // A string, like every Strava id on the wire: ids are
     // 64-bit and `Number()` here silently rounded anything past 2^53.
     activityId,
     activityType: activity.type,
@@ -843,7 +843,7 @@ async function handleGetActivityStreamsRaw(
 const RUNNING_TYPES = new Set(["Run", "VirtualRun", "TrailRun"]);
 
 /**
- * Quantum for history-window bounds (#329). The three listing-driven apps
+ * Quantum for history-window bounds. The three listing-driven apps
  * are each a `view-` tool plus a `get-…-data` tool running the same
  * `getAllActivities` scan seconds apart, and the response cache keys on the
  * full URL — so an `after` recomputed from a raw `Date.now()` per call gave
@@ -854,7 +854,7 @@ const RUNNING_TYPES = new Set(["Run", "VirtualRun", "TrailRun"]);
  */
 const WINDOW_QUANTUM_SECONDS = 60;
 
-/** Epoch seconds for `now - msAgo`, floored to the minute (#329). */
+/** Epoch seconds for `now - msAgo`, floored to the minute. */
 function quantizedEpochAfter(msAgo: number): number {
   const seconds = Math.floor((Date.now() - msAgo) / 1000);
   return seconds - (seconds % WINDOW_QUANTUM_SECONDS);
@@ -988,7 +988,7 @@ async function handleViewTrainingLoad(
 }
 
 /**
- * Shared fetch + solve for the fitness-trend view and data tools (#262).
+ * Shared fetch + solve for the fitness-trend view and data tools.
  * Cross-sport by design: relative effort is heart-rate based, so whole-body
  * load is what TSB should reflect — unlike the running-only training-load
  * feed above.
@@ -1293,7 +1293,7 @@ async function loadActivityMapStreams(
   } catch (error) {
     // Streams are an enhancement: an activity that recorded none still renders
     // from the polyline. An expired token or an exhausted rate limit is not
-    // that, and must not be silently downgraded to a metric-less map (#237).
+    // that, and must not be silently downgraded to a metric-less map.
     if (error instanceof StreamsUnavailableError) return null;
     throw error;
   }
@@ -1479,15 +1479,16 @@ const MAX_SEGMENT_ANNOTATIONS = 60;
  *
  * The geometry is already in hand by the time these layers are fetched, so
  * failing the call would turn "a map without lap markers" into "no map at all"
- * — strictly worse for the athlete, an exhausted quota included. What #237
- * forbids is misreporting a failure as an absence, and the honest way to honour
- * that is to still render and say what was lost: the reason is logged and
- * recorded in `layerWarnings`, which `view-route-map`'s text surfaces beside
+ * — strictly worse for the athlete, an exhausted quota included. But a
+ * failure must never be misreported as an absence, so the layer is dropped
+ * *and* the loss is stated: the reason is logged and recorded in
+ * `layerWarnings`, which `view-route-map`'s text surfaces beside
  * `waypointWarnings`. A rate limit quotes `RateLimitError.detail` — the bare
  * window description — rather than the internal call that happened to hit it.
- * Every cause is reported, not only the quota: a refused token and a malformed
- * response look exactly as much like "this activity has no photos" as a 429
- * does, which is the `catch {}` this replaced.
+ *
+ * Report every cause, not only the quota, and never swallow one with a bare
+ * `catch {}`: a refused token and a malformed response look exactly as much
+ * like "this activity has no photos" as a 429 does.
  */
 function dropOptionalLayer(
   layer: string,
@@ -1797,30 +1798,30 @@ const APP_TOOL_HANDLERS: Record<
 /** Per-call hooks the transport layer supplies to {@link dispatchToolCall}. */
 export interface DispatchOptions {
   /**
-   * Session-scoped sink for the same record stderr gets, so a client that
-   * asked for logs receives them. Per-call rather than module-level because
-   * each MCP session builds its own server (#241).
+   * Per-call sink for the same record stderr gets, so a caller that asked
+   * for logs receives them. Per-call rather than module-level because serving
+   * is stateless: every request builds its own server.
    */
   onRecord?: (record: ToolCallRecord) => void;
   /**
    * Progress reporter for this call, already bound to the caller's
    * `progressToken`. Defaults to {@link NO_PROGRESS}, so a handler calls it
-   * unconditionally and a caller that asked for nothing pays nothing (#279).
+   * unconditionally and a caller that asked for nothing pays nothing.
    */
   progress?: ReportProgress;
 }
 
 /**
  * Single dispatch path for every tool call. Validates the raw host args
- * against the tool's zod schema BEFORE executing (#107), so defaults always
+ * against the tool's zod schema BEFORE executing, so defaults always
  * apply and invalid types surface as a structured error instead of flowing
  * into Strava URLs and math as `"undefined"` or NaN.
  *
  * It also resolves the Strava access token once per call and hands it to the
- * handler (#240). Every tool used to read `process.env.STRAVA_ACCESS_TOKEN`
- * behind its own guard, which produced four different not-connected messages
- * and left expiry to be discovered by a wasted 401; resolving here gives one
- * message, one expiry policy, and a proactive refresh at the buffer.
+ * handler. A tool must not read `process.env.STRAVA_ACCESS_TOKEN` behind its
+ * own guard: that gives every tool its own not-connected wording and leaves
+ * expiry to be discovered by a wasted 401. Resolving here gives one message,
+ * one expiry policy, and a proactive refresh at the buffer.
  */
 export async function dispatchToolCall(
   name: string,
@@ -1829,7 +1830,7 @@ export async function dispatchToolCall(
 ): Promise<ToolCallResult> {
   // The timer starts here, before token resolution, so a not-connected call is
   // recorded too — it is a real call that cost the caller a round trip, and it
-  // is exactly the failure an operator wants to see the rate of (#241).
+  // is exactly the failure an operator wants to see the rate of.
   const startedAt = performance.now();
   const finish = (
     outcome: ToolOutcome,
@@ -1925,11 +1926,11 @@ export function createServer(): Server {
         resources: {},
         prompts: {},
         // Advertised so a caller can receive the per-call records the
-        // dispatcher already emits to stderr (#241). Declaring it also makes
+        // dispatcher already emits to stderr. Declaring it also makes
         // the SDK register its built-in logging/setLevel handler, so a legacy
-        // client calling it gets `{}` rather than -32601 — the capability
-        // contract from #241 — even though stateless legacy serving cannot
-        // retain the level it sets.
+        // client calling it gets `{}` rather than -32601. Advertising the
+        // capability without a handler is worse than not advertising it at
+        // all, even though stateless serving cannot retain the level it sets.
         logging: {},
       },
       cacheHints: {
@@ -1962,12 +1963,11 @@ export function createServer(): Server {
     const { name, arguments: args } = request.params;
     const result = await dispatchToolCall(name, args, {
       onRecord: (record) => {
-        // Log-level state died with sessions: stateless legacy serving has
-        // nowhere to keep a logging/setLevel choice, and the 2026-07-28
-        // revision replaced it with the per-request logLevel envelope key —
-        // which is also the spec's MUST-NOT-emit-unrequested gate. So records
-        // go only to callers whose request asked, and `ctx.mcpReq.log`
-        // applies their threshold.
+        // There is no stored log level: serving is stateless, so a
+        // logging/setLevel choice has nowhere to live. The level rides on the
+        // per-request logLevel envelope key instead, which is also the spec's
+        // MUST-NOT-emit-unrequested gate. So records go only to callers whose
+        // request asked, and `ctx.mcpReq.log` applies their threshold.
         const envelope = ctx.mcpReq.envelope as
           | Record<string, unknown>
           | undefined;
@@ -1978,7 +1978,7 @@ export function createServer(): Server {
       },
       // `ctx.mcpReq.notify` is already scoped to this request, which is what
       // lets the transport put the notification on the same SSE stream the
-      // response will arrive on (#279).
+      // response will arrive on.
       progress: createProgressReporter(
         ctx.mcpReq._meta?.progressToken,
         (notification) => ctx.mcpReq.notify(notification),

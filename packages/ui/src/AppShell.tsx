@@ -54,16 +54,16 @@ export interface UseHostRootOptions<TArgs> {
    */
   parseToolInput: (args: unknown) => TArgs | null;
   /**
-   * Message surfaced when the host sends input that `parseToolInput` rejects
-   * (#249). Omit it for an app whose args are all optional: without it a
-   * rejected input is treated as "still waiting", which is only correct when
-   * nothing is required.
+   * Message surfaced when the host sends input that `parseToolInput` rejects.
+   * Omit it only for an app whose args are all optional: without it a rejected
+   * input is treated as "still waiting", which leaves an app that needs an id
+   * on a permanent loading skeleton.
    */
   missingArgsMessage?: string;
   /** Display modes the app advertises. Defaults to inline + fullscreen. */
   capabilities?: McpUiAppCapabilities;
   /**
-   * Tools this view exposes to the host and model (#278). Declared here
+   * Tools this view exposes to the host and model. Declared here
    * rather than in the content component because `registerTool` only works
    * before `connect()`; the component installs the implementations with
    * `useViewTool`. See `viewTools.ts`.
@@ -117,7 +117,7 @@ export interface HostRoot<TArgs> {
   argsError: string | null;
   /**
    * Registry the content component installs its view-tool handlers into, or
-   * null when the app declared none (#278).
+   * null when the app declared none.
    */
   viewToolRegistry: ViewToolRegistry | null;
 }
@@ -152,7 +152,7 @@ export function useHostRoot<TArgs>({
     onAppCreated: (createdApp) => {
       // The only window where this works: `useApp` calls `onAppCreated`
       // before `connect()`, and `registerTool` cannot advertise a capability
-      // once the transport exists (#278).
+      // once the transport exists.
       if (viewTools?.length) {
         registryRef.current?.register(createdApp, viewTools);
       }
@@ -245,7 +245,7 @@ interface FullscreenToggleProps {
 }
 
 /**
- * Enter/exit-fullscreen control (#35). The current mode prefers the host
+ * Enter/exit-fullscreen control. The current mode prefers the host
  * context (updated via hostcontextchanged); the local echo of the last
  * `requestDisplayMode` result covers hosts that grant the request without
  * re-sending context.
@@ -304,7 +304,7 @@ export interface AppShellProps {
 /**
  * Outer card shell shared by every MCP App. Wraps content in the bordered
  * card with safe-area-aware padding, outer margin, and width clamp that
- * the host chrome rules in CLAUDE.md depend on staying identical. With an
+ * the host chrome rules in docs/mcp-apps.md depend on staying identical. With an
  * `app` and a fullscreen-capable host it also owns the display-mode toggle,
  * so every app gets the control at once.
  */
@@ -326,7 +326,7 @@ export interface ConnectedHostRoot<TArgs> {
   hostCtx: HostCtx;
   mode: AppMode;
   toolArgs: TArgs;
-  /** Where the content component installs its `useViewTool` handlers (#278). */
+  /** Where the content component installs its `useViewTool` handlers. */
   viewToolRegistry: ViewToolRegistry | null;
 }
 
@@ -341,10 +341,10 @@ export interface AppRootViewProps<TArgs> extends HostRoot<TArgs> {
  * The pre-content state machine, as a pure function of `HostRoot`: connect
  * error, unusable input, waiting for input, connected. Split from `AppRoot`
  * so every branch is renderable without a live host — the story smoke tests
- * and their axe checks are what hold the convention in place (#249).
+ * and their axe checks are what hold the convention in place.
  *
  * Each pre-content state renders inside the same `AppShell` as the loaded app
- * so the card chrome is stable from first paint (#116).
+ * so the card chrome is stable from first paint.
  */
 export function AppRootView<TArgs>({
   app,
@@ -394,7 +394,7 @@ export interface AppRootProps<TArgs> extends UseHostRootOptions<TArgs> {
 /**
  * Root every MCP App's `main.tsx` mounts: connects to the host, then renders
  * the shared state machine above. Centralising both is what stops the eight
- * apps re-litigating what a missing id should look like (#249).
+ * apps re-litigating what a missing id should look like.
  *
  * `children` is a render prop rather than an element so it only runs once the
  * app and args are non-null — the content component never re-checks them.

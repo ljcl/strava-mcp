@@ -1,6 +1,6 @@
 /**
- * Gradient-profile math for `get-segment-profile` (#266) and
- * `get-route-preview` (#264). Pure functions over a distance + altitude pair,
+ * Gradient-profile math for `get-segment-profile` and `get-route-preview`.
+ * Pure functions over a distance + altitude pair,
  * unit-tested next to `hillAnalysis.ts`.
  *
  * Both callers answer the same question — "an average grade of 4% hides the

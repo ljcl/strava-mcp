@@ -1,5 +1,5 @@
 /**
- * CTL/ATL/TSB fitness-trend math for `get-fitness-trend` (#181). Pure
+ * CTL/ATL/TSB fitness-trend math for `get-fitness-trend`. Pure
  * functions over daily relative-effort loads, unit-tested next to
  * `trainingLoad.ts`.
  *
@@ -102,7 +102,7 @@ export interface FitnessTrendOptions {
    * length, and days it does not cover project as rest.
    */
   plannedLoads?: PlannedLoads;
-  /** Solve a load taper landing on a target TSB (#267). */
+  /** Solve a load taper landing on a target TSB. */
   taper?: TaperRequest;
 }
 
@@ -119,7 +119,7 @@ export interface FitnessTrendResult {
   tsbPositiveDate: string | null;
   /** Solved taper plan when `taper` was requested, else null. */
   taper: TaperPlan | null;
-  /** Dated stretches worth annotating on a chart (#262). */
+  /** Dated stretches worth annotating on a chart. */
   bands: TrendBand[];
   flags: string[];
 }
@@ -359,9 +359,9 @@ export function taperWeekWeights(days: number): number[] {
  * Fatigue decays faster than fitness (`b < a`), so more load always means less
  * form on the target date: the line slopes down, and the two clamps are the
  * interesting cases. `k < 0` means even complete rest arrives short of the
- * target — the date is too soon. A daily load above
- * `MAX_TAPER_DAILY_LOAD` means the target is so negative it would take racing
- * every day to hit; both report the TSB that actually lands.
+ * target — the date is too soon. A daily load above `MAX_TAPER_DAILY_LOAD`
+ * means the target is so negative it would take racing every day to hit;
+ * both report the TSB that actually lands.
  */
 export function solveTaperPlan(
   start: { ctl: number; atl: number },

@@ -12,9 +12,9 @@ import {
 } from "./outputs";
 
 /**
- * Paging is part of the tool contract (#246). Strava serves `/segments/starred`
- * one page at a time regardless, so without these the caller had no way to
- * reach page two and no way to know page two existed.
+ * Paging is part of the tool contract. Strava serves `/segments/starred` one
+ * page at a time regardless, so without these arguments a caller has no way to
+ * reach page two and no way to know page two exists.
  */
 const ListStarredSegmentsInputSchema = z.object({
   page: z
@@ -110,9 +110,8 @@ export const listStarredSegments = {
         })
         .join("\n---\n");
 
-      // A full page means Strava had at least this many; there may be more.
-      // Saying so is the point of #246 — a truncated list presented as
-      // complete is worse than no list.
+      // A full page means Strava has at least this many; there may be more.
+      // Say so: a truncated list presented as complete is worse than no list.
       const heading =
         currentPage > 1
           ? `**Your Starred Segments (page ${currentPage}):**`
@@ -129,8 +128,8 @@ export const listStarredSegments = {
         segments: segments.map(toSegmentSummary),
         count: segments.length,
         page: currentPage,
-        // A full page means Strava had at least this many; the flag is the
-        // structured half of the "more may be available" note above (#246).
+        // A full page means Strava has at least this many; the flag is the
+        // structured half of the "more may be available" note above.
         has_more: segments.length === pageSize,
       };
       warnOnSchemaDrift(name, SegmentListOutputSchema, structured);

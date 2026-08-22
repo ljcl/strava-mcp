@@ -39,7 +39,7 @@ export function LoadChart({
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
     marginTop: 8,
-    // Bottom margin must fit tick label descenders; see CLAUDE.md.
+    // Bottom margin must fit tick label descenders; see docs/mcp-apps.md.
     marginBottom: 24,
   };
 

@@ -52,7 +52,7 @@ export function ScatterView({
 
   // Captured once per mount: "now" only anchors the recency opacity ramp,
   // and a fresh Date.now() each render invalidated the chartData memo on
-  // every render (#133).
+  // every render.
   const [now] = useState(() => Date.now());
   const oldestTs = useMemo(
     () => Math.min(...runs.map((a) => new Date(a.date).getTime()), now),

@@ -1,5 +1,5 @@
 /**
- * Per-tool-call telemetry (#241).
+ * Per-tool-call telemetry.
  *
  * The server ran for months emitting only free-text `console.error`, so there
  * was no way to answer which tool burns the Strava quota, how slow

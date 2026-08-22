@@ -1,5 +1,5 @@
 /**
- * MCP prompts (#128): slash-invokable guided workflows packaging the
+ * MCP prompts: slash-invokable guided workflows packaging the
  * "supplement the official Strava connector" story. Each prompt's text
  * references both this server's tools and official-connector discovery
  * (`list_activities`), mirroring the recommended workflow in the README.

@@ -85,14 +85,14 @@ export function ActivitySegments({ data, mode, app }: ActivitySegmentsProps) {
         compact={isMobile}
       />
 
-      {/* The list's shape in words (#253). Visually hidden: sighted users
-       * read it off the rows and the key below. */}
+      {/* The list's shape in words. Visually hidden: sighted users read it
+       * off the rows and the key below. */}
       <p className={styles.srOnly}>
         {buildSegmentsA11ySummary(data.segments, domain, activityType)}
       </p>
 
-      {/* The dot colour is this app's primary encoding and had no key at all
-       * (#254), so nothing said whether hotter meant faster or slower. */}
+      {/* The dot colour is this app's primary encoding, so it gets a key:
+       * without one nothing says whether hotter means faster or slower. */}
       {data.segments.length > 1 && domain.max > domain.min && (
         <div className={styles.key}>
           <RampLegend
@@ -223,7 +223,7 @@ function Row({ rowId, effort, domain, activityType, onOpenChange }: RowProps) {
       <Collapsible.Trigger
         className={styles.trigger}
         // Without this the trigger's name is the concatenation of its visible
-        // text, which omits the dot entirely (#253).
+        // text, which omits the dot entirely.
         aria-label={buildRowLabel(effort, domain, activityType)}
       >
         <span

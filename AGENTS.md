@@ -2,29 +2,104 @@
 
 Remote MCP server for connecting AI tools to your Strava data.
 
-## Architecture
+## Documentation
 
-- **Runtime**: Bun (TypeScript)
-- **Transport**: Streamable HTTP on port 3000 (`/mcp` endpoint), **dual era** via `@modelcontextprotocol/server` v2's `createMcpHandler` (`apps/server/src/mcpEndpoint.ts`): the 2026-07-28 revision is served per request (stateless, `_meta` envelope, `server/discover`, `Mcp-Method`/`Mcp-Name` headers, `resultType` + `ttlMs`/`cacheScope` on results), and 2025-era clients are served through the SDK's stateless legacy fallback until they migrate. One `createServer` factory backs both legs so the eras cannot drift. Protocol sessions are gone with the revision that removed them: no `Mcp-Session-Id` is minted (the 2025 spec always made it server-optional), legacy GET/DELETE answer 405, and the endpoint still parses every POST body itself with `parseJsonWithLargeInts`, handing the SDK a `parsedBody` — that is the seam that keeps 64-bit ids losslessly intact. The `cacheHints` server option stamps a 1-hour `ttlMs` on the list/read/discover results because that surface only changes on redeploy; `cacheScope` stays on the SDK's `private` default since `/mcp` can sit behind `MCP_AUTH_TOKEN`.
-- **Deployment**: Docker container, exposed via HTTPS tunnel or reverse proxy
-- **Monorepo**: Bun workspaces with Turborepo (`apps/*` + `packages/*`)
-- **HTTP layer**: `apps/server/src/fetchClient.ts` owns all rate-limit awareness and backoff. It parses Strava's `X-RateLimit-*` / `Retry-After` headers (snapshot via `stravaApi.getRateLimitSnapshot()`), retries 429s honouring `Retry-After`, and retries transient 5xx / network faults with bounded exponential backoff — GET/HEAD only, never writes. Add retry/limit logic here, not per-tool. Exhausted-limit 429s surface as a structured `RateLimitError` that `handleApiError` (`stravaClient.ts`) turns into an actionable message **without flattening it**: the rethrow is still a `RateLimitError` (caller context prefixed onto `message`, `detail` still the bare window description a tool can quote), and every other HTTP failure becomes a `StravaApiError extends HttpError` so the status survives the translation. Flattening either into a plain `Error` is what silently killed the scan tools' `instanceof RateLimitError` abort and `loadRouteProfile`'s 404 GPX fallback — a caller may only degrade on a type or a status that is still there.
-- **Response cache**: `fetchClient.ts` also owns an opt-in TTL + LRU cache (`apps/server/src/cache.ts`, `TtlLruCache`) for immutable-ish GETs, to relieve rate-limit pressure (e.g. `get-best-efforts` re-fetching activity detail per activity). The `stravaCacheTtl` policy keys caching by request path: activity streams and segment streams 6h (a segment's course cannot be edited — a change makes a new segment — so its profile is as immutable as a recorded activity's); detailed activity and its laps/zones/photos 1h, and a route's stored streams 1h (the expensive half of the route pair, wanted by both `get-route-preview` and the map, and only invalidated by an athlete editing the route); athlete profile/stats, a single segment, and a single route 5m; `/segment_efforts` 2m — sized so each MCP App's `view-`/`get-…-data` pair costs one upstream fetch, not two; `/athlete/activities` 2m (#329), because the cadence-trends, training-load, and fitness-trend pairs each run a full history pagination, and their handlers floor the `after`/`before` window bounds to the minute (`quantizedEpochAfter`/`quantizedEpochBefore` in `server.ts`) so a pair's two calls build one URL — without that quantization the TTL would hit zero times, since a raw `Date.now()` per call keys every scan uniquely. Other listings, exports, and ad-hoc queries stay uncached. The cache key is the full URL (query included, so distinct stream resolutions and date windows stay separate); TTL and invalidation match on the query-stripped path. A successful write invalidates every cached read on the same branch — descendants (so `update-activity` drops the activity's cached detail/streams/zones/laps) **and** ancestors, because `star-segment` PUTs `/segments/{id}/starred` and flips `starred` on the parent. A request can pass `skipCache: true` to bypass entirely — the `update-activity` append read does this so it never composes onto a stale description. Add caching policy in `stravaCacheTtl`, not per-tool.
-- **Streams**: every stream read goes through the `stravaClient.ts` wrappers — `getActivityStreams()`, `getRouteStreams()`, `getSegmentStreams()` — never a bare `stravaApi.get`. All three share one private `fetchStreamSet` core, so the contract is stated once: it validates the `[{type, data}]` shape and routes failures through `handleApiError`, so a 401 refreshes and retries and a 429 gets the structured message. Only a genuine 404 or empty response throws `StreamsUnavailableError` — the one error a caller may degrade on ("this resource has no recorded samples"); it carries `resourceId` + `kind` (`activity` | `route` | `segment`) so the message names what was missing. Catching more than that is what made #237: seven bare `catch {}` fetchers told users their GPS run was a manual entry whenever a token expired.
-- **Distance + altitude analysis**: a segment's stored streams and a saved route's carry no `time`, so `hillAnalysis.ts`'s pace/HR machinery cannot serve them. `gradientProfile.ts` is the single home for the time-free half — gradient bands, sustained climbs (reusing hillAnalysis's `computeGrades` / `detectSustained`), the steepest sustained window, and a shape verdict — shared by `get-segment-profile` and `get-route-preview`, whose common prose lives in `tools/_profileText.ts`. A saved route's elevation is resolved once in `routeProfile.ts` (`loadRouteProfile`), used by both `get-route-map-data` and `get-route-preview` so chart and prose cannot disagree; routes predating Strava's stored profiles 404 and fall back to `<ele>` parsed from the GPX export (`gpxTrackPoints.ts`), and only that genuine absence degrades.
-- **Grade-adjusted pace has one definition**: `hillAnalysis.ts`'s `gapFactor` (Minetti) and `computeGrades` (Strava's `grade_smooth`, else an altitude window). `splitAnalysis.ts` (`get-split-analysis`, #265) imports both rather than re-deriving them, along with `MAX_SAMPLE_GAP_SECONDS` and `POWER_COVERAGE_MIN`, so a hilly split and a hilly climb are corrected identically. Its own contribution is the distance binner: `binByDistance` accumulates the streams into buckets bounded by a caller-supplied edge list, dividing a sample interval that straddles a boundary in proportion — which is why the per-km splits and the exact-midpoint halves behind the verdict come from one function instead of two. Halves are cut at half the recorded distance, never by grouping splits, so an odd split count or a trailing partial cannot skew the verdict. With no elevation stream, grades are all zero and GAP collapses onto raw pace: the response warns rather than presenting an uncorrected verdict as corrected
-- **Taper solving**: `fitnessTrend.ts` owns every CTL/ATL/TSB number, including the forward-looking ones — `plannedLoads` projects a prescribed load instead of rest, and `solveTaperPlan` finds the weekly load taper that lands on a target form on a target date (#267). TSB after n days is linear in the daily loads, so two projections (rest, and the taper shape at scale 1) pin a line and the exact scale follows — no bisection, no tolerance. Fatigue decays faster than fitness, so the line always slopes down; the two clamps are the honest answers: a target even complete rest cannot reach in time, and one that would take racing every day (`MAX_TAPER_DAILY_LOAD`). Both report the form that actually lands rather than inventing a plan. Keep new projection math here, not in a tool: `get-fitness-trend` and the fitness-trend app both read one solve
-- **Per-call telemetry**: `dispatchToolCall` is timed end to end and emits one structured JSON line per call via `telemetry.ts` (#241) — tool name, duration, outcome, error class, and the rate-limit snapshot. The timer starts **before token resolution**, so a not-connected call is recorded too: it cost the caller a round trip and its rate is worth watching. A handler returning `isError` counts as an error alongside a throw, or the counters would flatter the server. `recordToolCall` can never fail the call it describes — the snapshot read and the serialize are both guarded, because a logging fault turning a successful tool call into an error is a worse bug than a missing log line. The rolling counters back the authed half of `/health`. The advertised `logging` capability is still backed by a real `logging/setLevel` handler (the v2 SDK registers one whenever the capability is declared — declaring it without a handler answers `-32601`, which is worse than not advertising it), but the per-session sink died with sessions: stateless legacy serving has nowhere to keep the level a client sets, so the dispatcher's records now reach only 2026-07-28 callers whose request carries the `io.modelcontextprotocol/logLevel` envelope key — which is also the revision's MUST-NOT-emit-unrequested gate — and `ctx.mcpReq.log` applies their threshold
-- **Progress notifications**: a caller's `progressToken` becomes a `ReportProgress` closure in `progress.ts` (#279), passed to every handler as its third argument — always present (`NO_PROGRESS` when none was requested), so a tool never checks whether progress was asked for. Two deliberate shapes: `progress` is a plain **tick counter with no `total`**, and the count lives in the message, because the spec requires one token's progress to strictly increase and a call with several phases ("page 3 of ?", then "activity 87 of 120") cannot carry two denominators in one monotonic number without either overshooting or going backwards; and the throttle is **time-based** (`MIN_PROGRESS_INTERVAL_MS`), because a pool that finishes 50 activities in a second is one line of news, not 50 — with `important: true` bypassing it for phase changes and rate-limit aborts, which are news whenever they land. Counts from a bounded pool are completion-ordered, not index-ordered. Like telemetry, a send is fire-and-forget and every failure is swallowed. Client side, `useServerToolData` sets `resetTimeoutOnProgress` (so a live sweep is not killed by the host's default timeout) and exposes the latest message for `LoadingState` to render
-- **Token access**: `dispatchToolCall` resolves the access token once per call via `getStravaToken()` (`apps/server/src/tokenManager.ts`) and passes it to the handler as its second argument — tools never read `process.env.STRAVA_ACCESS_TOKEN`. The helper keeps `TokenData` in memory, refreshes *inside* `EXPIRATION_BUFFER_SECONDS` (so the first call after a 6-hour rollover costs no wasted 401), and throws a typed `NoTokenError`; dispatch maps that and `TokenRevokedError` to one not-connected message naming `/auth/start`. Adding a tool means accepting `(args, token)`, not adding a guard. The two raw OAuth POSTs go through `postOAuthToken`, which retries 5xx only — a timeout may have rotated the refresh token server-side, so resending it would lock the server out.
-- **Resource ids**: every tool argument naming a Strava id goes through `stravaIdInput` (`apps/server/src/tools/_ids.ts`) — never an ad-hoc `z.number()` or `z.union([z.number(), z.string()])`. Strava ids are 64-bit and route/segment-effort ids already exceed 2^53, so an id sent as a JSON number is rounded by the host's `JSON.parse` before validation can see it and the true digits are unrecoverable. The schema therefore advertises ids as **string only** (`stravaIdJsonSchemaOverride`, applied in `toInputSchema`) so a host cannot generate the lossy shape, while still accepting a safe-integer number at runtime and normalising every id to its digit string. `mcpEndpoint.ts` parses the inbound `/mcp` body with `parseJsonWithLargeInts` for the same reason (handing the SDK a `parsedBody`), and handlers pass ids through as strings rather than `Number.parseInt`-ing them back.
-- **Structured output**: a tool that returns data publishes an `outputSchema` and a matching `structuredContent`, so a caller chains on fields instead of regexing ids out of prose like `(ID: 123)`. The schemas live in `tools/outputs.ts` — **grouped, not per file**: `SegmentSummarySchema` + `toSegmentSummary` serve get-segment, list-starred-segments, and explore-segments alike, and the same pattern covers efforts, routes, and the two write tools (#243). `warnOnSchemaDrift` validates every payload outside production, so a shape that stops matching its schema is noisy in dev rather than silently wrong in a host. `get-activity-zones` deliberately reuses `mapActivityZones` — the activity-zones app's mapper — so the text tool and the chart cannot describe different zones. Empty results still emit a valid payload (`count: 0`), because a caller branching on `structuredContent` should not have to handle "absent" as a third case
-- **Exports have two delivery modes**: the transport is remote, so a path inside the container is unreachable and file-only exports were dead over the wire (#245). `tools/_exportOutput.ts` owns the choice: `output: "content"` returns the document, `"file"` writes it, and **omitting it** picks file when `ROUTE_EXPORT_PATH` is set and content when it is not — a published default could only have been right for one deployment. Content mode caps at `MAX_EXPORT_CONTENT_BYTES` and says outright that a truncated GPX will not open, rather than handing back something that looks complete
-- **`sportType` is an enum, not a string** (#244). `SPORT_TYPES` in `utils/activityWrite.ts` is the single list behind both the advertised JSON Schema and the runtime check, so a model picks a valid value without a failed round-trip to Strava. It is pinned from Strava's documented SportType model because there is no machine-readable feed for it — the cost is that a sport Strava adds later is rejected locally until the array is updated. Rejections name the near miss (`Weightlifting` → `WeightTraining`), since an error listing fifty values is complete but not actionable
-- **Tool permissions**: every tool takes one of the four annotation constants in `apps/server/src/tools/_annotations.ts` — never an inline `annotations` object. These are user-facing: a host buckets tools into "read-only" (grantable once) and "write/delete" (re-prompts forever) from them. `READ_ONLY` states `destructiveHint: false` even though the spec calls it meaningless alongside `readOnlyHint: true`, because its documented **default is `true`** and a host that checks it first files every read tool under write/delete (#303). `server.annotations.test.ts` holds the per-tool classification table, asserts it in both directions, and re-checks the annotations on an actual `tools/list` response — the in-memory table proves nothing about what serializes. Nothing may set `_meta["anthropic/requiresUserInteraction"]`: it forces a prompt on every call with no "don't ask again", and allow-rules do not skip it.
-- **Tool identity is a published contract**: grants are stored against a tool's name and schema, so renaming a tool or reshaping its input schema silently drops every athlete's "Allow always" and re-prompts after the next redeploy. `apps/server/tool-surface.lock.json` fingerprints `name + annotations + inputSchema + outputSchema + _meta` per tool (description excluded — it is model-facing prose that would churn the lock), and `toolSurface.test.ts` fails on drift, naming which existing tools changed. Breaking it is allowed, just deliberate: regenerate with `cd apps/server && UPDATE_TOOL_SURFACE_LOCK=1 bunx vitest run src/toolSurface.test.ts` and say so in the PR, since users pay for it with one round of re-prompting.
+Reference docs live in `docs/`. Read the relevant one before working in its area;
+this file holds only the invariants that apply to every change.
 
-- **Protocol-surface tests go over the wire, in both eras**: `mcpTestClient.ts` (`connectTestClient(name, era)`) drives a real exchange through `createMcpEndpoint(createServer)` in either era — legacy does the `initialize` handshake then parses the SSE `data:` lines; modern skips the handshake, stamps the `io.modelcontextprotocol/*` envelope keys into `params._meta` plus the `Mcp-Method`/`Mcp-Name` headers, reads capabilities from `server/discover`, and parses a bare JSON body or SSE, whichever came back (`parseResponse` picks the response out from among notifications either way). `server.integration.test.ts` (#270) runs the whole surface under `describe.each(ERAS)` — every capability, a well-formed object `inputSchema` per tool (no `$ref`, since a host cannot resolve one against a document it never gets), every id advertised as a string, `structuredContent` alongside the text, `isError` rather than a JSON-RPC error for a rejected argument, the app resources and their `_meta.ui`, and the prompts — because a tool one era serves and the other drops is exactly what dual-era serving must not allow; era-specific describes pin the modern result envelope (`resultType`, cache fields, per-response `serverInfo`) and that none of it leaks onto the legacy wire. Asserting against the in-memory `TOOLS` table instead proves nothing — an annotation or schema that does not serialize cannot influence a host. The bootstrap had been copied into three suites before this existed; add to the shared client rather than making a fourth copy.
+| Doc | Read before |
+| --- | ----------- |
+| [docs/architecture.md](docs/architecture.md) | Changing server internals (transport, HTTP layer, cache, errors, analysis math, tool metadata) |
+| [docs/mcp-apps.md](docs/mcp-apps.md) | Adding or changing an MCP App package, `packages/ui`, or `packages/data` |
+| [docs/tools.md](docs/tools.md) | Adding, renaming, or describing tools/prompts — it is the single catalog; keep it current |
+| [docs/operations.md](docs/operations.md) | Configuring or debugging a deployed instance |
+| [docs/development.md](docs/development.md) | Turborepo, coverage gates, Storybook gates, Docker image build |
+| [docs/releasing.md](docs/releasing.md) | Shipping — PR titles are Conventional Commits; release automation does the rest |
+| [docs/project.md](docs/project.md) | Filing/triaging issues, editing the project board |
+
+## Architecture invariants
+
+One line each; full rationale in docs/architecture.md. These exist because
+breaking them has shipped bugs — do not work around them locally.
+
+- **Dual-era serving shares one factory.** `mcpEndpoint.ts` serves the
+  2026-07-28 revision statelessly per request and routes 2025-era clients
+  through the SDK's legacy fallback; one `createServer` backs both legs so the
+  eras cannot drift. No sessions (`Mcp-Session-Id` is gone; GET/DELETE answer
+  405). The endpoint parses every POST body itself with
+  `parseJsonWithLargeInts` → SDK `parsedBody`; that seam keeps 64-bit ids
+  intact.
+- **Rate limits and retries live in `fetchClient.ts`, never per-tool.**
+  Parses `X-RateLimit-*`/`Retry-After` into a snapshot; bounded retries honour
+  `Retry-After`; transient 5xx/network faults retry GET/HEAD only, never
+  writes.
+- **Error types survive translation.** `handleApiError` rethrows
+  `RateLimitError` intact (context prefixed onto `message`, bare window detail
+  kept) and wraps everything else in `StravaApiError extends HttpError`.
+  Flattening to plain `Error` silently kills callers' `instanceof`/status
+  checks — degrade only on a type or status that is still there.
+- **Caching policy lives in `stravaCacheTtl`** (path-keyed TTLs; key is full
+  URL, TTL matches query-stripped path). Writes invalidate descendants AND
+  ancestors; `skipCache: true` guards append reads; handlers floor
+  `after`/`before` bounds to the minute (`quantizedEpochAfter`/`Before`) so a
+  pair's two calls share one cache key.
+- **Stream reads go through the `stravaClient.ts` wrappers** (shared
+  `fetchStreamSet`: shape validation, 401 refresh-retry, structured 429). Only
+  genuine 404/empty throws `StreamsUnavailableError` — the one error a caller
+  may degrade on. Catching more misreports failures as absences.
+- **Derived numbers have exactly one home.** GAP: `hillAnalysis.ts`
+  (`gapFactor`, `computeGrades`) — `splitAnalysis.ts` imports, never
+  re-derives. Time-free segment/route profiles: `gradientProfile.ts` (+ shared
+  prose in `tools/_profileText.ts`). CTL/ATL/TSB and any projection/taper
+  math: `fitnessTrend.ts`. Route elevation resolves once via `loadRouteProfile`
+  (genuine 404 → GPX `<ele>` fallback). Text tool and app reading different
+  copies is the failure mode these prevent.
+- **Telemetry:** `dispatchToolCall` emits one JSON line per call; timer starts
+  before token resolution (not-connected calls count); a returned `isError`
+  counts as an error; `recordToolCall` can never fail the call it describes.
+- **Progress:** every handler gets a `ReportProgress` closure (third arg,
+  always present). Tick counter without `total` (spec demands monotonic
+  increase; multi-phase calls can't carry two denominators); time-based
+  throttle with `important: true` bypass; fire-and-forget.
+- **Tokens come from `getStravaToken()`**, passed to handlers as argument 2 —
+  never read `process.env.STRAVA_ACCESS_TOKEN` in a tool. `NoTokenError` /
+  `TokenRevokedError` map to one not-connected message naming `/auth/start`.
+  OAuth POSTs go through `postOAuthToken`, which retries 5xx only — a timeout
+  may have rotated the refresh token server-side.
+- **Ids go through `stravaIdInput`** (`tools/_ids.ts`). Advertised schema is
+  string-only (`stravaIdJsonSchemaOverride`) because ids above 2^53 are
+  rounded by hosts' `JSON.parse` unrecoverably; safe-int numbers accepted at
+  runtime, normalised to digit strings; handlers pass strings through without
+  parsing back.
+- **Tools returning data publish `outputSchema` + matching
+  `structuredContent`** from `tools/outputs.ts` (schemas grouped, not per
+  file). Text tools reuse the apps' mappers rather than re-deriving — e.g.
+  `get-activity-zones` calls `mapActivityZones` from `activityZones.ts`. Empty
+  results emit a valid payload (`count: 0`). `warnOnSchemaDrift` keeps dev
+  honest.
+- **Exports choose delivery via `_exportOutput.ts`**: omitting `output` picks
+  file when `ROUTE_EXPORT_PATH` is set, content otherwise. Content mode caps
+  bytes and says outright that a truncated GPX will not open.
+- **`sportType` is an enum**: `SPORT_TYPES` (`utils/activityWrite.ts`) backs
+  both the advertised schema and the runtime check; rejections name the near
+  miss (`Weightlifting` → `WeightTraining`).
+- **Annotations come from the four `_annotations.ts` constants**, never inline
+  objects — they decide whether hosts grant reads durably or re-prompt forever.
+  `READ_ONLY` states `destructiveHint: false` explicitly (its documented
+  default is `true`). Nothing may set `_meta["anthropic/requiresUserInteraction"]`.
+  `server.annotations.test.ts` holds an exhaustive read/write classification
+  table — a new tool must be added to it.
+- **Tool identity is a published contract.**
+  `tool-surface.lock.json` fingerprints `name + annotations + inputSchema +
+  outputSchema + _meta`; `toolSurface.test.ts` fails on drift. Regenerate
+  deliberately (`UPDATE_TOOL_SURFACE_LOCK=1 bunx vitest run
+  src/toolSurface.test.ts`) and say so in the PR — users pay a round of
+  re-prompting.
+- **Protocol-surface tests go over the wire in both eras**
+  (`server.integration.test.ts` under `describe.each(ERAS)` via
+  `mcpTestClient.ts`): capabilities, object inputSchemas (no `$ref`), string
+  ids, `structuredContent`, `isError` not JSON-RPC errors, app resources,
+  prompts. Extend the shared client, never a new bootstrap copy.
 
 ## Key Directories
 
@@ -39,13 +114,12 @@ Remote MCP server for connecting AI tools to your Strava data.
 - `packages/activity-zones/` — React + Recharts MCP App for per-activity HR/power time-in-zone distribution
 - `packages/segment-progress/` — React + Recharts MCP App charting the athlete's own effort history on one segment
 - `packages/fitness-trend/` — React + Recharts MCP App charting CTL/ATL/TSB with warning bands and a dashed taper plan
-- `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing)
-  - **Formatters live here, once.** MCP App packages cannot import each other, so a formatter two apps need has exactly one home: `formatting.ts` (`formatClock`, `formatShortDate`, `formatDurationShort`, `formatTime`, `formatPace`, `formatDistance`), alongside the `ramp.ts` precedent. #216 fixed a pace-rollover bug in one of two copies and left the other wrong — neither knip nor Biome can see a genuinely-imported duplicate, so the only defence is not making the copy. Server-side, `apps/server/src/formatters.ts` is the equivalent single home; `utils/running.ts` holds sport-specific transforms only
-- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar, AppShell, CardHeader, EmptyState, ErrorState, LoadingState, Skeleton) plus the shared app-shell runtime (`AppRoot`, `useServerToolData`, `useServerToolFetcher`, `useModelContextSync`, `useMobileMode`)
+- `packages/data/` — Shared pure data utilities (formatting, activity types, smoothing). Formatters live here, once (`formatting.ts`): MCP App packages cannot import each other, so a formatter two apps need has exactly one home; duplicated copies are invisible to knip and Biome. Server-side equivalent: `apps/server/src/formatters.ts`; sport-specific transforms in `utils/running.ts`
+- `packages/ui/` — Shared presentational React components (Pill, Tooltip, Legend, SummaryBar, AppShell, CardHeader, EmptyState, ErrorState, LoadingState, Skeleton) plus the app-shell runtime (`AppRoot`, `useServerToolData`, `useServerToolFetcher`, `useModelContextSync`, `useMobileMode`)
 - `packages/design-system/` — Shared design tokens, color constants, and Storybook preview
 - `packages/vite-config/` — Shared Vite config for MCP App single-file builds
 - `packages/tsconfig/` — Shared TypeScript configurations
-- `docs/plans/` — Design docs and implementation plans
+- `docs/` — Reference documentation ([index](docs/README.md))
 
 ## Agent Skills
 
@@ -61,82 +135,6 @@ symlinks in `.claude/skills/`. Externally-sourced skills are tracked in `skills-
   or before planning a batch of backlog work.
 - `bun` — Bun runtime, package manager, test runner, and bundler usage (well-known source).
 - `github-actions-docs` — docs-grounded help for the workflows under `.github/` (GitHub source).
-
-## MCP Tools
-
-### Activity Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `create-activity` | Create a manual activity (no device recording), e.g. strength or yoga |
-| `update-activity` | Update an activity's description, title, sport type, gear, or flags |
-| `get-activity-zones` | Time spent in each HR and power zone for an activity |
-| `get-activity-laps` | Laps of an activity with sport-aware pace/speed, HR, power, cadence |
-| `export-activity-gpx` | Export an activity's recorded track as GPX built from its streams, inline or to a file |
-| `get-activity-photos` | Photos from an activity |
-| `get-running-summary` | Running-focused summary with HR zones and lap analysis |
-| `get-aerobic-analysis` | Aerobic decoupling, efficiency factor, and intensity factor from HR + power/speed streams |
-| `get-hill-analysis` | Climb/descent detection with GAP and early-vs-late climb effort drift |
-| `get-split-analysis` | Even km/mile splits with a two-halves pacing verdict stated on the clock and grade-adjusted |
-| `get-interval-analysis` | Interval detection with urban-stop-aware rest classification and rep fade |
-| `get-training-load` | Training load summary with trend analysis |
-| `get-fitness-trend` | Fitness/fatigue/form (CTL/ATL/TSB) from relative effort, with rest projection and a solved taper to a target form on a target date |
-| `compare-activities` | Compare two running activities side-by-side |
-| `get-best-efforts` | Personal best efforts across all running activities, optionally scoped to a date window |
-| `get-race-prediction` | Predicted race times from recorded best efforts (Riegel), with confidence, source effort, and km/mile goal-pace splits |
-
-### Athlete Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `get-athlete-stats` | Activity statistics (recent, YTD, all-time) |
-
-### Segment Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `list-starred-segments` | List starred segments (paged; a full page discloses that more may exist) |
-| `get-segment` | Detailed segment info |
-| `get-segment-profile` | Gradient bands, sustained climbs, crux position, and shape verdict for one segment |
-| `explore-segments` | Search for segments in a geographic area |
-| `find-segments-on-route` | Segments a route or activity actually passes through, in course order |
-| `star-segment` | Star or unstar a segment |
-| `get-segment-effort` | Details for a specific segment effort |
-| `list-segment-efforts` | Athlete's efforts on a segment |
-| `compare-segment-efforts` | Two efforts on one segment compared per third, with a cumulative delta curve |
-
-### Route Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `list-athlete-routes` | List created routes |
-| `get-route` | Detailed route info |
-| `get-route-preview` | Climbs on a saved route with position, grade, and length, plus the crux |
-| `export-route-gpx` | Export a route as GPX, inline or to a file |
-| `export-route-tcx` | Export a route as TCX, inline or to a file |
-
-### Visualization Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `view-activity-chart` | Interactive chart with HR, power, pace, altitude overlays (MCP App) |
-| `get-activity-streams-raw` | Raw stream data for the activity chart UI (app-only) |
-| `view-cadence-trends` | Interactive cadence trends with timeline, scatter, zones, and overlay views (MCP App) |
-| `get-cadence-trend-data` | Summary cadence/pace data for the cadence trends UI (app-only) |
-| `view-route-map` | Interactive map of an activity or route GPS track, fit to bounds with start/finish markers; optional distance-anchored waypoints (MCP App) |
-| `get-route-map-data` | Decoded `[lat, lng]` coordinates for the route map UI (app-only) |
-| `view-activity-segments` | Prioritised, scrollable list of one activity's segment efforts: PRs/top-10 pinned, then run order, pace-heat with expandable effort detail (MCP App) |
-| `get-activity-segments-data` | Segment-effort rows (time, pace, grade, ranks, HR/power/cadence) for the activity-segments UI (app-only) |
-| `view-training-load` | Weekly running-volume bars with a rolling trend line and injury-risk warning weeks (MCP App) |
-| `get-training-load-data` | Per-week volume, trend value, and warning flags for the training-load UI (app-only) |
-| `view-compare-activities` | Interactive overlay of two activities' streams on a shared distance/time axis with a delta summary (MCP App) |
-| `get-compare-activities-data` | Aggregate comparison (summaries, activity2−activity1 differences, efficiency) for the compare-activities UI (app-only) |
-| `view-activity-zones` | Time-in-zone bar chart for one activity's HR and power zones with an easy/moderate/hard split (MCP App) |
-| `get-activity-zones-data` | Per-zone time distributions (bucket bounds, seconds, percentages) for the activity-zones UI (app-only) |
-| `view-segment-progress` | Effort history on one segment: time over date with PR/top-3 highlights, an average-HR overlay, and an expandable effort list (MCP App) |
-| `get-segment-progress-data` | Segment details, per-effort rows, and the derived progress summary for the segment-progress UI (app-only) |
-| `view-fitness-trend` | CTL/ATL/TSB over time with shaded fatigue/freshness/ramp bands and a dashed taper plan or rest projection past today (MCP App) |
-| `get-fitness-trend-data` | Per-day CTL/ATL/TSB, the projection, the solved taper, and the dated warning bands for the fitness-trend UI (app-only) |
 
 ## Styling
 
@@ -162,323 +160,37 @@ with `data-*` selectors (Base UI exposes `data-pressed`, `data-disabled`, etc.; 
 passing your own `data-*` where the existing selectors expect them). Use `@base-ui/react`, not the
 frozen `@base-ui-components/react`.
 
-- `Pill` / `PillGroup` and `Legend` / `LegendItem` (`packages/ui`) are built on Base UI
-  `Toggle` / `ToggleGroup`: the group provides `role="group"`, arrow-key roving focus, and a single
-  Tab stop. The group's pressed `value` array is derived from the children's `active` / `hidden`
-  props and an index value is injected per child, so the public component props are unchanged.
-- Not every component needs a primitive. `Tooltip` (rendered inside Recharts' tooltip, which owns
-  positioning), `Skeleton`, and `AppShell` are presentational and stay hand-rolled.
-- Chart accessibility: every Recharts chart sets `accessibilityLayer` (keyboard focus + arrow-key
-  tooltip stepping) plus `title`/`desc` props rendered as SVG `<title>`/`<desc>`, with the
-  narration built by a unit-tested `a11y.ts` in each MCP App package (mirroring route-map's
-  `a11yDescription.ts`); this convention owns the interactive-control migration.
-
-## MCP App (Activity Chart)
-
-https://modelcontextprotocol.io/docs/extensions/apps
-
-The `view-activity-chart` tool renders an interactive Recharts chart in MCP-compatible hosts.
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useApp`, `useHostStyles`)
-- Bundled as single HTML file via `vite-plugin-singlefile`
-- Served as MCP resource at `ui://activity-chart/app.html`
-- Calls `get-activity-streams-raw` (app-only visibility) to fetch data after render
-- Supports heart rate, power, pace, altitude, cadence, and grade overlays
-- X-axis `Brush` zoom (#35): drag the handles (touch included) to zoom into a time/distance window; the window is controlled state joined to the memoized chart-tree deps (per #151 an uncontrolled Brush would reset whenever the tree rebuilds), so it survives preset/legend/smooth toggles. Recharts' brush internals are themed via `:global` selectors in the CSS module
-- Lap/segment band labels sit at each band's top-left, so a dense run of short intervals used to stack labels into an unreadable smear. `selectLapLabels` (`src/lapLabels.ts`, unit-tested) walks the bands left-to-right against the currently visible axis window (full range, or the brush-zoom slice) and the measured plot width, drawing a label only when its text clears the previously drawn one — so the first of a crowded run wins and the rest drop out. Plot width comes from a `ResizeObserver` on the chart area, bucketed to ~24px (and floored at a mode-based estimate) so minor reflows don't churn the memoized chart tree (#133)
-
-## MCP App (Cadence Trends)
-
-The `view-cadence-trends` tool renders an interactive cadence analysis dashboard in MCP-compatible hosts.
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useApp`, `useHostStyles`)
-- Bundled as single HTML file via `vite-plugin-singlefile`
-- Served as MCP resource at `ui://cadence-trends/app.html`
-- Calls `get-cadence-trend-data` (app-only) to fetch summary data on mount
-- Calls `get-activity-streams-raw` (app-only) for per-second overlay data on demand, through the shared `useServerToolFetcher` — one keyed fetch per selected run, each with its own loading, error, and retry (#250)
-- Four views: Trend timeline, Scatter plot, Pace Zones, Overlay comparison
-- Overlay run selection has two entry points sharing App's `toggleRunSelection` (capped at 4): clicking Trend/Scatter dots, and a keyboard/touch-accessible run picker (`RunSelectList.tsx`, #169). Recharts `Cell` dots carry no tabindex/role/key handling, so the picker — a Base UI `ToggleGroup` of toggle chips (roving tabindex, one Tab stop, `aria-pressed` per run) shown under the Trend/Scatter charts — is the accessible alternative rather than fighting SVG focus. Unselected chips disable at the cap so the limit is legible
-
-## MCP App (Route Map)
-
-The `view-route-map` tool renders an activity's or saved route's GPS track as a self-contained map in MCP-compatible hosts.
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useApp`, `useHostStyles`)
-- Bundled as single HTML file via `vite-plugin-singlefile`; **no Recharts**. Defaults to a MapLibre basemap (network for tiles); a pure-SVG offline grid is the automatic fallback when tiles fail
-- Served as MCP resource at `ui://route-map/app.html`
-- Calls `get-route-map-data` (app-only) on mount with the `activity_id` or `route_id`
-- For activities the server prefers the `latlng` stream over the polyline and returns index-aligned metric streams (time, distance, altitude, heartrate, watts, velocity_smooth, grade_smooth) alongside the coordinates. Saved routes get `distance` + `altitude` from their stored profile via `loadRouteProfile` (#264), so the elevation strip, the scrub readout, and elevation colouring work for a `route_id` too — previously dead code. Stream-less activities and routes with no recoverable profile still fall back to the decoded polyline with no streams
-- Polyline fallback geometry is decoded server-side to `[lat, lng]` pairs in `apps/server/src/polyline.ts` (unit-tested next to the zod schemas) so the bundle stays lean
-- Projection math (`src/normalize.ts`, unit-tested) fits the track to bounds with padding, scales longitude by `cos(latitude)` to avoid east–west stretch, and flips latitude so north is up. Start/finish markers, distance + elevation summary; neutral grid background, no basemap imagery
-- When metric streams are present the track is coloured by a selectable metric (pace/speed, heart rate, power, elevation, gradient) as binned same-colour path runs (`src/metrics.ts`, unit-tested), with a gradient scale legend, a pointer/touch scrub (nearest-point crosshair + tooltip), and a linked elevation strip (`src/elevationProfile.ts`, unit-tested) sharing the scrub index with the track
-- Zoom/pan via SVG viewBox windowing (`src/panZoom.ts`, unit-tested): wheel + drag on desktop, pinch + drag on mobile, and keyboard (#167) — the grid SVG is a focusable region (`tabIndex`, inset focus ring) whose arrow keys pan and `+`/`-`/`0` keys zoom/reset (`zoomAboutCenter`, `panByFraction` in `panZoom.ts`), plus always-visible on-map zoom in/out/reset buttons (they replace the old Reset pill and serve keyboard and no-wheel pointer users); zoom changes are announced via a polite `aria-live` region. All clamped to the base frame; marker/stroke sizes counter-scale so they stay screen-constant. `touch-action` is `pan-y` at base zoom (page keeps scrolling) and `none` once zoomed (drag pans)
-- Annotation layers, each toggleable via the footer legend: lap or km split dots (`src/annotations.ts`, unit-tested; km marks thinned 1/2/5… per length), segment-effort halo spans (gold = PR, light purple = top-10), grouped photo pins, and caller-pinned waypoints. The server resolves anchors to coordinate indices in `apps/server/src/mapAnchors.ts` (unit-tested) because Strava lap/effort indices reference the full-resolution stream, not the downsampled one. The lap/photo/waypoint markers render in both views (grid as SVG `<title>` overlays, basemap as MapLibre hover popups themed via `global.css` so they read on the dark map). A layer whose fetch fails costs that layer and nothing else — a 429 included: the geometry is already in hand by then, so failing the call would trade a map without lap markers for no map at all. `dropOptionalLayer` (`server.ts`) logs the reason and records a `layerWarnings` note on the payload, the sibling of `waypointWarnings` and surfaced the same way by `view-route-map`'s text; a rate limit quotes `RateLimitError.detail` rather than the internal call that hit it. What #237 forbids is misreporting a failure as an absence, which is why every cause is named and none is swallowed
-- Waypoints (#185): `view-route-map` / `get-route-map-data` take an optional `waypoints` array (`km`, `label`, `kind: fuel|climb|water|custom`) so the model can pin fueling points or climb warnings from a race plan. Anchored by cumulative distance in `mapAnchors.ts` (`resolveWaypoints`; the recorded distance stream when present, else a haversine `cumulativeDistances` over the geometry — so saved routes work too); out-of-range waypoints are dropped into `waypointWarnings`, which the view tool's text surfaces. Rendered as per-kind coloured diamonds on the grid and elevation strip and a colored circle layer on the basemap (`WAYPOINT_COLORS` in `src/annotations.ts` — concrete hex, theme-invariant, shared with the canvas basemap), counted in the a11y narration
-- Screen-reader narration (`src/a11yDescription.ts`, unit-tested) describes the route for non-visual users — kind, distance, climb, loop vs point-to-point shape, geographic extent, altitude range, colour metric, annotation counts — in both views: the SVG grid exposes it via `<title>`/`<desc>` (`aria-labelledby`/`aria-describedby`), the basemap as visually-hidden text beside the canvas plus a route-named `aria-label` on MapLibre's canvas region; ARIA wiring is asserted by SSR-markup tests (`RouteMap.a11y.test.tsx`)
-- Segment efforts split presentation from data (`src/segments.ts`, unit-tested). The server returns up to 60 efforts with `distanceMeters`; only a lean subset earns a drawn halo — every PR/top-10 plus the longest few (`selectOutlineSegments`, behind the "Segments" toggle) — so a segment-dense activity does not bury the track. Every effort covering the scrubbed point is listed in the one shared scrub tooltip regardless of the toggle (`segmentsAtIndex`, PR-first then most-specific, capped to 3 + "N more"), so the white per-segment MapLibre popup is gone and no longer clashes with the metric value
-- MapLibre basemap (`src/BasemapView.tsx`, OpenFreeMap Liberty style) is the **default view**; a failed style load falls back silently to the offline SVG grid (which also keeps the SVG zoom/pan). The track renders as GeoJSON line features reusing the same color binning (`buildColorRuns`; GeoJSON builders in `src/basemapData.ts`, unit-tested — MapLibre paints canvas so colors there are concrete hex, not CSS vars), with MapLibre's native zoom/pan behind `cooperativeGestures` (no scroll trap), OSM attribution via MapLibre's control, and the scrub tooltip positioned via `map.project`. The tile origin is allowlisted via `_meta.ui.csp` on the route-map resource (descriptor + content response, see `docs/plans/basemap-tile-source.md`). maplibre-gl (v6, ESM-only — no default export and no pre-built CSP/worker bundles) is inlined by the single-file build. Its worker is an ES module importing a shared sibling chunk, which a Blob-spawned worker inside one HTML file could never resolve, so the `bundledRawWorker` plugin (`packages/vite-config/maplibre-worker.ts`) serves BasemapView's `maplibre-gl/dist/maplibre-gl-worker.mjs?bundled-raw` import as that module flattened into one self-contained IIFE by a nested Vite build; BasemapView hands the string over as a Blob URL via `maplibregl.setWorkerUrl` (`maplibre-worker.d.ts` types the query import). This is load-bearing: a worker re-bundled as part of the app build loses its GeoJSON code path once vite-plugin-singlefile flattens the bundle, so tiles render but every GeoJSON overlay (track, markers, halos) throws in the worker and silently vanishes — the nested build keeps the worker outside the app graph, entering it only as a string literal. The plugin must stay registered wherever route-map sources are served: route-map's vite.config (build + its vitest) and Storybook's `viteFinal`. app.html ~2.12 MB raw (~554 KB gz). Grid stories pin `basemapEnabled: false` (the deterministic offline fallback, no live tiles) so the browser-mode story tests stay hermetic; the two Basemap stories still exercise the real default view
-
-## MCP App (Activity Segments)
-
-The `view-activity-segments` tool renders the segments run in one activity as a prioritised, scrollable list (no map).
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `AppShell`); bundled as a single HTML file via `vite-plugin-singlefile`. No Recharts, no MapLibre
-- Served as MCP resource at `ui://activity-segments/app.html`; calls `get-activity-segments-data` (app-only) on mount with the `activity_id`
-- The server maps the activity's embedded `segment_efforts` (no extra fetch, no subscription) to per-effort rows in `apps/server/src/activitySegments.ts` (`mapActivitySegments`, unit-tested), sorted by `start_index`. The Strava segment **leaderboard** endpoints are dead at the API level, so the only ranking signal is the athlete's own `pr_rank` / `kom_rank` per effort
-- Presentation/selection logic is pure and unit-tested in `src/segments.ts`: `selectHighlights` (PR/top-10 first, then by rank) pins notable efforts to a Highlights group; `runOrder` lists the rest by `start_index`; `buildHeatDomain`/`heatColor` colour each row's dot by effort speed (percentile-clamped, faster = hotter) using the shared `@strava-mcp/data` ramp; `summaryCounts` feeds the header line
-- Each row is a Base UI `Collapsible`: a two-line summary (heat dot, name, time, PR gold / top-10 purple badge; pace, distance, grade) that expands to HR, cadence (spm/rpm by sport), power (only with `device_watts`), max grade, and moving time. Mobile chrome via `useMobileMode`, per the MCP App mobile conventions
-- The pace-ramp helpers (`rampColor`, `percentileDomain`, `normalizeValue`, `colorForValue`, `RAMP_GRADIENT_CSS`) live in `@strava-mcp/data` so this app and route-map share one ramp (mcp-app packages cannot import each other)
-
-## MCP App (Training Load)
-
-The `view-training-load` tool renders weekly running volume as a bar chart with a rolling trend line and injury-risk warning weeks.
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); bundled as a single HTML file via `vite-plugin-singlefile`
-- Served as MCP resource at `ui://training-load/app.html`; calls `get-training-load-data` (app-only) on mount with the `days` window (default 84, max 365)
-- The server-side aggregation is pure and unit-tested in `apps/server/src/trainingLoad.ts` (`buildTrainingLoadData`): Monday-start weekly buckets, gap weeks zero-filled so the timeline stays continuous, a centered rolling-average trend per week, and per-week warning flags with reasons. The warning rules (`computeWeekWarnings`: >30% week-over-week spike, >150%-of-average high week) are shared with the `get-training-load` text tool so chart and prose can never drift
-- Recharts `ComposedChart`: weekly distance bars (warning weeks recolored in the heart-rate/danger hue) plus the trend `Line`; the shared scrub tooltip lists distance, runs, time, elevation, and any warning reasons for the hovered week
-- Footer `Legend` toggles the trend line and the warning highlighting; totals (runs, distance, time, elevation) render in the shared `SummaryBar` from `@strava-mcp/ui` (also used by cadence-trends)
-
-## MCP App (Compare Activities)
-
-The `view-compare-activities` tool overlays two activities' streams so the user can see WHERE in the run the difference happened (the text `compare-activities` tool only reports aggregates).
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); Recharts, bundled as a single HTML file via `vite-plugin-singlefile`
-- Served as MCP resource at `ui://compare-activities/app.html`; takes `activity_id_1` + `activity_id_2`
-- Calls `get-activity-streams-raw` once per activity (cross-app reuse; TTL-cached server-side) for the overlay, and `get-compare-activities-data` (app-only) for the delta summary bar. That tool reuses the text tool's aggregate logic, extracted as the pure `buildComparison` in `apps/server/src/tools/compareActivities.ts` (unit-tested)
-- Alignment is pure and unit-tested in `src/align.ts`: both activities are resampled onto one uniform grid over the shared distance or time axis (`alignSeries`, linear interpolation, light post-smoothing), so the tooltip can show a per-point activity2−activity1 delta and a shorter activity's line simply ends. Pace is only rendered as pace (min/km, reversed axis) when BOTH activities are pace sports; mixed pairs fall back to km/h (`paceCategory`)
-- One metric at a time (pace/HR/power/cadence/altitude pills, intersection of what both activities recorded), distance/time axis toggle (distance only when both recorded it), legend toggles per activity line (activity 1 blue, activity 2 orange)
-- Delta summary header renders from the compare payload (distance, time, pace, HR, cadence, elevation, efficiency tiles; better/worse coloring); it degrades away if that fetch fails while the overlay still renders
-- View state is reported to the host via `useModelContextSync` (`src/contextSummary.ts`, unit-tested); screen-reader narration via `accessibilityLayer` + SVG `<title>`/`<desc>` (`src/a11y.ts`, unit-tested), per the chart accessibility convention
-
-## MCP App (Activity Zones)
-
-The `view-activity-zones` tool renders one activity's time-in-zone distribution as a bar chart (#34).
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); Recharts, bundled as a single HTML file via `vite-plugin-singlefile`
-- Served as MCP resource at `ui://activity-zones/app.html`; calls `get-activity-zones-data` (app-only) on mount with the `activity_id`
-- The server maps the raw `/activities/{id}/zones` response (the same fetch behind the `get-activity-zones` text tool) to chart-ready sets in `apps/server/src/activityZones.ts` (`mapActivityZones`, unit-tested): per-bucket seconds and percentages, the `-1` open-ended top bucket normalised to `null`, sets without buckets or with zero time dropped
-- One `BarChart` per zone set (heart rate in `--chart-heartrate`, power in `--chart-power`, opacity ramp Z1→Zn), pct labels on top, shared `Tooltip` with time + share, following cadence-trends' `ZonesView` pattern; a `PillGroup` switches between HR and power when both exist, and estimated (non-sensor) power sets carry a footnote
-- Presentation logic is pure and unit-tested in `src/normalize.ts` (`buildZoneRows`, `intensitySplit` — zones 1–2 easy / 3 moderate / 4+ hard, `buildSummaryStats` for the shared `SummaryBar`); a11y narration in `src/a11y.ts`, host context sync via `useModelContextSync` (`src/contextSummary.ts`), all per the established conventions
-
-## MCP App (Segment Progress)
-
-The `view-segment-progress` tool charts the athlete's own repeated efforts on one segment (#184) — the progression signal Strava's dead leaderboard endpoints no longer provide.
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); Recharts, bundled as a single HTML file via `vite-plugin-singlefile`
-- Served as MCP resource at `ui://segment-progress/app.html`; calls `get-segment-progress-data` (app-only) on mount with the `segment_id` and the optional `start_date_local` / `end_date_local` range
-- The server pairs `get-segment` with `list-segment-efforts` (one page, 200 efforts max) and maps them in `apps/server/src/segmentProgress.ts` (`buildSegmentProgress`, unit-tested): efforts sorted oldest-first, ranked by elapsed time, pace derived per km, run cadence doubled to spm as in `mapActivitySegments`. `summarizeSegmentProgress` derives the summary both surfaces render — best/latest/median, the gap to the best, and **chronological halves** (early vs recent mean time and mean heart rate, from four efforts up). Those halves are what make the "same segment time, −8 bpm" read legible; the `view-` tool's text prints the same numbers, so chart and prose cannot drift
-- The segment-efforts endpoint is subscriber-only; the handler turns Strava's `SUBSCRIPTION_REQUIRED:` sentinel into a plain-English tool error
-- `ComposedChart`: effort time on a **reversed** left axis (faster sits higher, so improvement reads up, labelled "time (faster ↑)"), average heart rate as a dashed line on the right axis (legend-toggleable, only when some effort recorded it). Lines are `type="linear"` — efforts are weeks apart and a spline would invent times between them
-- Per-effort dots come from a custom `dot` renderer keyed on the row's `highlight` tier (`--color-tier-pr` gold for the personal best, `--color-tier-top10` purple for ranks 2–3, and no top-3 tier at all when there are three efforts or fewer). Deliberately not extra `Scatter` series: Scatter draws a symbol for every row including the null ones, so highlights arrive with phantom points attached
-- `EffortList.tsx` lists the efforts newest-first as Base UI `Collapsible` rows (date, badge, time; pace, gap to best, HR — expanding to rank, moving time, max HR, cadence, power, and the parent activity id). The open row is reported to the host through `useModelContextSync` so the model can name the effort the user is looking at
-- Presentation logic is pure and unit-tested in `src/normalize.ts` (`buildChartRows`, `highlightForRank`, `buildSummaryStats`, the formatters); a11y narration in `src/a11y.ts`, host context sync in `src/contextSummary.ts`, all per the established conventions
-
-## MCP App (Fitness Trend)
-
-The `view-fitness-trend` tool renders the performance-management chart — fitness, fatigue, form, and where the next few weeks take them (#262).
-
-- Uses `@modelcontextprotocol/ext-apps` SDK with React hooks (`useHostRoot`, `useServerToolData`); Recharts, bundled as a single HTML file via `vite-plugin-singlefile`
-- Served as MCP resource at `ui://fitness-trend/app.html`; calls `get-fitness-trend-data` (app-only) on mount with `days`, `projectDays`, and the optional `targetDate` / `targetTsb`
-- **No new math.** `fitnessTrend.ts` computes the series, the bands, and the taper; `fitnessTrendApp.ts` (`mapFitnessTrendApp`, unit-tested) only renames it to camelCase for the wire. The `view-` tool's text prints the same headline numbers and weekly loads, so chart and prose cannot drift
-- Warning bands are **dated server-side** (`trendBands` in `fitnessTrend.ts`), and `computeFlags` is a filter over them — the bands that run to today. The app could not derive them itself without copying `DEEP_FATIGUE_TSB` and friends across the package boundary, and a chart shading a different definition of "deep fatigue" than the prose describes is the drift the split exists to prevent. An old resolved block still shades; only a current one flags
-- `ComposedChart`: fitness as an `Area` on the left axis, fatigue as a line beside it, form as a thinner line on its own right axis with a dashed zero line (form is context, not the headline). The forward half is drawn as separate `plan*` series with `strokeDasharray`, and the handover day carries **both** keys — otherwise the dashed line starts a day adrift of the solid one it continues (`buildChartRows`)
-- The forward half is the solved taper when the caller named a target date, else the rest projection; the legend and the tooltip say which, because a prescribed number that reads as recorded is the worst outcome. `TaperPlanList.tsx` prints the weeks under the chart and hides with the plan toggle
-- One legend toggle **per band kind present** (`countBandKinds`), not one for all shading: a window routinely carries fatigue and ramp bands at once and they read as one smear otherwise
-- Presentation logic is pure and unit-tested in `src/normalize.ts`; a11y narration in `src/a11y.ts`, host context sync in `src/contextSummary.ts`, per the established conventions. The story fixture is **generated** by running the real `buildFitnessTrend` over a scripted 12-week block — CTL/ATL are recurrences, so a handwritten series charts a shape the server can never produce
-
-### View-exposed tools (host-driven views)
-
-`App.registerTool` lets the model drive a rendered view (#278) — "show me the climb at 14 km" pans the map instead of describing it. Two SDK constraints collide and `packages/ui/src/viewTools.ts` exists to resolve them: **registration must happen before `connect()`** (`registerTool` only advertises the capability while `!transport`, and `registerCapabilities` throws once a transport exists), while **the state a tool acts on only exists after it** (the map's viewBox and the chart's brush window live in the content component `AppRoot` renders once connected). So the declaration is registered up front against a stable shim in `onAppCreated` — the one pre-connect seam `useApp` offers — and the component installs the live implementation with `useViewTool`. A call landing before the view mounts answers "still loading", not an SDK throw, because that state is real and recoverable.
-
-**There is deliberately no host-capability gate**, despite the issue asking for one: `McpUiHostCapabilities` has `serverTools` (the host proxies calls *to the server*), `updateModelContext`, `message`, `sampling` — and no key meaning "the host calls tools the *app* exposes". A gate could not work anyway, since host capabilities arrive with the initialize result, after registration must have happened. None is needed: registering pre-connect sends nothing (the `sendToolListChanged` inside `registerTool` is suppressed until the handshake completes), so an unsupporting host sees one extra key it already ignores and never calls `tools/list`. The no-op is structural, not conditional.
-
-Schemas come from `optionalObjectSchema` (`packages/ui/src/standardSchema.ts`), a ~100-line Standard Schema rather than a zod dependency in two single-file bundles — it covers flat objects of optional scalars and nothing more; take the dependency instead of growing it. Every field is optional because a view tool is a nudge, and view tools carry `readOnlyHint: true` **with `destructiveHint: false` stated explicitly**, for the same reason the server's `READ_ONLY` does (#303). Each tool echoes its effect back through the existing `useModelContextSync` summary, so the model can see the view it just moved.
-
-## MCP App shell conventions
-
-Every app's `main.tsx` is the same four-branch state machine, so it lives in
-`packages/ui` (`AppShell.tsx`) rather than in each app (#249, #285).
-
-- **`AppRoot`** connects to the host and renders: connect error → unusable input
-  → waiting for input → content. `children` is a render prop, so it only runs
-  once `app` and `toolArgs` are non-null and the content component never
-  re-checks them. Each pre-content state renders inside the same `AppShell` as
-  the loaded app, so the card chrome is stable from first paint (#116).
-- **An app with a required id declares `missingArgsMessage`.** `parseToolInput`
-  returning `null` then means "the host spoke and the input is unusable" — an
-  `ErrorState` naming the missing id, not an endless skeleton. Omit the message
-  only when every argument is optional (cadence-trends, training-load,
-  fitness-trend); omitting it on an app that needs an id is what put four apps
-  on a permanent loading skeleton and had segment-progress call the server with
-  `segment_id: undefined`. The classification is pure and unit-tested
-  (`classifyToolInput`); the branches are storied on `AppRootView`, the pure
-  half of `AppRoot`, since a live host is not reachable from Storybook.
-- **Fetching.** `useServerToolData` is the mount-time single fetch every app
-  makes. Anything keyed and on-demand — a stream per selected run — goes through
-  `useServerToolFetcher` instead of a hand-rolled effect (#250). Its state
-  machine is `KeyedFetchStore`, deliberately outside React so its two rules are
-  directly testable: a key is fetched at most once, and only an explicit `retry`
-  re-fires a failed one. Do not reintroduce a "cached or in flight" guard — a
-  failure satisfies neither, so the effect refetches forever.
-- **Every app opens with a `CardHeader`** (#247). In a host transcript the card
-  is otherwise detached from the tool call that produced it. Subtitles are built
-  by a unit-tested helper next to the app's other pure normalizers
-  (`buildSegmentSubtitle` is the pattern).
-- **No-data is `EmptyState`, never a bare chart frame** (#248). Test what the
-  chart actually needs, not just the row count: an activity whose only stream is
-  time parses into points that plot nothing.
-- **Layout comes from `mode`.** `getChartTokens(mode)` serves `chartAspect`
-  along with the other numeric tokens; the parallel `getHostLayout` abstraction
-  is gone (#258). Per-chart margins still stay local.
-
-## Targeting Mobile for MCP Apps
-
-These patterns are used in both MCP App packages. Replicate them when adding a new MCP App.
-
-### Detecting mobile
-
-Use `useMobileMode(hostCtx)` from `@strava-mcp/ui`. Do not roll your own detection.
-
-Five signals at a 640px breakpoint, any one triggers mobile:
-
-1. `host.platform === "mobile"` (strongest, rarely populated)
-2. `deviceCapabilities.touch && !deviceCapabilities.hover`
-3. `containerDimensions.width` or `maxWidth` under the breakpoint
-4. Live `window.innerWidth` via `useSyncExternalStore` (the reliable fallback on Claude iOS where the first three are empty)
-5. UA sniff for iPhone, iPad, Android
-
-640px covers iPhone Pro Max, rotated iPad split view, and narrow desktop side panels.
-
-Bias toward mobile. False-positive mobile on desktop is cosmetic. False-negative on mobile makes charts unreadable.
-
-### Card chrome
-
-MCP Apps own their outer chrome, not the host:
-
-1. Server emits `_meta: { ui: { prefersBorder: false } }` on BOTH the resource descriptor AND the content response. Both derive from the `APP_RESOURCES` table in `server.ts` via `appResourceMeta`, so a new app is one table entry (per-app extras like route-map's `csp` go on the entry's `ui` field).
-2. App wraps content in a card with background, border, border-radius, responsive padding:
-   - Mobile `{ y: 16, x: 14 }`, desktop `{ y: 24, x: 20 }`, each plus `safeAreaInsets.*` via `calc()`
-3. Mobile adds `margin: 3` on the outer card. Claude iOS gives the iframe zero surrounding padding, so without the margin the card's border gets clipped at the iframe edge.
-4. Fullscreen (#35): `AppShell` owns the shared enter/exit-fullscreen toggle (top-right corner). It renders only when the app passes its connected `app` (each `AppContent` does) AND the host context advertises `fullscreen` in `availableDisplayModes` — no dead button on hosts without the capability. Mode state prefers `hostCtx.displayMode`, with the last `requestDisplayMode` result as a local echo for hosts that grant without re-sending context.
-
-### Card width constraint
-
-```js
-{
-  boxSizing: "border-box",
-  width: `calc(100% - ${outerMargin * 2}px)`,
-  overflow: "hidden",
-}
-```
-
-Without this, a too-wide child forces the card wider than the iframe and causes horizontal scroll plus a clipped header. Observed root cause: footer pills exceeding 360px.
-
-Footer rows use `flex-wrap: wrap` and `align-items: stretch` on compact so the legend drops below controls and wraps into multiple rows.
-
-### Theming via host
-
-`packages/design-system/src/tokens.css` intentionally has no `@media (prefers-color-scheme: dark)` rule. The host injects theme vars through `useHostStyles()`, and a media query on `:root` fights partial host overrides (some vars from the host, others from the OS, mixing light and dark tokens).
-
-Dark mode on Claude iOS flows entirely from the host. When Claude is dark, it sends dark vars. When Claude is light, the app stays light regardless of the OS.
-
-Storybook simulates dark via the `[data-theme="dark"]` selector on its decorator, which is still wired up. A dark story variant needs only `globals: darkGlobals` (exported from `@strava-mcp/design-system/preview`; spread it when combining with other globals) — never a per-story `data-theme` decorator, which the preview decorator already applies.
-
-### Recharts tick label margins
-
-Default `bottom: 24` in the chart margin. Recharts renders tick labels inside `margin.bottom` (4px tickMargin plus 11px font plus descender), and anything under ~16px clips label descenders. Under the card's `overflow: hidden` plus border-radius, clipped descenders are very visible.
-
-### Mobile token patterns
-
-Views take a `mode: "mobile" | "desktop"` prop and spread `getChartTokens(mode)` from `@strava-mcp/design-system` into their local `tokens` object. That provides the shared numeric values:
-
-- Axis font 14 mobile, 13 desktop
-- Stroke widths 2.25 mobile, 2 desktop
-- Secondary stroke widths 1.75 mobile, 1.5 desktop (e.g. cadence overlay)
-- Dot scale 0.75 mobile, 1 desktop
-- Error bar width, label font size, legend size variants
-
-Per-chart layout values stay local (they differ by layout intent):
-
-- Narrower chart aspect on mobile (0.95 vs 1.8 for activity-chart)
-- Tighter chart margins, tighter YAxis width (34 vs 40px)
-- Drop YAxis `label` titles on mobile
-- Drop dense overlays that crowd small screens (e.g. grade on the altitude axis)
-- Hide secondary controls that cost footer width (e.g. the Smooth toggle, defaulted on)
-- `Legend` takes `size="touch"` for tappable vertical padding
-
-### Storybook mobile previews
-
-Every view gets a mobile story using:
-
-- `globals: { viewport: { value: "claudeIosCard" } }` for the 360x780 iframe
-- `parameters: { layout: "fullscreen" }` to remove Storybook's outer padding
-- A `MobileCardShell` decorator wrapping the story in the same 3px margin plus 16/14 card chrome the app ships with
-
-This matches what renders inside the host iframe, not Storybook's default padded canvas.
-
-## Verification sweep
-
-Run this gate before declaring a task complete, opening a PR, or cutting a release. Each step is a hard requirement; if any fail, fix before moving on.
-
-The fastest local gate is `bun run check`, which runs lint, test, typecheck, build, and boundaries through Turborepo with full caching. On a branch, prefer `bun run check:affected` to skip unchanged packages entirely.
-
-```bash
-bun run check             # Lint + test + typecheck + build + boundaries (cached via Turborepo)
-bun run check:affected    # Same, but only packages changed since main
-bun run test:stories      # Every story renders in headless Chromium (needs Playwright browsers)
-docker compose build      # Server container builds from current sources
-```
-
-Individual steps if needed:
-
-```bash
-bun run typecheck         # TS across every workspace package
-bun run lint              # Biome (root task, not per-package)
-bun run test              # Vitest (server + any package with tests)
-bun run build             # Turborepo build (produces MCP App single-file HTML bundles)
-bun run boundaries        # Package boundary enforcement (turbo boundaries)
-bun run knip              # Dead code / unused export analysis
-```
-
-Supplementary checks when the change touches UI:
-
-- Storybook sweep: look at each affected story in desktop and the `claudeIosCard` mobile viewport. `bun run shots <story-id>…` renders them to PNGs from any session (see **Story screenshots**); the claude-in-chrome or storybook MCP tools work too when a browser is reachable.
-- MCP endpoint smoke test: `cd apps/server && bun run start`, then `curl http://localhost:3000/health` from another shell. Needs valid `STRAVA_REFRESH_TOKEN`; skip if tokens are stale and note it explicitly.
-
-### Clearing a `bun audit` failure
-
-`ci.yml`'s `audit` job is advisory on PRs and main pushes and a **hard gate on the weekly
-schedule**, so a red weekly CI run is usually `bun audit --audit-level=high`, not a test.
-
-Findings here are almost always transitive, and `bun update` will not touch them: it only moves
-dependencies within the ranges in package.json, and every direct dep is exact-pinned for
-Dependabot. So `bun update` reports "no changes" while the lockfile keeps serving whatever
-transitive versions it resolved months ago. The fix is a full re-resolution:
-
-```bash
-rm -f bun.lock && bun install    # re-resolve every transitive dep against current ranges
-bun audit --audit-level=high     # expect no output
-```
-
-That is a lockfile-only diff, but it re-resolves the whole graph at once, so run the entire
-verification sweep after it — `test:stories` especially, since it is the only gate that renders
-the MCP Apps in a real browser. Check the diff for **downgrades and dropped packages**, not just
-bumps: a refresh re-races hoisting, and the winner is whichever constraint is hard rather than
-whichever version is right.
-
-`overrides` in the root package.json pin the cases where that race picks wrong. Currently one:
-
-- **`react-is: 19.2.8`** — recharts takes `react-is` as a *peer* (`^16.8 || ^17 || ^18 || ^19`)
-  and calls `isFragment()` in `util/ReactUtils.js` to flatten children. Nothing in the repo
-  declares `react-is`, so hoisting is free to satisfy that peer with `pretty-format@27`'s hard
-  `^17.0.1` — and react-is@17 brand-checks `Symbol.for("react.element")`, which React 19 replaced
-  with `react.transitional.element`. `isFragment()` then returns `false` for *every* element and
-  recharts silently stops flattening fragment children. Keep this pinned to the React major the
-  workspace actually runs. react-is@19 exports every symbol pretty-format@27 imports, so the pin
-  is safe in the other direction.
-
-Coverage thresholds (#162): `apps/server`, `packages/data`, `packages/design-system`, and `packages/ui` set `coverage.thresholds` in their vitest.config.ts, and each `test:coverage` run **auto-ratchets** them: vitest rewrites the numbers to a fixed cushion under measured coverage (5 points for the server and ui, 2 for the ~100% packages), so the floor rises as coverage grows and a genuine drop fails CI. If a coverage run dirties a vitest.config.ts, that's the ratchet — commit it, never hand-edit the numbers. The view-heavy packages are intentionally unthresholded **per package** — their component coverage belongs to the story render-path report, which carries its own ratcheted floor in `vitest.stories.config.ts` (5-point cushion, #276), so the same rules apply there: commit the rewrite, don't hand-edit. `packages/ui` is the one hybrid: its coverage `include` lists only the hooks, stores, and helpers no story reaches because no app's `main.tsx` has one (`useServerToolData`, `useServerToolFetcher`, `keyedFetchStore`, `useModelContextSync`, `useMobileMode`, `serverToolResult`, and #278's `standardSchema` — called only from `main.tsx`, so the render-path report measures it at 0%), while its components stay with the render-path report. "No story reaches it" is the entry test, not "it is logic rather than a component": `viewTools.ts` is logic and is deliberately **out**, because `useViewTool` runs inside the storied RouteMap and ActivityChart and the render-path report already floors it at ~59%. Listing a module in both reports does not double its protection — it drags this aggregate, and therefore the ratchet, down over the hooks the floor exists to guard. Those hooks are tested in a `happy-dom` environment via the 50-line `renderHook` harness in `src/renderHook.ts` — the repo has no React testing library and needs none for this.
+Not every component needs a primitive. `Tooltip` (rendered inside Recharts' tooltip, which owns
+positioning), `Skeleton`, and `AppShell` are presentational and stay hand-rolled.
+
+Chart accessibility: every Recharts chart sets `accessibilityLayer` (keyboard focus + arrow-key
+tooltip stepping) plus `title`/`desc` props rendered as SVG `<title>`/`<desc>`, with narration
+built by a unit-tested `a11y.ts` in each MCP App package; this convention owns the
+interactive-control migration.
+
+## MCP App essentials
+
+The complete shell/mobile/theming/view-tool guide plus per-app details:
+[docs/mcp-apps.md](docs/mcp-apps.md) — read it before adding or substantially changing an app.
+Non-negotiables:
+
+- Every app's `main.tsx` is `AppRoot`'s four-branch state machine (connect error → unusable input
+  → waiting for input → content) from `packages/ui`; pre-content states render inside the same
+  `AppShell` so card chrome is stable from first paint.
+- An app with a required id declares `missingArgsMessage`; omitting it strands the app on a
+  permanent skeleton calling the server with `id: undefined`.
+- Mount fetch: `useServerToolData`. Keyed/on-demand fetches: `useServerToolFetcher` — never a
+  hand-rolled effect, never a "cached or in flight" guard (a failed fetch satisfies neither, so
+  the effect refetches forever).
+- Every app opens with `CardHeader`; no-data renders `EmptyState` (test what the chart actually
+  needs, not just row count); layout comes from `mode` via `getChartTokens(mode)`.
+- Mobile detection: `useMobileMode(hostCtx)` only. Bias toward mobile — false positives are
+  cosmetic, false negatives make charts unreadable.
+- New app checklist: an `"./app.html": "./dist/app.html"` entry in the package's `exports`
+  (the server resolves resources through it at runtime and throws without one), one
+  `APP_RESOURCES` table entry in `server.ts` (drives both resource descriptor and content
+  `_meta.ui`), one runner `COPY` line in the Dockerfile (`dockerRuntime.test.ts` enforces
+  coverage in both directions), stories with desktop + `claudeIosCard` variants.
 
 ## Commands
 
@@ -514,29 +226,9 @@ bun run setup-auth   # Interactive localhost OAuth setup (dev only)
 cd apps/storybook
 bun run storybook    # Storybook on port 6006
 
-cd packages/activity-chart
-INPUT=app.html bunx vite build  # Rebuild single-file HTML
-
-cd packages/cadence-trends
-INPUT=app.html bunx vite build  # Rebuild single-file HTML
-
-cd packages/route-map
-INPUT=app.html bunx vite build  # Rebuild single-file HTML
-
-cd packages/activity-segments
-INPUT=app.html bunx vite build  # Rebuild single-file HTML
-
-cd packages/training-load
-INPUT=app.html bunx vite build  # Rebuild single-file HTML
-
-cd packages/activity-zones
-INPUT=app.html bunx vite build  # Rebuild single-file HTML
-
-cd packages/segment-progress
-INPUT=app.html bunx vite build  # Rebuild single-file HTML
-
-cd packages/fitness-trend
-INPUT=app.html bunx vite build  # Rebuild single-file HTML
+# Single-file rebuilds
+cd packages/<mcp-app>
+INPUT=app.html bunx vite build
 
 # Docker
 docker compose build
@@ -544,320 +236,19 @@ docker compose up -d
 docker compose logs -f
 ```
 
-## Turborepo
+## Verification gate
 
-The monorepo uses a `topo` transit node in `turbo.json` so that `test` and `typecheck` cache-invalidate correctly when upstream JIT packages change source. JIT packages (`data`, `ui`, `design-system`) export raw TypeScript; only the MCP App packages (`activity-chart`, `cadence-trends`, `route-map`, `activity-segments`, `training-load`, `compare-activities`, `activity-zones`, `segment-progress`, `fitness-trend`) produce build artifacts (single-file HTML bundles via Vite). The server has no build step.
-
-Biome (`//#lint`) and Knip (`//#knip`) run as root tasks. Biome is fast enough to run at root per the Turborepo docs. Knip is a whole-graph analyzer that cannot be decomposed per-package. In CI, `ci.yml` runs Biome as a dedicated step (`bun run lint --reporter=github`, not through turbo) so its workflow commands surface diagnostics — including warn-level rules — as inline PR annotations; turbo's task-name prefix would break that parsing. The turbo `lint` task remains the local path via `bun run check`.
-
-Three properties of `ci.yml`'s `check` job are load-bearing and easy to undo by accident (#271, #273, #274):
-
-- **The specs run once, in the Coverage step.** `test` is absent from the `turbo run` line on purpose — `test:coverage` runs the same specs and is the pass that gates, since the thresholds live in the vitest configs. Adding `test` back doubles every spec. That step is also deliberately **not** `--affected`: turbo restores `coverage/**` for unchanged packages from cache, so a full run is cheap and every package in the summary table still has a coverage file. Only the four packages with a vitest.config.ts (`apps/server`, `packages/data`, `packages/design-system`, `packages/ui`) set thresholds there; the nine MCP App packages emit a summary row nothing gates, and their floor is the story render-path report instead. It sits ahead of the Playwright/story steps so a failing spec surfaces before the browser run, not after it.
-- **Only jobs that run turbo tasks take the `.turbo` cache.** Cache entries are immutable and the first job to post one wins, so `audit` — which runs `bun audit` and nothing else, and finishes first — used to reserve the SHA key and leave `check` unable to save, quietly flattening the CI hit rate. It now passes `turbo-cache: "false"` to the setup composite. The key is namespaced `<os>-turbo-<workflow>-<job>-<sha>` for the same reason: `check` and Storybook's `deploy` both run turbo tasks against the same main-push SHA and would otherwise collide, with the bare prefix left in `restore-keys` so a new job still seeds from the newest cache.
-- **The Playwright install branches on the cache result.** The cache step carries `id: playwright-cache`; a miss runs `playwright install chromium --with-deps`, a hit runs only `playwright install-deps chromium`. The apt-get half is not cached and must run either way — dropping the split means re-downloading the browser on every run, and dropping the hit branch means a cached browser with no system libraries. The runner image belongs in the key, since those binaries link against its libraries — and it is resolved in the preceding `run:` step on purpose: the `env` context holds only workflow/job/step-defined variables, so `${{ env.ImageOS }}` inside the cache step's `with:` expands to the empty string and the key loses the segment without failing. The first CI run of this change saved `Linux-X64--playwright-1.61.1`, which is how that was caught.
-
-Storybook uses the co-located stories pattern: story files in `packages/` are excluded from the root `build` inputs (`!**/*.stories.{ts,tsx,mdx}`) so story edits do not bust unrelated build caches. The `build:storybook` task has its own cache tracked in `apps/storybook/turbo.json`.
-
-Package boundaries are enforced via `turbo boundaries`. Six tags: `app`, `mcp-app`, `shared-ui`, `shared-data`, `design-system`, `config`. Key rules: apps cannot cross-import, mcp-apps cannot cross-import, `data` is pure (no React), `design-system` sits at the bottom. Run `bun run boundaries` to check locally; CI enforces on every PR.
-
-Do NOT change root `lint` to `turbo run lint` (would create an infinite loop). Biome runs directly via root `lint`; turbo dispatches it only when invoked through `bun run check` or `turbo run lint`.
-
-`biome.json` sets `linter.rules.nursery.preset: "recommended"`, and **that grants no rules** on the pinned Biome (2.5.4) — nursery coverage is zero, however the key reads (#280). Verified in-repo rather than inferred: a file calling `setTimeout("doSomething()", 100)` passes `biome check` silently, yet `biome lint --only=lint/nursery/noImpliedEval` flags it, and the control case rules out a config-loading fault — the identical `preset` mechanism on a stable group (`suspicious.preset`) does fire `noDebugger`. The key is kept deliberately: it costs nothing and starts working if Biome later makes presets grant nursery rules. Naming individual nursery rules is the alternative, at the price of chasing renames as rules graduate. What matters is not reading the key as coverage the repo has — a nursery rule is enforced here only if something names it explicitly.
-
-## Docker
-
-Built via `turbo prune @strava-mcp/server --docker`. The Dockerfile's build step uses `--filter=@strava-mcp/server^...` to build only the server's workspace dependencies (the MCP App packages), excluding the server itself since it is JIT. The build (prune) stage derives the package set from the workspace graph, so it needs no edit per package. The server's MCP App resources are resolved at runtime via `createRequire(...).resolve("@strava-mcp/<app>/app.html")`, so each app package must declare an `./app.html` export and a `dist/` build output — and the distroless **runner** stage `COPY`s each app's `dist/` explicitly, so adding an MCP App means adding one `COPY --from=builder .../packages/<app>/dist` line there.
-
-That per-package COPY list is the image's one manual step, and it covers **JIT dependencies too**, not just built apps: `@strava-mcp/data` exports raw TypeScript (`./src/index.ts`) with no build output, so the runner copies `packages/data/src`. Missing one of these is invisible until the container starts — `bun install` still writes the `node_modules/@strava-mcp/*` symlink and `turbo prune` still supplies the package.json, so resolution walks all the way to a file that is not in the image and the process dies on its first import (#341 shipped precisely that: the server's first `@strava-mcp/data` import against a runner that only copied `dist/`). No image build can catch it, which is why `apps/server/src/dockerRuntime.test.ts` resolves every `@strava-mcp/*` specifier in the server's non-test sources through the target package's own `exports` map and asserts the file lands inside a runner `COPY` — in both directions, so a stale COPY for a removed app fails too. It models only `--from=builder` copies as content, because the prod-deps stage carries manifests and node_modules and never a package's own sources. It also pins that each COPY's destination mirrors its source path, since bun resolves against `/app` as if it were the repo root, and it checks the entry point a specifier resolves to — which is sound only while the Dockerfile copies **directories**; narrowing a COPY to a single file would outrun the test.
-
-## Storybook
-
-Storybook (`apps/storybook`) renders the UI packages. The `main` build is published to GitHub Pages (`storybook.yml`) so reviewers get a hosted, clickable Storybook; there is no per-PR hosted build, so review a branch's UI by checking it out and running `bun run storybook`.
-
-The automated UI gate in CI is the Vitest browser-mode story tests (see **Story smoke tests** below) plus the per-story axe checks: every story renders in real headless Chromium and passes accessibility, on every PR and main push. Behaviour is asserted in the stories' own `play` functions, which grow over time.
-
-There is intentionally **no pixel-level visual-regression gate**. Chromatic previously published a per-PR hosted Storybook and diffed each PR's stories against the `main` baseline; it was removed once the free-plan snapshot budget was exhausted (the render + a11y + interaction coverage above stayed). Vitest 4 browser mode ships a `toMatchScreenshot` assertion if self-hosted visual regression is ever wanted, but it needs a pinned/Docker render environment and committed baseline images, which we chose not to take on.
-
-### Autodocs
-
-`@storybook/addon-docs` generates a **Docs** page for every component from its
-stories, JSDoc, and react-docgen prop table. It is enabled with the `autodocs`
-[tag](https://storybook.js.org/docs/writing-stories/tags), applied project-wide.
-
-Placement is load-bearing: project tags on the shared
-`@strava-mcp/design-system/preview` (which every story consumes via
-`preview.meta()`) do **not** reach the docs indexer when that preview is
-re-exported. The tag must be a literal in the project's own preview file, so
-`apps/storybook/.storybook/preview.tsx` re-exports the design-system preview as
-default **and** declares `export const tags = ["autodocs"]` (Storybook merges
-named preview exports with the default). The addon is registered in both
-`main.ts` (manager UI) and the design-system `definePreview` addons (docs
-rendering), mirroring how `addon-a11y` is wired.
-
-Write docs by writing good stories: a JSDoc comment above a `component` or
-`story` becomes prose on the Docs page. Opt a noisy interaction-only story out
-of its Docs page with `tags: ["!autodocs"]` while keeping it a runnable story
-and snapshot (see `compare-activities`' `SwitchMetricAndAxis`). A top-level
-`Introduction.mdx` (design-system stories) is the landing page.
-
-### Story smoke tests
-
-Every story also runs as a Vitest browser-mode smoke test: `bun run test:stories` locally, the
-"Story tests" step in `ci.yml` on every PR and main push. The root `vitest.stories.config.ts`
-(deliberately not `vitest.config.ts` — vitest searches parent directories for a config, so a
-default-named root config would hijack every package's bare `vitest run`) defines a single
-`storybook` project via `@storybook/addon-vitest`'s `storybookTest` plugin and renders each story
-in headless Chromium (Playwright). All stories use CSF factories, so no
-`.storybook/vitest.setup.ts` is needed — each story carries its preview annotations itself. The
-project's `test.dir` must stay at the repo root: the addon pins the project root to
-`apps/storybook` (configDir's parent) but resolves the co-located story globs against `test.dir`,
-and with the two misaligned no story files are found. The run is cached as the `//#test:stories`
-turbo root task (inputs: story/package sources and the Storybook config). Per-package unit tests
-and the coverage table are unchanged — this layer only asserts that every story renders
-in a real DOM without throwing. Needs Playwright browsers (`bunx playwright install chromium`); CI
-caches them keyed on the pinned `playwright` version, and `PLAYWRIGHT_BROWSERS_PATH` passes through
-turbo for environments with pre-installed browsers.
-
-The CI story-test step runs `test:stories:coverage` — the same smoke tests plus v8 render-path
-coverage of every `packages/*` source the stories execute in the browser (#197). Reports land in
-the root `coverage-stories/` (cached as the `//#test:stories:coverage` turbo task) and feed a
-"_stories (render-path, all packages)_" row in the coverage job summary, giving the view-heavy
-packages a floor their unit tests can't — and since #276 that floor **gates**: the same
-auto-ratchet the per-package configs use, seeded 5 points under measured. Before it existed, the
-view packages' only regression signal could not fail a build, so a story that stopped rendering a
-branch cost coverage nowhere. Cushion is deliberately not tight: this is browser-mode coverage and
-a story whose async work settles differently can move the number. Config caveat: the storybookTest addon pins the project
-root to `apps/storybook`, so `coverage.allowExternal: true` is load-bearing — without it every
-`packages/*` file is "external" and the report is empty. Plain `bun run test:stories` stays
-coverage-free for fast local runs.
-
-Browser resolution: `vitest.stories.config.ts` passes `launchOptions.executablePath` from
-`resolveChromiumExecutablePath()` (`scripts/playwright-chromium.ts`). It returns `undefined` —
-a no-op — whenever Playwright's own pinned build is installed, which is the case locally and in
-CI. It only resolves to a path in sandboxes that ship a *different* pre-installed Chromium and
-block the download (Claude Code cloud sessions: `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers` at
-one revision, egress proxy refusing `playwright install`), where the UI gate would otherwise
-fail before rendering a single story. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` overrides everything.
-
-### Story screenshots
-
-`bun run shots <story-id>…` renders stories to PNGs in the gitignored `story-shots/`. It is a
-**look-at-it tool, not a gate** — the pixels are for a human or an agent to judge, and nothing
-compares them against a baseline (see the no-visual-regression note above). It catches the class
-of problem a DOM assertion structurally cannot: a smoothed line implying data between two points,
-a clipped axis label, a chart that renders perfectly and says the wrong thing.
+Run before declaring a task complete, opening a PR, or cutting a release — each step is a hard
+requirement (details: [docs/development.md](docs/development.md#verification-sweep)):
 
 ```bash
-bun run shots --list                              # story ids, from the build index
-bun run shots training-load-app--default          # PNG per story id
-bun run shots --width 380 <id>                    # mobile width (pair with the Mobile story)
-bun run shots --dark <id>                         # backgrounds.value:dark
-bun run shots --hover "svg.recharts-surface" <id> # capture a chart tooltip
-bun run shots --url http://localhost:6006 <id>    # shoot a running dev server, skip the build
+bun run check             # fastest local gate; prefer check:affected on a branch
+bun run test:stories      # needs Playwright browsers
+docker compose build      # when the change affects the container
 ```
 
-It builds `storybook-static` on first use and reuses it (`--rebuild` to refresh), so a sweep of
-several stories costs one build. `--hover-at x,y` aims within the hovered element (fractions of
-its box, default centre) and `--wait` extends the settle beat for charts that mount slowly.
+Coverage ratchets auto-tighten: if `test:coverage` rewrites numbers in a vitest.config.ts, commit
+that — never hand-edit the threshold values.
 
-### Per-story axe checks
-
-`@storybook/addon-a11y` (#165) runs axe on every story: as a panel in Storybook dev, and inside
-the story smoke tests in CI (the addon's preview annotations are composed into the design-system
-`definePreview` via its `addons` array — the CSF-factory equivalent of a vitest setup file). The
-global default is `parameters.a11y.test: "error"` — **repo-wide since #286**, so a violation
-fails the build wherever it appears and a new package inherits the gate instead of opting into
-it. The per-package ratchet it replaced (default `"todo"`, pinned to `"error"` in a package's
-story metas as its violations reached zero) is finished, and the redundant pins in
-`packages/ui` are gone; do not reintroduce a per-file `a11y` parameter to route around a
-violation.
-
-What the sweep that closed #286 actually found is worth knowing, because it was not what the
-epic predicted: **all 13 violations were `color-contrast`, and none came from the five issues
-filed against the epic** (headings, legend focus, narration, legend entries, a colour key —
-all real improvements, but structural things axe cannot detect). The shipped defect was one
-missing token. Achievement badges paired a *theme-dependent* foreground (`--color-text-inverse`)
-with the *theme-invariant* tier backgrounds, which made them correct in dark mode and
-white-on-amber at 2.14:1 in light; `--color-tier-text` is the paired invariant foreground, and
-new UI sitting on a theme-invariant colour needs the same treatment. Three conventions keep the
-checks honest: the design-system preview decorator paints `--color-background-primary` on the
-theme wrapper (axe otherwise measures dark-mode text against the white test canvas);
-hidden/faded `Legend` labels keep contrast-passing text (only the swatch dims) because enabled
-toggles must stay readable; and `--color-text-tertiary` is for decoration, not for an element's
-only label — at 12px it falls under 4.5:1 in some host palettes.
-
-### Agent access
-
-- Storybook ships a Model Context Protocol server (via `@storybook/addon-mcp`) with story, docs, and test tools. The endpoint is pre-wired in `.mcp.json`:
-  - `storybook`: `http://localhost:6006/mcp` (while `bun run storybook` is running)
-- The `main` Storybook is hosted on GitHub Pages (`storybook.yml`) for browsing; it is a static build with no MCP endpoint.
-
-## Testing the MCP endpoint
-
-```bash
-# Health check
-curl http://localhost:3000/health
-
-# Legacy-era (2025-06-18) handshake — served statelessly, no session id comes back
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "test", "version": "1.0"}}}'
-
-# Modern-era (2026-07-28) request — no handshake; the envelope rides in params._meta
-curl -X POST http://localhost:3000/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -H "Mcp-Method: server/discover" \
-  -d '{"jsonrpc": "2.0", "id": 1, "method": "server/discover", "params": {"_meta": {"io.modelcontextprotocol/protocolVersion": "2026-07-28", "io.modelcontextprotocol/clientInfo": {"name": "test", "version": "1.0"}, "io.modelcontextprotocol/clientCapabilities": {}}}}'
-```
-
-## Environment Variables
-
-| Variable | Required | Description |
-| -------- | -------- | ----------- |
-| `STRAVA_CLIENT_ID` | Yes | Strava Application Client ID |
-| `STRAVA_CLIENT_SECRET` | Yes | Strava Application Client Secret |
-| `PUBLIC_URL` | Yes* | Public URL for OAuth callback (required for web auth) |
-| `STRAVA_ACCESS_TOKEN` | No | Initial access token (from `bun run setup-auth`) |
-| `STRAVA_REFRESH_TOKEN` | No | Initial refresh token (from `bun run setup-auth`) |
-| `MCP_AUTH_TOKEN` | No | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>`, and `/auth/start`, `/auth/status` and the authed half of `/health` require it too (header or `?token=`) |
-| `ROUTE_EXPORT_PATH` | No | Absolute path for saving exported files. Unset, the export tools return the document inline instead |
-| `TOKEN_DATA_DIR` | No | Override token storage directory (default: `./data`) |
-| `PORT` | No | Server port (default: `3000`) |
-
-*Required for Docker/web-based OAuth. Not needed when using `bun run setup-auth` locally.
-
-## Backlog and issue tracking
-
-Improvements and changes are tracked as GitHub Issues and triaged on the
-"strava-mcp backlog" Project board (https://github.com/users/ljcl/projects/1).
-
-- File issues via the templates (Improvement, Bug report); blank issues are allowed.
-- Labels: `type:*` mirrors Conventional Commit types (feat, fix, perf, refactor,
-  docs, test, chore, ci); `area:*` maps to monorepo packages (server, mcp-app,
-  data, ui, design-system, ci-release, docker, repo). Bot and community labels
-  (dependencies, autorelease:*, good first issue) are managed automatically.
-- Priority (P1/P2/P3), Effort (S/M/L), and Status live as Project board fields,
-  not labels, so triage data is not duplicated across two systems.
-- New issues auto-add to the board (Backlog). Link PRs with `closes #N` so a
-  merge closes the issue; the PR title is the Conventional Commit that
-  release-please turns into a release.
-- After an epic, breaking change, or wide refactor merges, run the
-  `backlog-sweep` skill: big changes invalidate file/line references, dependency
-  notes, and premises in open issues, and a sweep fixes that drift while it is
-  still cheap.
-
-### Editing the project board
-
-Board fields (Status, Priority, Effort) are writable by agents. Two paths,
-by session type:
-
-- **Local sessions**: `gh project` commands; the authenticated gh token has
-  `project` scope. Example:
-  `gh project item-edit --project-id PVT_kwHOABzAhM4BZ7u2 --id <item-id> --field-id <field-id> --single-select-option-id <option-id>`.
-  Discover item/field/option ids with `gh project item-list 1 --owner ljcl --format json`
-  and `gh project field-list 1 --owner ljcl --format json`.
-- **Cloud and iOS sessions** (no gh, no project scope on the built-in GitHub
-  credential): use the hosted GitHub MCP server with `GH_MCP_PAT`. The
-  `github-projects` entry in `.mcp.json` is the working configuration (verified
-  2026-08-11): the base `https://api.githubcopilot.com/mcp/` endpoint plus an
-  `X-MCP-Toolsets: projects,issues` header, which serves `projects_list` /
-  `projects_get` / `projects_write` alongside the issue tools and none of the
-  PR/actions ones. The path-scoped `/mcp/x/projects` endpoint serves the same
-  projects trio (`/x/projects/readonly` for the read-only pair) if a session
-  needs projects without issues. What to watch for is that the base endpoint
-  initializes fine whatever the header says, so a toolset that failed to load
-  does not announce itself — check the advertised tool names, not the
-  handshake. Issue filing and edits go through the ordinary `issue_write` /
-  `search_issues` tools.
-
-If the `github-projects` entry in `.mcp.json` is not connected in the session,
-drive the endpoint directly over JSON-RPC with curl: POST `initialize`, capture
-the `Mcp-Session-Id` **response header**, POST the `notifications/initialized`
-notification, then POST `tools/call`. Every later request must carry that
-session header. Responses come back as SSE, so parse the `data:` line rather
-than the whole body. A CONNECT-level 403 to `api.githubcopilot.com` is not
-necessarily a standing policy denial — the proxy reports "policy denial **or**
-upstream failure" for both, so retry once before concluding the host is
-blocked.
-
-Hosted-build notes (verified 2026-07-27): `field_names` **is** deployed — pass
-`["Status","Priority","Effort"]` to `list_project_items` / `get_project_item`
-instead of numeric ids. `projects_write.update_project_item` takes one field per
-call via `updated_field`, accepts the by-name shape
-(`{"name":"Priority","value":"P1"}` — option *name*, not option id), and
-resolves the target from `item_owner` + `item_repo` + `issue_number`, so item
-ids are no longer needed. Ids stay discoverable via `list_project_fields`.
-Constants for this board: project number 1, owner `ljcl`; field ids: Status
-355919451, Priority 355919475, Effort 355919489; Status options: Backlog
-f75ad846, Ready a057814c, In progress 47fc9ee4, In review 2ba31d84, Done
-98236657; Priority options: P1 fc38b480, P2 d2ef2472, P3 5197fbf4; Effort
-options: S ed6278ac, M c5c30106, L 7270adf2.
-
-### Reading issue bodies before rewriting them
-
-`issue_read` and `list_issues` return issue bodies through a sanitizer that
-strips anything shaped like an HTML tag. `Promise<string>` comes back as
-`Promise`, and a body containing an unclosed-looking construct can lose
-everything after it — #257 read back as 97 of its 1221 characters, because the
-`` `<h1|<h2` `` grep string in its Context section ate the remainder.
-Round-tripping a body read that way silently destroys content.
-
-`search_issues` returns bodies **unsanitized**. Use it as the source whenever a
-body is going to be written back — appending a triage footer, editing an
-approach section, any `issue_write` update. Verifying by reading back afterwards
-does not catch this: both sides pass through the same sanitizer, so a damaged
-body compares equal to itself.
-
-## Releases
-
-Releases are automated by release-please (`.github/workflows/release-please.yml`).
-
-- PRs are squash-merged, so the **PR title becomes the only commit on `main`**. The PR
-  title therefore must be a Conventional Commit, or release-please sees no releasable
-  change and silently skips (the run still reports success). The `pr-title.yml` workflow
-  enforces this on every PR, and the repo squash setting is pinned to `PR_TITLE` so the
-  title is always what lands. Branch commits can be messy; only the PR title matters.
-- Use Conventional Commits: `fix:` gives a patch bump, `feat:` a minor bump,
-  `feat!:` or a `BREAKING CHANGE:` footer a major bump. `chore:`, `docs:`, `refactor:`,
-  and `ci:` are valid titles but produce no release.
-- release-please opens a `chore: release X.Y.Z` PR that bumps root `package.json`,
-  the top-level `server.json` version, and `CHANGELOG.md`. (The OCI package tag inside
-  `server.json` is NOT templated — `publish-mcp.yml` stamps it from the git tag at
-  publish time, since release-please's json updater cannot rewrite part of a string.)
-- Merging that PR pushes the `vX.Y.Z` tag (via the `RELEASE_PLEASE_PAT` secret), which
-  triggers `docker.yml` to publish `ghcr.io/ljcl/strava-mcp:X.Y.Z` and `:X.Y`, and
-  `publish-mcp.yml` to publish `server.json` to the MCP registry via GitHub OIDC.
-  The registry proves image ownership by pulling the GHCR image and checking its
-  `io.modelcontextprotocol.server.name` label (set in `apps/server/Dockerfile`, must
-  match `name` in `server.json`); `publish-mcp.yml` therefore polls GHCR until
-  `docker.yml`'s manifest exists before publishing. That poll checks **anonymous**
-  visibility, because anonymous is how the registry's verifier pulls: a package that is
-  present but private fails immediately with the "make the package public" message
-  rather than burning the 20-minute timeout and blaming `docker.yml`.
-- The published image carries attestations. `docker.yml`'s build legs set
-  `provenance: mode=max` and `sbom: true` — necessary because BuildKit's default is
-  `mode=min` provenance and no SBOM at all — and the merge job adds a Sigstore-backed
-  provenance attestation over the final index digest (`actions/attest-build-provenance`,
-  verified with `gh attestation verify`). The merge **must** keep using
-  `docker buildx imagetools create`: it copies each source index's attestation manifests
-  into the merged index, whereas `docker manifest create` rejects a manifest-list source
-  and would drop them. The "Image summary" step's `select(.platform.os != "unknown")`
-  filter exists to skip those attestation manifests when tallying per-arch sizes.
-- Manual `git tag vX.Y.Z` still works as a fallback; both `docker.yml` and
-  `publish-mcp.yml` trigger on `v*` tags regardless of how they are created.
-- Commits that only touch `docs/`, `.agents/`, or `.claude/` are excluded from release
-  parsing (`exclude-paths` in `release-please-config.json`), so a mislabeled `fix:` on a
-  planning doc cannot cut an empty release. A commit touching excluded and non-excluded
-  paths still counts.
-- Dependabot uses `fix(deps):` for production npm deps and Docker base images (they ship
-  inside the published image, so a bump must cut a patch release to reach users) and
-  `chore(deps)`/`chore(ci)` for dev tooling and GitHub Actions (no shipped artifact, no
-  release). The npm groups are split by dependency-type so one grouped PR never mixes
-  the two prefixes.
-- To force a specific version, land an empty commit on `main` with a `Release-As` footer
-  (`git commit --allow-empty -m "chore: force release" -m "Release-As: X.Y.Z"`); the
-  release PR retargets on the next run. `release-please.yml` also has a
-  `workflow_dispatch` trigger for re-running after a transient failure or a Release-As
-  commit without pushing anything.
+Turborepo caches all tasks; Biome and Knip run as root tasks (do NOT move root `lint` under turbo —
+infinite loop). Package boundaries are enforced by `turbo boundaries`; CI runs on every PR.

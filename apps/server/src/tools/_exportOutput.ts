@@ -1,11 +1,11 @@
 /**
- * Shared delivery mode for the three export tools (#245).
+ * Shared delivery mode for the three export tools.
  *
  * The server's transport is remote Streamable HTTP, so a path like
  * `/data/exports/route-123.gpx` names a file inside a container the caller
- * cannot reach — the export tools were effectively unusable over the wire.
- * `content` mode returns the document itself; `file` keeps the previous
- * behaviour for local deployments that set `ROUTE_EXPORT_PATH`.
+ * cannot reach — a file-only export is unusable over the wire. `content` mode
+ * returns the document itself; `file` writes it, for local deployments that
+ * set `ROUTE_EXPORT_PATH`.
  */
 
 import * as fs from "node:fs/promises";
@@ -97,9 +97,9 @@ export interface WriteExportResult {
 }
 
 /**
- * Write an export to `exportDir`, keeping the containment guard and the
- * directory checks the tools had before. Async `fs` — these run on the request
- * path of a server handling other calls.
+ * Write an export to `exportDir`, under a containment guard and the
+ * directory checks. Async `fs` — these run on the request path of a server
+ * handling other calls.
  */
 export async function writeExport(
   exportDir: string,

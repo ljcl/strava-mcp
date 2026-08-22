@@ -1,4 +1,4 @@
-/** Human names for the metric keys, shared with the a11y narration (#256)
+/** Human names for the metric keys, shared with the a11y narration
  * so the legend, the model context, and the screen reader agree. */
 export const METRIC_LABELS: Record<string, string> = {
   heartrate: "heart rate",
@@ -15,7 +15,7 @@ export interface ChartContextInput {
   hidden: Set<string>;
   smooth: boolean;
   /**
-   * The x-axis window currently shown, when zoomed (#278). Echoed back so a
+   * The x-axis window currently shown, when zoomed. Echoed back so a
    * model that called `set-brush-window` — or a user who dragged the handles —
    * knows which part of the run the next question is about.
    */

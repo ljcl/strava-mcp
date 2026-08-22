@@ -639,7 +639,7 @@ const HOUR_MS = 60 * MINUTE_MS;
  *
  * The short TTLs exist mainly to stop each MCP App paying twice: every app is a
  * `view-` tool plus a `get-…-data` tool running the same loader, so an uncached
- * path costs double the Strava requests for one app open (#238).
+ * path costs double the Strava requests for one app open.
  */
 export function stravaCacheTtl(path: string): number | null {
   // Activity data streams — immutable once the activity is recorded.
@@ -670,7 +670,7 @@ export function stravaCacheTtl(path: string): number | null {
   // cache key carries the query string, so each date window stays distinct.
   if (path === "/segment_efforts") return 2 * MINUTE_MS;
   // The activity listing behind the cadence-trends, training-load, and
-  // fitness-trend pairs (#329) — the three most expensive scans, each a full
+  // fitness-trend pairs — the three most expensive scans, each a full
   // pagination at up to a year of history. A bare TTL would hit zero times on
   // its own: each handler recomputes `after`/`before` from `Date.now()`, so a
   // pair's two calls built two URLs. server.ts therefore floors those bounds

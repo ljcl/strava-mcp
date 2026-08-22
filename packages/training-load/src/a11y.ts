@@ -9,7 +9,7 @@ import { type WeekSummary } from "./types";
 const fullDate = (iso: string) => formatShortDate(iso, "full");
 
 /**
- * Screen-reader narration for the training-load chart (#28). Recharts'
+ * Screen-reader narration for the training-load chart. Recharts'
  * accessibilityLayer provides keyboard focus and arrow-key tooltip stepping,
  * but the SVG carries no accessible name or content summary of its own; this
  * builder feeds the chart's `title`/`desc` props (rendered as SVG
@@ -22,7 +22,7 @@ export interface ChartA11y {
 
 /**
  * What the chart is currently drawing, so the narration matches what a
- * sighted user actually sees rather than everything fetched (#328).
+ * sighted user actually sees rather than everything fetched.
  */
 export interface LoadVisibility {
   showTrend: boolean;

@@ -19,7 +19,7 @@ function effort(
 ): SegmentEffortRow {
   return {
     // Derived from the segment id so fixtures stay terse; a row's effort id is
-    // its own identifier, distinct from the segment's (#269).
+    // its own identifier, distinct from the segment's.
     effortId: `e${over.segmentId}`,
     movingTime: over.elapsedTime,
     averageGrade: 0,

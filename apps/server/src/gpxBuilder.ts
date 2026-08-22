@@ -1,5 +1,5 @@
 /**
- * Pure GPX 1.1 synthesis from activity streams (#126). Strava's API has no
+ * Pure GPX 1.1 synthesis from activity streams. Strava's API has no
  * activity-export endpoint, but the streams carry everything a valid GPX
  * track needs: latlng plus optional index-aligned time/altitude/heartrate/
  * cadence. Kept free of fetch/fs so it unit-tests next to polyline.ts.

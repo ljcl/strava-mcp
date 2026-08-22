@@ -6,7 +6,7 @@
  *
  * This is a *look at it* tool, not a gate. There is deliberately no baseline
  * comparison (see the "no pixel-level visual-regression gate" note in
- * AGENTS.md): its job is to put a rendered view in front of a human or an
+ * docs/development.md): its job is to put a rendered view in front of a human or an
  * agent so the judgement calls a DOM assertion cannot make — an axis that
  * misleads, a clipped label, a chart that says the wrong thing — get made.
  *

@@ -15,7 +15,7 @@ export type KeyedFetch<T> = (key: string) => Promise<T>;
  * 1. `request` starts a fetch at most once per key. A key that already
  *    failed stays failed — cadence-trends' hand-rolled version guarded only
  *    on "cached or in flight", so a failed run re-entered the effect on the
- *    very state change its own failure produced and refetched forever (#250).
+ *    very state change its own failure produced and refetched forever.
  * 2. `retry` is the only way back, so the retry control the user sees is the
  *    only thing that re-fires a failed key.
  *

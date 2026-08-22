@@ -309,7 +309,7 @@ export function CompareActivities({
       marginRight: 12,
       marginLeft: isMobile ? -14 : -8,
       marginTop: isMobile ? 8 : 5,
-      // Bottom margin must fit tick label descenders; see CLAUDE.md.
+      // Bottom margin must fit tick label descenders; see docs/mcp-apps.md.
       marginBottom: 24,
     }),
     [mode, isMobile],
@@ -358,7 +358,7 @@ export function CompareActivities({
   const toggleLine = (side: "a" | "b") =>
     setHidden((prev) => ({ ...prev, [side]: !prev[side] }));
 
-  // Screen-reader narration (#28), computed outside the chart memo so the
+  // Screen-reader narration, computed outside the chart memo so the
   // memo's dependency is the resulting string.
   const a11yDescription = useMemo(
     () =>

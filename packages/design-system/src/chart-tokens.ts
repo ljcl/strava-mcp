@@ -29,8 +29,8 @@ export function getChartTokens(mode: ChartMode) {
     legendSize: (isMobile ? "touch" : "default") as "default" | "touch",
     /**
      * ResponsiveContainer aspect ratio — taller on narrow screens, where a
-     * wide chart collapses to an unreadable band. The one field that
-     * outlived `getHostLayout`, whose other five had no consumer (#258).
+     * wide chart collapses to an unreadable band. Layout comes from `mode`
+     * via these tokens; per-chart margins stay local to each chart.
      */
     chartAspect: isMobile ? 0.95 : 1.8,
   };

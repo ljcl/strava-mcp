@@ -2,7 +2,7 @@ import { type App } from "@modelcontextprotocol/ext-apps";
 import { useEffect, useRef } from "react";
 
 /**
- * View-exposed tools: letting the model drive a rendered view (#278).
+ * View-exposed tools: letting the model drive a rendered view.
  *
  * Today an app only pushes state *out* (`useModelContextSync`). ext-apps
  * v1.7 added `App.registerTool`, which makes it two-way: when the user asks
@@ -125,7 +125,7 @@ export class ViewToolRegistry {
           // anywhere, and calling it twice leaves the same view. Stated in
           // full because `destructiveHint` defaults to true, so a host that
           // reads it first would file a pure view control under write/delete
-          // (the same trap as the server's READ_ONLY annotation, #303).
+          // (the same trap the server's READ_ONLY annotation avoids).
           annotations: {
             readOnlyHint: true,
             destructiveHint: false,

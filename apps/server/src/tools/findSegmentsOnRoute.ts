@@ -92,7 +92,7 @@ interface FoundSegment {
 
 /**
  * Explore each tile. Concurrency-bounded and rate-limit-aware for the same
- * reason `get-best-efforts` is (#239): a serial loop spends one round-trip per
+ * reason `get-best-efforts` is: a serial loop spends one round-trip per
  * tile, and a 429 mid-scan means the remaining calls cannot succeed.
  */
 const TILE_CONCURRENCY = 3;
@@ -236,8 +236,9 @@ export const findSegmentsOnRouteTool = {
       const found = dedupeInCourseOrder(candidates);
 
       // What the sweep actually covered: a stopped scan never reaches the last
-      // tiles, and a failed one answers null. Reporting `tiles.length` as
-      // `tiles_searched` promised a caller a count the sweep had not earned.
+      // tiles, and a failed one answers null. Never report `tiles.length` as
+      // `tiles_searched` — that promises a caller a count the sweep did not
+      // earn.
       const searched = responses.filter(Boolean).length;
 
       const warnings: string[] = [];
@@ -353,7 +354,7 @@ export const findSegmentsOnRouteTool = {
 /**
  * The athlete's whole starred set. Explore already flags `starred` on each
  * result, but only for segments it knows the athlete has starred in that
- * response — the complete list is what makes the flag trustworthy (#246), and a
+ * response — the complete list is what makes the flag trustworthy, and a
  * failure here costs a flag rather than the answer.
  */
 async function starredIds(token: string): Promise<Set<string>> {

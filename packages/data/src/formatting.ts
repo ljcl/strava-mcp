@@ -110,11 +110,10 @@ export function formatSpeedAsKmh(metresPerSecond: number): string {
 /**
  * Pace for runs, speed for everything else, "—" for a sample too slow to be
  * either. The three MCP Apps that show an effort's speed cannot import each
- * other, so this had been copied into route-map, activity-segments, and
- * segment-progress — and the third copy had already lost the paused floor,
- * printing a nonsense pace for a stop-and-wait effort the other two rendered
- * as an em dash. Same reasoning as the `formatPace` rollover bug in #216:
- * the only defence is not making the copy.
+ * other, so this lives here and never in one of them. Copy it and the copies
+ * drift: a fix lands in one, and the others go on printing a nonsense pace
+ * for a stop-and-wait effort. Neither knip nor Biome can see a
+ * genuinely-imported duplicate, so the only defence is not making it.
  *
  * The floor is deliberately applied to BOTH branches here, unlike bare
  * `formatSpeedAsKmh` — one list rendering "—" for a paused run and

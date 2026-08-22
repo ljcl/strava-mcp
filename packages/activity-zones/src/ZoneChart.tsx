@@ -42,7 +42,7 @@ export function ZoneChart({
     marginRight: isMobile ? 8 : 16,
     marginLeft: isMobile ? -8 : 0,
     marginTop: isMobile ? 20 : 16,
-    // Bottom margin must fit tick label descenders; see CLAUDE.md.
+    // Bottom margin must fit tick label descenders; see docs/mcp-apps.md.
     marginBottom: 24,
   };
 

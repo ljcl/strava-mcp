@@ -8,7 +8,7 @@ export interface ServerToolData<T> {
   error: string | null;
   /**
    * Latest progress message from the server, or null when the tool has sent
-   * none. Only meaningful while `loading` (#279).
+   * none. Only meaningful while `loading`.
    */
   progress: string | null;
   /** Re-invokes the fetch (wired to the ErrorState retry control). */
@@ -17,14 +17,14 @@ export interface ServerToolData<T> {
 
 /**
  * Fetch/loading/error state machine for the app-only data tools every MCP
- * App calls on mount (#116) — previously ~40 lines duplicated per app's
- * main.tsx. The response convention is the server's app-data one: JSON in
- * the first text content block.
+ * App calls on mount, so no app hand-rolls the ~40 lines in its own main.tsx.
+ * The response convention is the server's app-data one: JSON in the first
+ * text content block.
  *
  * `args` may be an inline object literal; the fetch is keyed on its JSON
  * serialization, so a new-but-equal object does not refetch.
  *
- * Progress (#279): the tools behind training-load, fitness-trend, and
+ * Progress: the tools behind training-load, fitness-trend, and
  * cadence-trends page through an athlete's history and can outrun the host's
  * default request timeout on a long one. `resetTimeoutOnProgress` restarts
  * that clock on every notification, so a scan that is still working is not

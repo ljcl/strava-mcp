@@ -16,7 +16,7 @@ interface RunSelectListProps {
 }
 
 /**
- * Keyboard- and touch-accessible run picker for the overlay comparison (#169).
+ * Keyboard- and touch-accessible run picker for the overlay comparison.
  *
  * The Trend/Scatter dots select runs on click but carry no tabindex, role, or
  * key handling, so keyboard and small-target touch users could not build a

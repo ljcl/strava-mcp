@@ -1,5 +1,5 @@
 /**
- * Payload mapping for the `view-fitness-trend` MCP App (#262).
+ * Payload mapping for the `view-fitness-trend` MCP App.
  *
  * The app renders the same CTL/ATL/TSB series, warning bands, and solved
  * taper the `get-fitness-trend` text tool prints — `fitnessTrend.ts` is the

@@ -1,11 +1,11 @@
 /**
- * Elevation resolution for saved routes (#264).
+ * Elevation resolution for saved routes.
  *
- * A route used to reach the map as an encoded polyline and nothing else, so
- * route-map's elevation strip, metric colouring, and scrub readouts were dead
- * code for every `route_id` — and route recon ("where are the climbs, how bad
- * is the one at 14 km?") meant leaving for the Strava web app. Routes do carry
- * a stored profile; it just lives behind `/routes/{id}/streams`.
+ * A route's stored profile lives behind `/routes/{id}/streams`, not in its
+ * encoded polyline. Resolve it here rather than settling for the polyline:
+ * without it route-map's elevation strip, metric colouring, and scrub readouts
+ * are dead code for every `route_id`, and route recon ("where are the climbs,
+ * how bad is the one at 14 km?") means leaving for the Strava web app.
  *
  * One loader serves both `get-route-map-data` and `get-route-preview` so the
  * chart and the prose cannot disagree about a route's elevation, and so the
@@ -65,9 +65,8 @@ function numbers(value: unknown, length: number): number[] | null {
  * when neither the stream nor the GPX export carries elevation.
  *
  * Only a genuinely profile-less route falls through to the GPX path and only a
- * genuinely elevation-less GPX yields null — an expired token or an exhausted
- * rate limit propagates, per #237's rule that "no data" must not be the answer
- * to every failure.
+ * genuinely elevation-less GPX yields null. An expired token or an exhausted
+ * rate limit propagates: "no data" must not be the answer to every failure.
  */
 export async function loadRouteProfile(
   token: string,

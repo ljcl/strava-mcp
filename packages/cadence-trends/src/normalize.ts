@@ -52,7 +52,7 @@ export function rollingAverage(
 
 /**
  * Compute summary stats: current period avg, previous period avg, delta.
- * `now` is injectable so tests are deterministic (#119).
+ * `now` is injectable so tests are deterministic.
  */
 export function computeSummaryStats(
   activities: RunSummary[],

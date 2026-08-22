@@ -298,7 +298,7 @@ export const mockRestProjectionData: FitnessTrendData = {
 
 /**
  * A window whose activities carried no heart rate: 90 zero-load days. Row
- * count alone would pass; the chart has nothing to draw (#248).
+ * count alone would pass; the chart has nothing to draw.
  */
 export const mockNoLoadData: FitnessTrendData = {
   ...mockFitnessTrendData,

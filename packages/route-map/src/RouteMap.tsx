@@ -72,7 +72,7 @@ interface RouteMapProps {
   data: RouteMapData;
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
-  /** Where `set-viewport`'s implementation is installed (#278). */
+  /** Where `set-viewport`'s implementation is installed. */
   viewToolRegistry?: ViewToolRegistry | null;
   /** Set false to force the offline grid view (stories — the basemap renders
    * live tiles, which need the network and can't render deterministically). */
@@ -356,7 +356,7 @@ export function RouteMap({
   const resetView = () => applyView(base);
 
   /**
-   * `set-viewport` (#278): the model frames a stretch of the course by
+   * `set-viewport`: the model frames a stretch of the course by
    * distance, so "show me the climb at 14 km" moves the map instead of
    * describing it. Installed here rather than declared here — the tool is
    * registered before `connect()`, which is long before this component exists.
@@ -564,7 +564,7 @@ export function RouteMap({
 
   /* ── Accessibility ───────────────────────────────────────────── */
 
-  // One rich screen-reader narration shared by both views (#62): the basemap
+  // One rich screen-reader narration shared by both views: the basemap
   // renders it as visually-hidden text beside the canvas, the SVG grid as its
   // <desc>. Canvas has no accessible representation of its own.
   const a11yDescription = useMemo(
@@ -578,7 +578,7 @@ export function RouteMap({
         coordinates: data.coordinates,
         altitude: data.streams?.altitude,
         colorMetric: activeSeries?.label ?? null,
-        // Counts reflect the layers actually drawn (#328): a toggled-off
+        // Counts reflect the layers actually drawn: a toggled-off
         // layer narrates as absent, and segments count the outlined subset,
         // not every effort fetched. Reads hiddenLayers directly (not the
         // layerVisible closure) so the dependency list stays honest.

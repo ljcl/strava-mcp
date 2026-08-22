@@ -101,7 +101,7 @@ const inputSchema = z.object({
 
 type GetFitnessTrendInput = z.infer<typeof inputSchema>;
 
-/** Beyond this the solved plan is a training block, not a taper (#267). */
+/** Beyond this the solved plan is a training block, not a taper. */
 const LONG_PLAN_DAYS = 28;
 
 const signed = (value: number) => `${value >= 0 ? "+" : ""}${value}`;

@@ -1,5 +1,5 @@
 /**
- * Resolving a time or distance window to brush indices (#278).
+ * Resolving a time or distance window to brush indices.
  *
  * The `set-brush-window` view tool lets the model zoom the chart to the part
  * of the run being discussed — "the surge in the last kilometre" — instead of
@@ -72,7 +72,7 @@ export function indexRangeForValues(
 
 /**
  * How the current brush window reads in words, or null when the whole
- * activity is shown (#278).
+ * activity is shown.
  *
  * Phrased on the axis the brush is actually controlling — distance for swims,
  * time otherwise — so it matches the tick labels under it. Shared by the

@@ -17,11 +17,13 @@ A Model Context Protocol (MCP) server that supplements the official Strava MCP c
 - Derived analysis Strava does not expose: interval detection, climb/descent breakdown, aerobic decoupling, training load, fitness/fatigue/form (CTL/ATL/TSB), and a solved taper to a target race-day form
 - AI-friendly JSON responses via MCP
 - Nine interactive visualizations rendered in MCP-compatible hosts — activity chart, cadence trends, route map, activity segments, training load, compare activities, activity zones, segment progress, and fitness trend
-- Guided [prompts](#mcp-prompts) for weekly reviews, annotating a run, and segment hunting
+- Guided prompts for weekly reviews, annotating a run, and segment hunting ([docs/tools.md](docs/tools.md#prompts))
 - Automatic token refresh
 - Streamable HTTP transport for remote deployment
 
 Browse the UI components in the [live Storybook](https://ljcl.github.io/strava-mcp/).
+
+The full tool catalog, prompts, permission behaviour, and example requests live in [docs/tools.md](docs/tools.md).
 
 ## Quick Start (Docker)
 
@@ -47,96 +49,30 @@ STRAVA_CLIENT_SECRET=your_client_secret
 PUBLIC_URL=https://your-public-url.example.com
 ```
 
+All variables are listed in [docs/operations.md](docs/operations.md#environment-variables). Prefer the prebuilt image? Pull `ghcr.io/ljcl/strava-mcp:latest` (also on the [MCP registry](https://registry.modelcontextprotocol.io) as `io.github.ljcl/strava-mcp`) and point your compose `image:` at it instead of building; you still supply the Strava credentials yourself. Published images carry SBOM/provenance attestations you can verify — see [operations.md](docs/operations.md#verifying-a-pulled-image).
+
+**Note on the `./data` bind mount:** tokens persist there, and the distroless image runs as non-root UID 65534, so the directory must be writable by that UID or token persistence fails on first run:
+
+```bash
+mkdir -p data
+sudo chown -R 65534:65534 data
+```
+
+Alternatively use a named volume in `docker-compose.yml` (e.g. `strava-data:/app/data`), which Docker initializes with correct ownership. More detail in [operations.md](docs/operations.md#docker-notes).
+
 ### 3. Start the Server
 
 ```bash
 docker compose up -d
 ```
 
-> **Prefer a prebuilt image?** Instead of building locally you can pull the published image:
->
-> ```bash
-> docker pull ghcr.io/ljcl/strava-mcp:latest
-> ```
->
-> Point your `docker-compose.yml` `image:` at `ghcr.io/ljcl/strava-mcp:latest` (and drop the
-> `build:` block) to run it without a local build.
->
-> Every release is also published to the [MCP registry](https://registry.modelcontextprotocol.io)
-> as **`io.github.ljcl/strava-mcp`**, so a client that reads the registry can find the same OCI
-> package by name. The registry entry only points at the image — you still supply the Strava
-> credentials from [Environment Variables](#environment-variables) and authorize at `/auth/start`.
-
-> **Note on the `./data` bind mount:** the image is distroless and runs as the non-root user
-> **UID 65534**. Tokens are persisted to the host-mounted `./data` directory, so it must be
-> writable by that UID or token persistence fails on first run:
->
-> ```bash
-> mkdir -p data
-> sudo chown -R 65534:65534 data
-> ```
->
-> Alternatively, swap the bind mount for a named volume in `docker-compose.yml`
-> (e.g. `strava-data:/app/data`), which Docker initializes with the correct ownership.
-
-#### Verifying the image
-
-Each published image carries a BuildKit SBOM and SLSA provenance in its index, plus a
-Sigstore-backed provenance attestation bound to the release workflow's identity:
-
-```bash
-# Signed provenance — proves which workflow and commit built this image
-gh attestation verify oci://ghcr.io/ljcl/strava-mcp:latest --repo ljcl/strava-mcp
-
-# What is inside it
-docker buildx imagetools inspect ghcr.io/ljcl/strava-mcp:latest --format '{{ json .SBOM }}'
-docker buildx imagetools inspect ghcr.io/ljcl/strava-mcp:latest --format '{{ json .Provenance }}'
-```
-
-The SBOM also feeds vulnerability scanners directly (Trivy, Grype, Docker Scout), so they can
-read the recorded package list instead of re-deriving one from the image.
+`GET /health` reports liveness without spending a Strava API request; with `MCP_AUTH_TOKEN` it also reports auth and rate-limit state. Response shapes and monitoring guidance: [operations.md](docs/operations.md#health-check).
 
 ### 4. Authorize with Strava
 
-Visit `https://your-public-url/auth/start` in your browser. After authorizing, tokens are saved automatically.
+Visit `https://your-public-url/auth/start` in your browser. After authorizing, tokens are saved automatically and refreshed from then on. Check status anytime at `/auth/status`.
 
-Check status anytime at `https://your-public-url/auth/status`.
-
-If you set `MCP_AUTH_TOKEN` (recommended for tunnel-exposed servers — see
-[Securing the endpoint](#securing-the-endpoint)), append it to both URLs as
-`?token=<MCP_AUTH_TOKEN>`.
-
-#### Health check
-
-`GET /health` reports server state without spending a Strava API request — it is
-served entirely from local state, so it is safe to poll. The container's
-`HEALTHCHECK` uses it.
-
-Unauthenticated callers get liveness only:
-
-```json
-{ "status": "ok", "version": "2.8.0", "uptime_seconds": 5 }
-```
-
-With `MCP_AUTH_TOKEN` (`Authorization: Bearer <token>` or `?token=<token>`) —
-or on any server that has no secret configured — it also reports auth and
-rate-limit state:
-
-```json
-{
-  "status": "ok",
-  "version": "2.8.0",
-  "uptime_seconds": 5,
-  "authenticated": false,
-  "token_expires_at": null,
-  "rate_limit": null
-}
-```
-
-`rate_limit` is a snapshot from the most recent Strava response, so it stays
-`null` until the server has made one. The split matters when wiring monitoring:
-point an uptime check at the unauthenticated shape, and send the secret only
-when you actually want token and quota detail.
+If you set `MCP_AUTH_TOKEN`, append it to both URLs as `?token=<MCP_AUTH_TOKEN>`.
 
 ### 5. Connect to Claude Desktop
 
@@ -154,12 +90,9 @@ Add to your Claude configuration (`~/Library/Application Support/Claude/claude_d
 }
 ```
 
-The `headers` entry is only needed when `MCP_AUTH_TOKEN` is set (recommended
-for tunnel-exposed servers — see [Securing the endpoint](#securing-the-endpoint)).
+The `headers` entry is only needed when `MCP_AUTH_TOKEN` is set (recommended for tunnel-exposed servers — see [Securing the endpoint](#securing-the-endpoint)).
 
 Restart Claude Desktop to load the new configuration.
-
-Using a different MCP client? See [Client configuration](#client-configuration) for Claude Code, Cursor, and VS Code.
 
 ## Connecting to AI Tools
 
@@ -184,34 +117,9 @@ cloudflared tunnel --url http://localhost:3000
 
 ### Securing the endpoint
 
-A tunnel makes `/mcp` reachable by anyone who discovers the URL — including the
-`update-activity` write tool. Set `MCP_AUTH_TOKEN` to a long random secret
-(e.g. `openssl rand -hex 32`) and the server requires
-`Authorization: Bearer <token>` on every `/mcp` request, returning 401
-otherwise. Each client snippet below shows where the header goes. Without
-`MCP_AUTH_TOKEN` the endpoint stays open (unchanged behaviour) and the server
-logs a startup warning when `PUBLIC_URL` is configured.
+A tunnel makes `/mcp` reachable by anyone who discovers the URL — including the `update-activity` write tool. Set `MCP_AUTH_TOKEN` to a long random secret (`openssl rand -hex 32`) and every `/mcp` request requires `Authorization: Bearer <token>`; each client snippet below shows where the header goes. The secret also gates `/auth/start` and `/auth/status`. Full details (including how OAuth callbacks stay safe): [operations.md](docs/operations.md#securing-the-endpoint).
 
-Set it in `.env` alongside your Strava credentials — `docker-compose.yml`
-forwards it to the container automatically:
-
-```env
-MCP_AUTH_TOKEN=your-long-random-secret
-```
-
-If you run the published image without this compose file, pass the variable
-through yourself (`docker run -e MCP_AUTH_TOKEN=...`); a server that never
-receives it starts with the endpoint open.
-
-The secret also gates the OAuth web routes: `/auth/start` and `/auth/status`
-require it (in the browser, open `/auth/start?token=<MCP_AUTH_TOKEN>`), so a
-stranger cannot start an authorization flow against your server or read your
-athlete id and token expiry. `/auth/callback` stays open for Strava's
-redirect but only accepts callbacks carrying the single-use `state` nonce
-minted by your own `/auth/start`, so it cannot be used to overwrite your
-stored tokens with someone else's account.
-
-### Architecture
+Set it in `.env` alongside your Strava credentials — `docker-compose.yml` forwards it automatically.
 
 ```text
 AI Tool (Claude Desktop, Claude Code, etc.)
@@ -225,9 +133,7 @@ Strava API
 
 ### Client configuration
 
-The server works with any MCP client that supports the Streamable HTTP transport. In every
-snippet below, replace `https://your-public-url` with your tunnel URL (or `http://localhost:3000`
-for local development), and include the `Authorization` header only if you set `MCP_AUTH_TOKEN`.
+The server works with any MCP client that supports the Streamable HTTP transport. In every snippet below, replace `https://your-public-url` with your tunnel URL (or `http://localhost:3000` for local development), and include the `Authorization` header only if you set `MCP_AUTH_TOKEN`.
 
 #### Claude Code
 
@@ -269,46 +175,7 @@ Add to `.vscode/mcp.json` in your workspace (or run **MCP: Add Server** from the
 
 #### Other clients (generic Streamable HTTP)
 
-Any client that speaks [Streamable HTTP](https://modelcontextprotocol.io/docs/concepts/transports)
-can connect to the `/mcp` endpoint directly. The endpoint serves two protocol
-eras from one URL, so clients on either side of the 2026-07-28 revision work:
-
-- **2026-07-28 clients** send each request stateless, carrying the
-  `io.modelcontextprotocol/*` envelope keys in `params._meta` plus the
-  `Mcp-Method` / `Mcp-Name` headers; `server/discover` advertises the
-  supported revisions and capabilities.
-- **2025-era clients** use the `initialize` handshake as before. Serving is
-  stateless (each request stands alone): no `Mcp-Session-Id` is issued, which
-  the 2025 spec allows, and the standalone GET stream answers 405.
-- Either way, POST JSON-RPC messages to `https://your-public-url/mcp` with an
-  `Accept: application/json, text/event-stream` header.
-- If `MCP_AUTH_TOKEN` is set, also send `Authorization: Bearer <token>`
-  on every request.
-
-### Tool permissions
-
-Every tool declares MCP annotations so a host can tell reads from writes. The 35
-read tools set `readOnlyHint: true` and `destructiveHint: false`, which is the
-combination clients use to offer a durable "always allow". Six tools are writes
-and are expected to keep asking:
-
-| Tool | Why it asks |
-| ---- | ----------- |
-| `create-activity` | Creates a new Strava activity |
-| `update-activity` | Overwrites an existing activity's fields |
-| `star-segment` | Changes your starred segments |
-| `export-activity-gpx`, `export-route-gpx`, `export-route-tcx` | Return the document in the response, or write a file into `ROUTE_EXPORT_PATH` |
-
-No tool sets `anthropic/requiresUserInteraction`, so nothing here opts out of
-"always allow" on purpose.
-
-If a client re-prompts for read tools after you granted them, check whether the
-server was upgraded to a version that renamed a tool or changed its input
-schema — permission grants are stored per tool identity, so that drops the
-grant. Releases that do this say so in the changelog. Beyond that, permission
-persistence lives in the client, not in this server; the connector-level and
-per-tool settings are both worth checking, since granting at the connector level
-does not always write through to every tool.
+Any client that speaks [Streamable HTTP](https://modelcontextprotocol.io/docs/concepts/transports) can connect to the `/mcp` endpoint directly. One URL serves both protocol eras: 2026-07-28 clients send stateless requests carrying the `io.modelcontextprotocol/*` envelope keys (`server/discover` advertises capabilities); 2025-era clients use the ordinary `initialize` handshake. POST JSON-RPC messages with an `Accept: application/json, text/event-stream` header. Protocol details: [docs/architecture.md](docs/architecture.md#runtime-and-transport).
 
 ## Using alongside the official Strava MCP
 
@@ -331,7 +198,7 @@ Strava's official MCP connector handles activity discovery and basic reads. This
 | Activity photos | no | yes |
 | Athlete stats, per-activity zones, best efforts, running summary, training load, compare | no | yes |
 | Interval, hill, and aerobic analysis; fitness/fatigue/form (CTL/ATL/TSB) | no | yes |
-| Interactive apps: activity chart, cadence trends, route map, activity segments, training load, compare activities, activity zones, segment progress | no | yes |
+| Interactive apps: activity chart, cadence trends, route map, activity segments, training load, compare activities, activity zones, segment progress, fitness trend | no | yes |
 
 ### Caveats
 
@@ -343,289 +210,49 @@ Strava's official MCP connector handles activity discovery and basic reads. This
 
 Use the official connector to discover and read activities, then use this server to write, explore segments, manage and export routes, and visualize. The model can pass activity ids from official `list_activities` directly into this server's tools.
 
+## Example requests
+
+Ask your AI assistant questions like these (use the official Strava MCP to discover activity IDs, then pass them to these tools):
+
+- "Update the title of activity 12345678 to 'Morning Threshold'"
+- "Show me the HR zone breakdown for activity 12345678"
+- "Break down the intervals in activity 12345678 — did I fade across the reps?"
+- "Did I positive-split Sunday's long run, or was that just the hills?"
+- "My race is on 13 September — what should the next three weeks look like so I arrive at TSB +10?"
+- "Am I getting faster on segment 8109834? Show my effort history"
+- "Map my race route with fuel stops at 10k, 21k, and 32k, and flag the climb at 28k"
+
+More in [docs/tools.md](docs/tools.md#example-requests).
+
 ## Local Development
 
-For running without Docker or Tailscale Funnel:
-
-### Prerequisites
-
-- [Bun](https://bun.sh/) runtime
-- A Strava Account
-
-### Setup
+Prerequisites: [Bun](https://bun.sh/) and a Strava account.
 
 ```bash
 bun install
 
-# Run the setup script for localhost-based OAuth
-cd apps/server
-bun run setup-auth
+# Guided OAuth flow using localhost as redirect URI
+cd apps/server && bun run setup-auth && cd ../..
 
-# Start the development server (server + MCP App watchers)
-cd ../..
+# Start dev server (server + MCP App watchers)
 bun run dev
 ```
 
-The setup script will guide you through the OAuth flow using `localhost` as the redirect URI.
+Then point any client at `http://localhost:3000/mcp`. Repo layout, task runner, tests, coverage gates, and Storybook workflow: [docs/development.md](docs/development.md). Agent conventions live in [AGENTS.md](AGENTS.md).
 
-### Configure Claude Desktop (Local)
+## Documentation
 
-```json
-{
-  "mcpServers": {
-    "strava": {
-      "type": "url",
-      "url": "http://localhost:3000/mcp"
-    }
-  }
-}
-```
+| Doc | Contents |
+| --- | -------- |
+| [docs/tools.md](docs/tools.md) | Full tool catalog, prompts, permission behaviour, example requests |
+| [docs/operations.md](docs/operations.md) | Environment variables, auth/token handling, health endpoint, rate limits, endpoint security |
+| [docs/architecture.md](docs/architecture.md) | Server architecture: transport, HTTP layer, cache, error taxonomy, analysis math |
+| [docs/mcp-apps.md](docs/mcp-apps.md) | MCP App packages: shared shell, mobile, theming, per-app details |
+| [docs/development.md](docs/development.md) | Monorepo mechanics: Turborepo, coverage gates, Storybook gates, Docker build |
+| [docs/releasing.md](docs/releasing.md) | Release automation: Conventional Commit PR titles, release-please, publishing |
+| [docs/project.md](docs/project.md) | Issue tracking and project board |
 
-## Environment Variables
-
-| Variable               | Required | Description                                                |
-| ---------------------- | -------- | ---------------------------------------------------------- |
-| `STRAVA_CLIENT_ID`     | Yes      | Your Strava Application Client ID                          |
-| `STRAVA_CLIENT_SECRET` | Yes      | Your Strava Application Client Secret                      |
-| `PUBLIC_URL`           | Yes*     | Public URL for OAuth callback (required for web auth)      |
-| `STRAVA_ACCESS_TOKEN`  | No       | Initial access token (from `bun run setup-auth`)                  |
-| `STRAVA_REFRESH_TOKEN` | No       | Initial refresh token (from `bun run setup-auth`)                 |
-| `MCP_AUTH_TOKEN`       | No       | Shared secret; when set, `/mcp` requires `Authorization: Bearer <token>`, and `/auth/start`, `/auth/status` and the authed half of `/health` require it too (header or `?token=`) |
-| `ROUTE_EXPORT_PATH`    | No       | Absolute path for saving exported files. Unset, the export tools return the document inline instead |
-| `TOKEN_DATA_DIR`       | No       | Override token storage directory (default: `./data`)       |
-| `PORT`                 | No       | Server port (default: `3000`)                              |
-
-*Required for Docker/web-based OAuth. Not needed when using `bun run setup-auth` locally.
-
-## Token Handling
-
-The server implements automatic token management:
-
-- **On startup**: Checks token validity and refreshes if expired
-- **During operation**: Automatically refreshes on 401 errors
-- **Persistence**: Tokens are saved to `data/tokens.json` (survives container restarts)
-- **Re-authorization**: Visit `/auth/start` anytime to re-authorize
-
-You only need to authorize once **per scope set**. The refresh token obtains new access tokens automatically, but it cannot add scopes that were not granted originally.
-
-### Re-authorizing after a scope change
-
-When the server gains a tool that needs a new OAuth scope (for example `activity:write` for editing activities), you must do a fresh authorization to mint a token that carries it. The automatic refresh keeps the old scopes.
-
-- Local: `cd apps/server && bun run setup-auth`
-- Web / Docker: visit `/auth/start` on your server
-
-Both flows use `approval_prompt=force`, so Strava re-prompts and issues a token with the current scope set.
-
-## Rate Limits & Resilience
-
-The HTTP layer (`apps/server/src/fetchClient.ts`) handles Strava's rate limits and transient failures centrally, so every tool benefits without per-tool code:
-
-- **Rate-limit awareness**: Every response's `X-RateLimit-*` / `X-ReadRateLimit-*` (15-minute and daily windows) and `Retry-After` headers are parsed. Strava allows 100 requests / 15 min and 1000 / day by default ([docs](https://developers.strava.com/docs/rate-limits/)).
-- **429 backoff**: On a rate-limit response the client honours `Retry-After` and retries (bounded, so a tool call never blocks on a full 15-minute window). When the limit is genuinely exhausted the model gets a structured message naming which window is gone and when it resets.
-- **Transient retry**: `5xx` (500/502/503/504) and network faults are retried with bounded exponential backoff. Only idempotent reads (`GET`) are retried; writes (`update-activity`, `star-segment`) are never blindly retried.
-
-This is passive — there's nothing to configure. To see where you currently stand, read
-`rate_limit` from [`/health`](#health-check): it reports the snapshot parsed from the most
-recent Strava response, without spending a request of its own.
-
-## Natural Language Examples
-
-Ask your AI assistant questions like these (use the official Strava MCP to discover activity IDs, then pass them to these tools):
-
-**Activity Writing:**
-- "Update the title of activity 12345678 to 'Morning Threshold'"
-- "Add a note to my last ride: 'Felt strong on the climbs'"
-
-**Analysis and Visualization:**
-- "Show me the HR zone breakdown for activity 12345678"
-- "Compare my two long runs from last week"
-- "What are my best 5K and mile efforts?"
-- "Show me the cadence trends for my last 10 runs"
-- "View the route map for my last ride"
-- "Show me the segments from this morning's run"
-
-**Stats:**
-- "What are my running stats for this year on Strava?"
-
-**Segments:**
-- "List the segments I starred near Boulder, Colorado"
-- "Get details for the 'Alpe du Zwift' segment"
-- "Star the 'Flagstaff Road Climb' segment for me"
-- "Am I getting faster on segment 8109834? Show my effort history"
-- "Star the climbs on my goal race course, then review my progress on them each month"
-
-**Training analysis:**
-- "Break down the intervals in activity 12345678 — did I fade across the reps?"
-- "How much did the climbs cost me on Sunday's long run?"
-- "Did I positive-split Sunday's long run, or was that just the hills?"
-- "Show me the mile splits for activity 12345678 with grade-adjusted pace"
-- "Am I fresh enough to race this weekend? Check my CTL, ATL, and TSB"
-- "My race is on 13 September — what should the next three weeks look like so I arrive at TSB +10?"
-- "Chart my fitness and fatigue for the season and show the taper to race day"
-- "Did I decouple on that marathon-pace effort?"
-
-**Routes:**
-- "List my saved Strava routes"
-- "Export my 'Boulder Loop' route as a GPX file"
-- "Map my race route with fuel stops at 10k, 21k, and 32k, and flag the climb at 28k"
-
-## MCP Prompts
-
-Beyond tools, the server exposes three prompts — reusable multi-step workflows a
-host can offer as slash commands or starters, so the user does not have to
-compose the tool calls themselves.
-
-| Prompt | Arguments | What it does |
-| ------ | --------- | ------------ |
-| `weekly-review` | `weeks` (optional, default 4) | Reviews recent training — load trend, key workouts, and cadence patterns — ending with focus points for next week |
-| `annotate-last-run` | `activity_id` (optional, defaults to the most recent run) | Analyses a run and appends a short coaching note to its Strava description. Confirms before writing |
-| `segment-hunt` | `area` (required — a place name, or `south-west lat,lng to north-east lat,lng` bounds) | Explores segments in an area, compares them against your starred list, and stars the best candidates |
-
-In Claude Desktop and Claude Code these appear in the prompt picker once the
-server is connected. `annotate-last-run` and `segment-hunt` use write tools
-(`update-activity`, `star-segment`), so they need the `activity:write` scope.
-
-## API Reference
-
-The server exposes the following MCP tools:
-
-### Activity Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `create-activity` | Create a manual activity (no device recording), e.g. strength or yoga |
-| `update-activity` | Update an activity's description, title, sport type, gear, or flags |
-| `get-activity-zones` | Time spent in each HR and power zone for an activity |
-| `get-activity-laps` | Laps of an activity with sport-aware pace/speed, HR, power, cadence |
-| `export-activity-gpx` | Export an activity's recorded track as GPX built from its streams, inline or to a file |
-| `get-activity-photos` | Get photos from an activity |
-| `get-running-summary` | Running-focused summary with HR zones and lap analysis |
-| `get-aerobic-analysis` | Aerobic decoupling, efficiency factor, and intensity factor from HR + power/speed streams |
-| `get-hill-analysis` | Climb/descent detection with GAP and early-vs-late climb effort drift |
-| `get-split-analysis` | Even km or mile splits with a two-halves pacing verdict stated twice: on the clock and grade-adjusted, so a hilly back half is not misread as fade |
-| `get-interval-analysis` | Interval detection with urban-stop-aware rest classification and rep fade |
-| `get-training-load` | Training load summary with trend analysis |
-| `get-fitness-trend` | Fitness/fatigue/form (CTL/ATL/TSB) from relative effort, with rest projection and a solved week-by-week taper to a target form on a target date |
-| `compare-activities` | Compare two running activities side-by-side |
-| `get-best-efforts` | Personal best efforts across all running activities, optionally scoped to a date window |
-| `get-race-prediction` | Predicted race times from recorded best efforts (Riegel), with confidence, source effort, and km/mile goal-pace splits |
-
-### Athlete Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `get-athlete-stats` | Get activity statistics (recent, YTD, all-time) |
-
-### Segment Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `list-starred-segments` | List starred segments (paged; discloses when more are available) |
-| `get-segment` | Get detailed segment info |
-| `get-segment-profile` | Gradient breakdown along a segment: per-band grade, sustained climbs, crux position, and shape |
-| `explore-segments` | Search for segments in a geographic area |
-| `find-segments-on-route` | Segments a route or past activity actually passes through, in course order |
-| `star-segment` | Star or unstar a segment |
-| `get-segment-effort` | Get details for a specific segment effort |
-| `list-segment-efforts` | List athlete's efforts on a segment |
-| `compare-segment-efforts` | Compare two efforts on one segment per third, showing where the time went |
-
-### Route Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `list-athlete-routes` | List created routes |
-| `get-route` | Get detailed route info |
-| `get-route-preview` | Preview a saved route's climbs: each climb's position, grade, and length, plus the crux |
-| `export-route-gpx` | Export a route as GPX, inline or to a file |
-| `export-route-tcx` | Export a route as TCX, inline or to a file |
-
-### Visualization Tools
-
-| Tool | Description |
-| ---- | ----------- |
-| `view-activity-chart` | Interactive chart with HR, power, pace, altitude overlays (MCP App) |
-| `get-activity-streams-raw` | Raw stream data for the activity chart UI (app-only) |
-| `view-cadence-trends` | Interactive cadence trends with timeline, scatter, zones, and overlay views (MCP App) |
-| `get-cadence-trend-data` | Summary cadence/pace data for the cadence trends UI (app-only) |
-| `view-route-map` | Interactive map of an activity or route GPS track, fit to bounds with start/finish markers; optional distance-anchored waypoints (MCP App) |
-| `get-route-map-data` | Decoded `[lat, lng]` coordinates for the route map UI (app-only) |
-| `view-activity-segments` | Prioritised, scrollable list of one activity's segment efforts: PRs/top-10 pinned, then run order, pace-heat with expandable effort detail (MCP App) |
-| `get-activity-segments-data` | Segment-effort rows (time, pace, grade, ranks, HR/power/cadence) for the activity-segments UI (app-only) |
-| `view-training-load` | Weekly running-volume bars with a rolling trend line and injury-risk warning weeks (MCP App) |
-| `get-training-load-data` | Per-week volume, trend value, and warning flags for the training-load UI (app-only) |
-| `view-compare-activities` | Interactive overlay of two activities' streams on a shared distance/time axis with a delta summary (MCP App) |
-| `get-compare-activities-data` | Aggregate comparison (summaries, differences, efficiency) for the compare-activities UI (app-only) |
-| `view-activity-zones` | Time-in-zone bar chart for one activity's HR and power zones with an easy/moderate/hard split (MCP App) |
-| `get-activity-zones-data` | Per-zone time distributions for the activity-zones UI (app-only) |
-| `view-segment-progress` | Effort history on one segment: time over date with PR/top-3 highlights, an average-HR overlay, and an expandable effort list (MCP App) |
-| `get-segment-progress-data` | Segment details, per-effort rows, and the progress summary for the segment-progress UI (app-only) |
-| `view-fitness-trend` | Fitness (CTL), fatigue (ATL), and form (TSB) over time with shaded fatigue/freshness/ramp periods and a dashed taper plan or rest projection past today (MCP App) |
-| `get-fitness-trend-data` | Per-day CTL/ATL/TSB, the projection, any solved taper plan, and the dated warning bands for the fitness-trend UI (app-only) |
-
-## Project Structure
-
-```
-apps/server/                 MCP server (tools, auth, token management)
-apps/storybook/              Storybook for UI development
-packages/activity-chart/     Interactive activity chart (MCP App)
-packages/cadence-trends/     Cadence trend analysis (MCP App)
-packages/route-map/          Activity/route GPS map (MCP App)
-packages/activity-segments/  Activity segment-effort list (MCP App)
-packages/training-load/      Weekly training volume and trend (MCP App)
-packages/compare-activities/ Two-activity stream overlay (MCP App)
-packages/activity-zones/     Per-activity time-in-zone chart (MCP App)
-packages/segment-progress/   Segment effort history (MCP App)
-packages/fitness-trend/      Fitness/fatigue/form chart with taper plan (MCP App)
-packages/data/               Shared pure data utilities
-packages/ui/                 Shared presentational React components
-packages/design-system/      Design tokens, color constants, Storybook preview
-packages/vite-config/        Shared Vite config for MCP App builds
-packages/tsconfig/           Shared TypeScript configurations
-```
-
-## Development
-
-Bun workspaces with Turborepo. All tasks are cached and run in parallel where possible.
-
-```bash
-bun run check             # Full verification: lint + test + typecheck + build + boundaries
-bun run check:affected    # Same, only packages changed since main
-bun run build             # Build all packages
-bun run test              # Run all tests
-bun run lint              # Lint (Biome)
-bun run lint:fix          # Auto-fix lint issues
-bun run knip              # Dead code / unused export analysis
-bun run boundaries        # Package boundary enforcement
-bun run dev               # Dev mode (server + MCP App watchers)
-
-# Storybook
-cd apps/storybook
-bun run storybook         # Storybook on port 6006
-```
-
-### Storybook and visual review
-
-The UI packages are developed in Storybook (`apps/storybook`). The `main` build is published to GitHub Pages. Every pull request runs the stories as automated tests: each story renders in headless Chromium via Vitest browser mode and passes an axe accessibility pass, and stories with a `play` function assert component behaviour in the same run. To review a branch's UI visually, check it out and run `bun run storybook`.
-
-Storybook also exposes a Model Context Protocol server (via `@storybook/addon-mcp`) so AI tools can read component docs and stories. The endpoint is pre-wired in `.mcp.json`: a local one at `http://localhost:6006/mcp` (while Storybook is running).
-
-See `CLAUDE.md` for the full architecture reference, styling guide, Turborepo details, and MCP App patterns.
-
-### Commits and releases
-
-PRs are squash-merged, so the **PR title becomes the commit on `main`**. Write it as a
-[Conventional Commit](https://www.conventionalcommits.org/):
-
-- `feat: ...` — minor version bump
-- `fix: ...` — patch version bump
-- `feat!: ...` or a `BREAKING CHANGE:` footer — major version bump
-- `chore: ` / `docs: ` / `refactor: ` / `ci: ` — no release
-
-A CI check (`pr-title.yml`) rejects non-conforming PR titles. Versioning, the changelog,
-and image publishing are automated by release-please; a non-conventional title means no
-release is cut.
+PRs are squash-merged and the **PR title becomes the commit on `main`**, so write it as a [Conventional Commit](https://www.conventionalcommits.org/) (`feat:` minor, `fix:` patch, `feat!:` major; `chore:`/`docs:`/`refactor:`/`ci:` release nothing). A CI check rejects non-conforming titles; see [docs/releasing.md](docs/releasing.md).
 
 ## Troubleshooting
 
@@ -633,11 +260,13 @@ release is cut.
 
 **OAuth callback fails** — Ensure `PUBLIC_URL` in your `.env` matches the tunnel URL exactly, and that the same hostname is set as the "Authorization Callback Domain" in your [Strava API settings](https://www.strava.com/settings/api).
 
-**Token errors or expired tokens** — Check `/health` first: `authenticated` and `token_expires_at` tell you whether the server holds a usable token, which separates an auth problem from a reachability one. Then visit `/auth/start` to re-authorize. Tokens are refreshed automatically, but a full re-auth may be needed if the refresh token has been revoked. See [Health check](#health-check).
+**Token errors or expired tokens** — Check `/health` first: `authenticated` and `token_expires_at` tell you whether the server holds a usable token, which separates an auth problem from a reachability one. Then visit `/auth/start` to re-authorize. Tokens refresh automatically, but a full re-auth is needed if the refresh token was revoked or a new release added a scope. See [operations.md](docs/operations.md#authorization).
 
 **Is the server up and reachable?** — `curl https://your-public-url/health`. It answers without touching the Strava API, so it works even when your rate limit is exhausted.
 
-**Tokens don't survive a container restart (Docker)** — The container runs as non-root UID 65534, so the `./data` bind mount must be writable by that UID (`sudo chown -R 65534:65534 data`) or use a named volume instead. See [Quick Start step 3](#3-start-the-server).
+**Tokens don't survive a container restart (Docker)** — The container runs as non-root UID 65534, so the `./data` bind mount must be writable by that UID (`sudo chown -R 65534:65534 data`), or use a named volume instead. See [Quick Start step 2](#2-configure-environment) and [operations.md](docs/operations.md#docker-notes).
+
+**Client re-prompts for read tools after I granted them** — A release likely renamed a tool or changed its input schema; grants are stored per tool identity, so that drops the grant. Releases say so in the changelog. Otherwise persistence lives in the client — check both connector-level and per-tool settings. See [docs/tools.md](docs/tools.md#tool-permissions).
 
 ## License
 

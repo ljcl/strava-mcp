@@ -1,5 +1,5 @@
 /**
- * Hill/grade performance math for `get-hill-analysis` (#182). Pure functions
+ * Hill/grade performance math for `get-hill-analysis`. Pure functions
  * over Strava streams, unit-tested next to `trainingLoad.ts`.
  *
  * Detects sustained climbs and descents from the distance + grade streams,
@@ -34,7 +34,7 @@ export interface HillStreams {
 /** Raised for inputs the analysis cannot work with; message is user-facing. */
 export class HillAnalysisError extends Error {}
 
-// Tunable detection constants (see #182): a climb is sustained grade ≥ 2%
+// Tunable detection constants: a climb is sustained grade ≥ 2%
 // over ≥ 200 m, tolerant of brief dips.
 /** Grade (%) that opens a candidate climb. */
 export const CLIMB_MIN_GRADE_PCT = 2;
@@ -53,7 +53,7 @@ export const MAX_SAMPLE_GAP_SECONDS = 10;
 /**
  * Minimum fraction of a segment's moving time that must carry a real
  * (non-zero) power sample before an average is reported. Below this, the
- * power stream is too gappy to summarise and the field is omitted (#213).
+ * power stream is too gappy to summarise and the field is omitted.
  */
 export const POWER_COVERAGE_MIN = 0.7;
 
@@ -261,7 +261,7 @@ function summarizeSegment(
       cadW += weight;
     }
     // Run power of exactly 0 while moving is a stream dropout, not a real
-    // observation; including it drags the average toward zero (#213).
+    // observation; including it drags the average toward zero.
     const w = watts?.[i];
     if (w != null && w > 0) {
       wattsSum += w * weight;
@@ -298,7 +298,7 @@ function summarizeSegment(
     avgHr: avgHr != null ? round(avgHr, 0) : null,
     avgCadence: cadW > 0 ? round(cadSum / cadW, 1) : null,
     // Omit power when coverage is too thin to be meaningful — a segment sitting
-    // in a power-stream gap should report no power, not a skewed one (#213).
+    // in a power-stream gap should report no power, not a skewed one.
     avgWatts:
       wattsW > 0 &&
       movingTimeS > 0 &&
