@@ -304,7 +304,7 @@ export interface AppShellProps {
 /**
  * Outer card shell shared by every MCP App. Wraps content in the bordered
  * card with safe-area-aware padding, outer margin, and width clamp that
- * the host chrome rules in CLAUDE.md depend on staying identical. With an
+ * the host chrome rules in docs/mcp-apps.md depend on staying identical. With an
  * `app` and a fullscreen-capable host it also owns the display-mode toggle,
  * so every app gets the control at once.
  */

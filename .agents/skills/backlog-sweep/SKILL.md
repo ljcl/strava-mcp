@@ -18,7 +18,7 @@ sometimes whole premises. This sweep finds and fixes that drift so the next
 implementer isn't working from fiction.
 
 Issues live in GitHub Issues and are triaged on the "strava-mcp backlog" Project
-board (see CLAUDE.md "Backlog and issue tracking" for labels and board fields).
+board (see docs/project.md for labels and board fields).
 
 ## When to run
 
@@ -63,7 +63,7 @@ board (see CLAUDE.md "Backlog and issue tracking" for labels and board fields).
      doubt, update rather than close.
 
 4. **File issues for gaps found along the way.** Sweeps surface real gaps —
-   docs drift is the classic (README vs CLAUDE.md tool tables after a feature
+   docs drift is the classic (README vs docs/tools.md tool tables after a feature
    PR). File them with `type:*` / `area:*` labels; new issues auto-add to the
    board's Backlog column. Reference the PR that introduced the gap.
 

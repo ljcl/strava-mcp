@@ -309,7 +309,7 @@ export function CompareActivities({
       marginRight: 12,
       marginLeft: isMobile ? -14 : -8,
       marginTop: isMobile ? 8 : 5,
-      // Bottom margin must fit tick label descenders; see CLAUDE.md.
+      // Bottom margin must fit tick label descenders; see docs/mcp-apps.md.
       marginBottom: 24,
     }),
     [mode, isMobile],

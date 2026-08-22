@@ -49,7 +49,8 @@ Out of scope:
   it is gitignored and must never be committed, and the `./data` bind mount
   should not be world-readable.
 - The container runs as the non-root user UID 65534 on a distroless base, so
-  `data/` must be writable by that UID (see the README's Docker notes).
+  `data/` must be writable by that UID (see
+  [docs/operations.md](docs/operations.md#docker-notes)).
 
 If you find tokens or secrets leaking anywhere outside these paths (logs,
 error messages, MCP tool output), that is a vulnerability — please report it.
