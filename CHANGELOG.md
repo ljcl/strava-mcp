@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.0.0](https://github.com/ljcl/strava-mcp/compare/v2.13.2...v3.0.0) (2026-08-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* upgrade to the 2026-07-28 MCP revision with dual-era serving ([#346](https://github.com/ljcl/strava-mcp/issues/346))
+
+### Features
+
+* upgrade to the 2026-07-28 MCP revision with dual-era serving ([#346](https://github.com/ljcl/strava-mcp/issues/346)) ([2cc8efc](https://github.com/ljcl/strava-mcp/commit/2cc8efc253279601ff8db08b8f704c7ea19ce6d6))
+
 ## [2.13.2](https://github.com/ljcl/strava-mcp/compare/v2.13.1...v2.13.2) (2026-08-20)
 
 
