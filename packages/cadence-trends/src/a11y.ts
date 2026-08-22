@@ -9,7 +9,7 @@ import { type RunSummary } from "./types";
 const fullDate = (iso: string) => formatShortDate(iso, "full");
 
 /**
- * Screen-reader narration for the four cadence-trends charts (#28).
+ * Screen-reader narration for the four cadence-trends charts.
  * Recharts' accessibilityLayer provides keyboard focus and arrow-key
  * tooltip stepping, but the SVG carries no accessible name or content
  * summary of its own. Each builder feeds a chart's `title`/`desc` props

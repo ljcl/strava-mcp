@@ -10,7 +10,7 @@ export interface RouteMapContextInput {
   /** Label of the metric the track is colored by, when streams are present. */
   colorMetric?: string | null;
   /**
-   * How far the map is zoomed in, when it is (#278). Echoed back so a model
+   * How far the map is zoomed in, when it is. Echoed back so a model
    * that called `set-viewport` — or a user who pinched — knows the view is no
    * longer showing the whole course.
    */

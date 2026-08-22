@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /**
- * Strava's SportType values (#244), the vocabulary both write tools accept.
+ * Strava's SportType values, the vocabulary both write tools accept.
  *
  * Mirrors the SportType model in Strava's API reference. It is pinned here
  * rather than fetched because there is no machine-readable feed for it — which

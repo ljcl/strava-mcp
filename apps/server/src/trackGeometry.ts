@@ -1,6 +1,6 @@
 /**
  * Resolve an `activity_id` or `route_id` into a course: coordinates plus a
- * cumulative distance array aligned with them (#268).
+ * cumulative distance array aligned with them.
  *
  * Deliberately separate from `server.ts`'s `loadRouteMapGeometry`, which
  * answers a different question — it fetches the whole metric stream set at

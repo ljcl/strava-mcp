@@ -432,13 +432,13 @@ const authRetryContext = new AsyncLocalStorage<true>();
  * A Strava API failure that {@link handleApiError} has already interpreted:
  * the user-facing message, with the HTTP status still attached.
  *
- * It extends {@link HttpError} so the status survives the translation. A caller
- * that degrades on one specific status — `loadRouteProfile` treats a 404 from
- * the GPX export as "this route stored no profile" and anything else as a real
- * failure — used to test `error instanceof HttpError` against an error this
- * function had already flattened into a plain `Error`, so the branch could
- * never run and a 404 surfaced as a raw API error instead. Degrading on a
- * status is only expressible if the status is still there.
+ * It extends {@link HttpError} so the status survives the translation. Never
+ * flatten a failure into a plain `Error` here: a caller that degrades on one
+ * specific status — `loadRouteProfile` treats a 404 from the GPX export as
+ * "this route stored no profile" and anything else as a real failure — then
+ * has nothing to test `instanceof` against, its branch silently never runs,
+ * and the 404 surfaces as a raw API error. Degrading on a status is only
+ * expressible if the status is still there.
  */
 export class StravaApiError extends HttpError {
   constructor(
@@ -661,12 +661,12 @@ export async function getAllActivities(
 
     return allActivities;
   } catch (error) {
-    // Every page, not only the first: a token expiring part-way through a long
-    // history scan used to skip the refresh and surface the raw `HTTP 401` to
-    // the athlete with no mention of /auth/start. The retry restarts pagination
-    // from the first page — the same result for a few extra requests — and
-    // `authRetryContext` still caps recovery at one attempt per call, which is
-    // what the page guard was standing in for.
+    // Every page, not only the first. Guarding on the first page instead
+    // means a token expiring part-way through a long history scan skips the
+    // refresh and surfaces a raw `HTTP 401` with no mention of /auth/start.
+    // The retry restarts pagination from page one — the same result for a few
+    // extra requests — and `authRetryContext` caps recovery at one attempt per
+    // call, so the guard buys nothing.
     return await handleApiError<StravaSummaryActivity[]>(
       error,
       "getAllActivities",
@@ -865,13 +865,13 @@ export type StravaStreamSet = Map<string, unknown[]>;
 /**
  * Fetches an activity's data streams.
  *
- * This is the single stream-fetch path (#237). Seven near-identical fetchers
- * used to call `stravaApi.get()` directly behind a bare `catch {}`, so a 401
- * got no refresh-and-retry and a 429 got no structured message — both surfaced
- * to the user as "this activity has no samples", which is wrong and hides the
- * one-line fix. Only a genuine 404 or empty response yields
- * {@link StreamsUnavailableError}; auth, rate-limit, and subscription failures
- * go through {@link handleApiError} like every other client call.
+ * This is the single stream-fetch path: never reach for `stravaApi.get()`
+ * directly behind a bare `catch {}`. That gives a 401 no refresh-and-retry and
+ * a 429 no structured message, and surfaces both to the athlete as "this
+ * activity has no samples" — wrong, and it hides the one-line fix. Only a
+ * genuine 404 or empty response yields {@link StreamsUnavailableError}; auth,
+ * rate-limit, and subscription failures go through {@link handleApiError} like
+ * every other client call.
  *
  * @param accessToken - The Strava API access token.
  * @param activityId - The activity whose streams to fetch.
@@ -912,11 +912,11 @@ export async function getActivityStreams(
 }
 
 /**
- * The one place a stream set is fetched, validated, and error-mapped (#237,
- * extended for routes and segments in #264/#266). Every caller inherits the
- * same contract: a genuine 404 or an empty response is
- * {@link StreamsUnavailableError} — the single failure a caller may degrade on
- * — while auth, rate-limit, and subscription failures go through
+ * The one place a stream set is fetched, validated, and error-mapped, for
+ * activities, routes, and segments alike. Every caller inherits the same
+ * contract: a genuine 404 or an empty response is
+ * {@link StreamsUnavailableError} — the single failure a caller may degrade
+ * on — while auth, rate-limit, and subscription failures go through
  * {@link handleApiError} so a 401 refreshes and retries and a 429 gets the
  * structured message.
  */
@@ -965,16 +965,17 @@ async function fetchStreamSet(args: {
 }
 
 /**
- * Fetches a saved route's streams (#264).
+ * Fetches a saved route's streams.
  *
  * `/routes/{id}/streams` takes no key list — it returns the route's whole
  * stored set (distance, altitude, latlng), so there is nothing to request.
  *
- * Routes carry a stored elevation profile, but the map used to render them
- * from the encoded polyline alone — so the elevation strip, the scrub metrics,
- * and the metric-coloured track were dead code for every `route_id`. Older
- * routes have no stored profile and answer 404, which surfaces as
- * {@link StreamsUnavailableError} for the caller to fall back on.
+ * A route's stored elevation profile is only reachable here, not from its
+ * encoded polyline — rendering a route from the polyline alone leaves the
+ * elevation strip, the scrub metrics, and the metric-coloured track as dead
+ * code for every `route_id`. Older routes have no stored profile and answer
+ * 404, which surfaces as {@link StreamsUnavailableError} for the caller to
+ * fall back on.
  *
  * @throws {StreamsUnavailableError} when the route has no stored streams.
  */
@@ -1003,7 +1004,7 @@ export async function getRouteStreams(
 export const SEGMENT_STREAM_KEYS = ["distance", "altitude", "latlng"] as const;
 
 /**
- * Fetches a segment's streams (#266).
+ * Fetches a segment's streams.
  *
  * The distance + altitude pair is what turns `get-segment`'s single average
  * grade into a profile: a steady 4% ramp and a flat kilometre followed by a
@@ -1041,9 +1042,9 @@ export const STARRED_SEGMENTS_DEFAULT_PER_PAGE = 30;
 /**
  * Lists the segments starred by the authenticated athlete.
  *
- * Paged explicitly (#246). `/segments/starred` silently serves only its first
- * page, so an athlete with more stars than the page size used to be told the
- * truncated list was everything.
+ * Paged explicitly, because `/segments/starred` silently serves only its
+ * first page: fetch it without paging and an athlete with more stars than the
+ * page size is told the truncated list is everything.
  *
  * @param accessToken - The Strava API access token.
  * @param page - 1-based page number.

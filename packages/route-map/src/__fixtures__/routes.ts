@@ -86,7 +86,7 @@ export const pointToPointRoute: RouteMapData = {
 
 /**
  * The `get-route-map-data` payload for a saved route with a stored elevation
- * profile (#264): the densified course carrying exactly two streams —
+ * profile: the densified course carrying exactly two streams —
  * cumulative `distance` in metres and `altitude` in metres above sea level.
  * Deliberately no time, heart rate, power, speed, or grade, because that is
  * what a route degrades to, and it is what makes elevation the app's only

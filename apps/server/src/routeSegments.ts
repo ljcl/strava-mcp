@@ -1,5 +1,5 @@
 /**
- * Segment recon over a course, for `find-segments-on-route` (#268). Pure
+ * Segment recon over a course, for `find-segments-on-route`. Pure
  * geometry, unit-tested next to `mapAnchors.ts`.
  *
  * `explore-segments` answers "what is inside this rectangle", which for a 20 km

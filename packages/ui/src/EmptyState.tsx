@@ -7,7 +7,7 @@ export interface EmptyStateProps {
 }
 
 /**
- * Bordered no-data card shared by the MCP Apps (#170), unifying the three
+ * Bordered no-data card shared by the MCP Apps, unifying the three
  * divergent empty-state looks the apps had grown (bordered card, plain
  * centered text, chart-height text block).
  */

@@ -1,5 +1,5 @@
 /**
- * Urban-stop-aware interval detection for `get-interval-analysis` (#183).
+ * Urban-stop-aware interval detection for `get-interval-analysis`.
  * Pure functions over Strava streams and laps, unit-tested next to
  * `trainingLoad.ts`.
  *
@@ -44,7 +44,7 @@ export interface IntervalLap {
 /** Raised for inputs the analysis cannot work with; message is user-facing. */
 export class IntervalAnalysisError extends Error {}
 
-// Tunable classification thresholds (see #183).
+// Tunable classification thresholds.
 /** Rests shorter than this with no fast preceding effort are traffic lights. */
 export const REST_URBAN_MAX_SECONDS = 60;
 /** Upper bound for a rest to count as genuine interval recovery. */
@@ -64,7 +64,7 @@ export const HR_HIGH_INTENSITY_SHARE = 0.15;
 /**
  * Minimum fraction of a rep's moving time that must carry a real (non-zero)
  * power sample before an average is reported; below this the power stream is
- * too gappy to summarise and the field is omitted (#213).
+ * too gappy to summarise and the field is omitted.
  */
 export const POWER_COVERAGE_MIN = 0.7;
 
@@ -177,7 +177,7 @@ function aggregate(
       agg.cadW += weight;
     }
     // Run power of exactly 0 while moving is a stream dropout, not a real
-    // observation; including it drags the average toward zero (#213).
+    // observation; including it drags the average toward zero.
     const w = watts?.[i];
     if (w != null && w > 0) {
       agg.wattsSum += w * weight;
@@ -221,7 +221,7 @@ function toRep(
     avgHr: agg.hrW > 0 ? round(agg.hrSum / agg.hrW, 0) : null,
     avgCadence: agg.cadW > 0 ? round(agg.cadSum / agg.cadW, 1) : null,
     // Omit power when coverage is too thin to be meaningful — a rep sitting in
-    // a power-stream gap should report no power, not a skewed one (#213).
+    // a power-stream gap should report no power, not a skewed one.
     avgWatts:
       agg.wattsW > 0 &&
       agg.movingTimeS > 0 &&
@@ -272,7 +272,7 @@ export function detectRests(streams: IntervalStreams): RawRest[] {
 }
 
 /**
- * The documented rest heuristic (#183):
+ * The documented rest heuristic:
  * - longer than 5 min → café/regroup stop, excluded from structure
  * - fast preceding effort and ≤ 3 min → genuine interval recovery
  * - under 60 s with no fast preceding effort → traffic light, excluded

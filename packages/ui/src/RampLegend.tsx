@@ -16,7 +16,7 @@ export interface RampLegendProps {
 
 /**
  * Key for a continuous colour ramp: a gradient bar between its two endpoint
- * values (#254).
+ * values.
  *
  * Extracted from route-map's metric scale when activity-segments needed the
  * same thing — it colours every row's dot with the identical shared ramp and

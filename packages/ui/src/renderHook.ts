@@ -14,7 +14,7 @@ interface HookHarness<TProps, TResult> {
  * Minimal render-a-hook harness. The repo has no React testing library and
  * does not need one for this: hooks are the only thing here that cannot be
  * tested as a pure function or through a story, and a component that just
- * calls the hook is enough to exercise it (#272).
+ * calls the hook is enough to exercise it.
  */
 export async function renderHook<TProps, TResult>(
   hook: (props: TProps) => TResult,

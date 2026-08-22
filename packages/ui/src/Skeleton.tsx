@@ -6,7 +6,7 @@ interface SkeletonProps {
 }
 
 export function Skeleton({ variant = "chart" }: SkeletonProps) {
-  // Decorative: the loading announcement comes from LoadingState (#172).
+  // Decorative: the loading announcement comes from LoadingState.
   return (
     <div className={styles.skeleton} data-variant={variant} aria-hidden="true">
       {variant === "chart" && (

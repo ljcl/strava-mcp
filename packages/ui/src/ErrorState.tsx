@@ -8,7 +8,7 @@ export interface ErrorStateProps {
 }
 
 /**
- * Shared in-card error state for the MCP Apps (#116): a themed message
+ * Shared in-card error state for the MCP Apps: a themed message
  * plus an optional retry affordance, replacing the four inline-styled
  * error divs that offered no way back short of reloading the iframe.
  */

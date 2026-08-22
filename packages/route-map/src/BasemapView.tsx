@@ -1,5 +1,5 @@
 /**
- * MapLibre basemap renderer (#61): OpenFreeMap's Liberty style behind the
+ * MapLibre basemap renderer: OpenFreeMap's Liberty style behind the
  * track, the default view when tiles are reachable (the offline SVG grid is
  * the silent fallback). Owns its own camera — MapLibre's native zoom/pan with
  * cooperative gestures so the conversation keeps scrolling — and renders the
@@ -219,7 +219,7 @@ export function BasemapView({
       const { splitMarkers, segments, photoMarkers, waypointMarkers } =
         annotationsRef.current;
 
-      // Guard every add individually (#73): maplibre's addSource throws
+      // Guard every add individually: maplibre's addSource throws
       // synchronously (e.g. on a duplicate id), and an unguarded throw here
       // aborted the whole handler — one bad call blanked every layer while
       // the basemap kept rendering. Failures are logged with their id so a
@@ -399,8 +399,8 @@ export function BasemapView({
       });
 
       // Hover popups for the point markers ("Lap 2", "3 photos"). Segment
-      // efforts are not here: they surface in the shared scrub tooltip instead,
-      // so the white per-segment popup no longer clashes with the metric value.
+      // efforts deliberately get no popup of their own: they surface in the
+      // shared scrub tooltip, where they cannot clash with the metric value.
       // Bound only to layers that actually got added: delegated listeners on
       // a missing layer make maplibre error on every pointer move.
       for (const layerId of [SPLITS_LAYER, PHOTOS_LAYER, WAYPOINTS_LAYER]) {

@@ -59,7 +59,7 @@ async function fetchGpxStreams(
   } catch (error) {
     // A sample-less activity falls back to the polyline; an expired token or
     // an exhausted rate limit is a real failure and must not masquerade as
-    // one (#237).
+    // one.
     if (error instanceof StreamsUnavailableError) return null;
     throw error;
   }
@@ -95,7 +95,7 @@ export const exportActivityGpx = {
   ) => {
     // The id is interpolated into both the API URL and the output filename —
     // reject anything non-numeric before any fetch or write (mirrors the
-    // route export tools, #141).
+    // route export tools).
     if (!/^\d+$/.test(activityId)) {
       return {
         content: [

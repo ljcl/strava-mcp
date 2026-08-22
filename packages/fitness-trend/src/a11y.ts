@@ -16,7 +16,7 @@ export interface ChartA11y {
 
 /**
  * What the chart is currently drawing, so the narration can describe what a
- * sighted user actually sees rather than everything that was fetched (#328).
+ * sighted user actually sees rather than everything that was fetched.
  */
 export interface TrendVisibility {
   showCtl: boolean;

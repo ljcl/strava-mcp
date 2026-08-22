@@ -3,7 +3,7 @@ import { alignedKey, type PaceCategory } from "./align";
 import { type AlignedPoint, type AxisKey, type MetricKey } from "./types";
 
 /**
- * Screen-reader narration for the comparison chart (#28). Recharts'
+ * Screen-reader narration for the comparison chart. Recharts'
  * accessibilityLayer provides keyboard focus and arrow-key tooltip stepping,
  * but the SVG carries no accessible name or content summary of its own.
  * These strings feed the chart's `title`/`desc` props (rendered as SVG

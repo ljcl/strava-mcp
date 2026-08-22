@@ -11,7 +11,7 @@ export interface ActivitySegmentRow {
   segmentId: string;
   /**
    * The effort's own id, distinct from the segment's. Exposed so the model can
-   * chain straight from a row into `compare-segment-efforts` (#269) instead of
+   * chain straight from a row into `compare-segment-efforts` instead of
    * having to re-derive it from the activity.
    */
   effortId: string;

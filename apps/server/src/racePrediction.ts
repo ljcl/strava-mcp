@@ -1,5 +1,5 @@
 /**
- * Equivalent-performance and goal-pace math for `get-race-prediction` (#263).
+ * Equivalent-performance and goal-pace math for `get-race-prediction`.
  * Pure functions over recorded best efforts, unit-tested next to
  * `fitnessTrend.ts`.
  *

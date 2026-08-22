@@ -51,7 +51,7 @@ export function App({ app, data, mode = "desktop" }: AppProps) {
   const [selectedRunIds, setSelectedRunIds] = useState<Set<number>>(new Set());
 
   // Per-run stream fetches go through the shared keyed fetcher so each run
-  // carries its own loading, error, and retry (#250) — the hand-rolled
+  // carries its own loading, error, and retry — the hand-rolled
   // version dropped a failed run silently and refetched it forever.
   const streamFetcher = useServerToolFetcher<OverlayStreamData>(
     app,
@@ -120,7 +120,7 @@ export function App({ app, data, mode = "desktop" }: AppProps) {
   );
 
   // Runs the overlay can plot (it needs a cadence stream); the same pool the
-  // Trend/Scatter dots draw from, offered as a keyboard/touch picker (#169).
+  // Trend/Scatter dots draw from, offered as a keyboard/touch picker.
   const selectableRuns = useMemo(
     () => data.activities.filter((a) => a.averageCadence > 0),
     [data.activities],

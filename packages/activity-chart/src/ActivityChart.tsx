@@ -157,7 +157,7 @@ function computeHiddenSet(
 }
 
 /**
- * Per-series class names for the CSS legend-hover dimming (#133): hover
+ * Per-series class names for the CSS legend-hover dimming: hover
  * state is applied as a `data-hovered` attribute on the chart wrapper and
  * resolved in CSS, so hovering the legend never re-renders the memoized
  * Recharts tree.
@@ -278,7 +278,7 @@ interface ActivityChartProps {
   laps?: ChartLap[];
   mode?: "mobile" | "desktop";
   app?: ModelContextApp;
-  /** Where `set-brush-window`'s implementation is installed (#278). */
+  /** Where `set-brush-window`'s implementation is installed. */
   viewToolRegistry?: ViewToolRegistry | null;
 }
 
@@ -333,7 +333,7 @@ export function ActivityChart({
   // the raw traces are too noisy to read at small sizes anyway.
   const [smooth, setSmooth] = useState(isMobile);
 
-  // X-axis brush window (#35). Controlled so the zoom survives preset,
+  // X-axis brush window. Controlled so the zoom survives preset,
   // legend, and smooth toggles (those rebuild the memoized tree, and an
   // uncontrolled Brush would reset to the full range). Indexes stay valid
   // across the Smooth toggle because smoothing preserves point count.
@@ -343,7 +343,7 @@ export function ActivityChart({
   }>({});
 
   /**
-   * `set-brush-window` (#278): the model zooms the chart to the part of the
+   * `set-brush-window`: the model zooms the chart to the part of the
    * run under discussion — "the surge in the last km" — instead of asking the
    * user to drag the handles there. Installed rather than declared here: the
    * tool is registered before `connect()`, long before this component mounts.
@@ -423,7 +423,7 @@ export function ActivityChart({
 
   // Rendered plot width, used to decide how many lap/segment band labels fit
   // without overlapping. Bucketed so minor reflows don't churn the memoized
-  // chart tree (#133); starts at a mode-based estimate so labels are sensible
+  // chart tree; starts at a mode-based estimate so labels are sensible
   // before the observer fires (and in non-DOM renders).
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const [plotWidth, setPlotWidth] = useState(isMobile ? 340 : 720);
@@ -508,7 +508,7 @@ export function ActivityChart({
   if (availableMetrics.has("grade") && !isMobile)
     legendItems.push({ key: "grade", color: COLORS.grade, label: "Grade" });
 
-  // Screen-reader narration (#28), computed outside the chart memo so the
+  // Screen-reader narration, computed outside the chart memo so the
   // memo's dependency is the resulting string, not the smoothing flag.
   const a11yDescription = useMemo(() => {
     const drawn = (key: MetricKey) =>
@@ -519,7 +519,7 @@ export function ActivityChart({
       meta,
       data: displayData,
       visibleMetrics: ALL_METRICS.filter(drawn),
-      // Recorded but deliberately not drawn at this size (#256): without
+      // Recorded but deliberately not drawn at this size: without
       // this the same activity reads as having different data on mobile.
       omittedMetrics:
         isMobile && availableMetrics.has("grade") && !hidden.has("grade")
@@ -536,7 +536,7 @@ export function ActivityChart({
   // The Recharts tree is memoized WITHOUT the hover state: hovering the
   // legend only flips a data attribute on the wrapper div (dimming is CSS),
   // so the element below stays referentially stable and React bails out of
-  // re-rendering the chart over per-second stream data (#133).
+  // re-rendering the chart over per-second stream data.
   const chart = useMemo(() => {
     const show = (key: MetricKey) =>
       availableMetrics.has(key) && !hidden.has(key);
@@ -806,8 +806,8 @@ export function ActivityChart({
   // Manual entries, treadmill uploads, and activities with device data
   // stripped parse into a valid-but-plottable-nothing payload. Without this
   // guard the card renders bare axes, an empty legend, and an empty preset
-  // selector, which reads as a broken app rather than "nothing to chart"
-  // (#248). Placed after the hooks above so the branch cannot reorder them.
+  // selector, which reads as a broken app rather than "nothing to chart".
+  // Placed after the hooks above so the branch cannot reorder them.
   if (data.length === 0 || availableMetrics.size === 0) {
     return (
       <div
@@ -870,9 +870,9 @@ export function ActivityChart({
               onClick={() => toggle(key)}
               onMouseEnter={() => setHoveredLegendKey(key)}
               onMouseLeave={() => setHoveredLegendKey(null)}
-              // Same setter on focus/blur (#251): tabbing the legend isolates
+              // Same setter on focus/blur: tabbing the legend isolates
               // the series exactly as hovering it does.
-              // Same setter on focus/blur (#251): tabbing the legend isolates
+              // Same setter on focus/blur: tabbing the legend isolates
               // the series exactly as hovering it does.
               onFocus={() => setHoveredLegendKey(key)}
               onBlur={() => setHoveredLegendKey(null)}

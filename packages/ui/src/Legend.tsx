@@ -48,7 +48,7 @@ interface LegendItemProps {
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   /**
-   * Keyboard counterparts to the mouse handlers (#251). A consumer that dims
+   * Keyboard counterparts to the mouse handlers. A consumer that dims
    * non-hovered series must pass the same setter to all four, or a keyboard
    * user tabbing the legend gets the focus ring and none of the isolation
    * the affordance exists to provide.
@@ -56,7 +56,7 @@ interface LegendItemProps {
   onFocus?: () => void;
   onBlur?: () => void;
   /**
-   * Render as a static key entry rather than a toggle (#256). For a series
+   * Render as a static key entry rather than a toggle. For a series
    * that is always drawn — training-load's volume bars are the chart's
    * dominant mark — where a legend entry is needed to explain the colour but
    * there is nothing to switch off. A toggle that does nothing is worse than

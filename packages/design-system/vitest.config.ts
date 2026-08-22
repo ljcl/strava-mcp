@@ -6,7 +6,7 @@ export default defineConfig({
       provider: "v8",
       // json-summary feeds the CI job-summary table (scripts/coverage-summary.ts).
       reporter: ["text", "json-summary"],
-      // High regression floor (#162): this package measures 100%, so any
+      // High regression floor: this package measures 100%, so any
       // drop is meaningful. Auto-ratcheted to 2 points under measured
       // coverage; a full `test:coverage` run rewrites the numbers in place
       // (they always equal floor(actual − 2)); commit the rewrite, don't

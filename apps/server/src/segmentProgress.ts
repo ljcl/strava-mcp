@@ -1,8 +1,8 @@
 /**
- * Pure segment-effort history aggregation shared by the
- * `view-segment-progress` text summary and the `get-segment-progress-data`
- * MCP App feed (#184). Strava's segment *leaderboard* endpoints are dead at
- * the API level, so the athlete's own repeated efforts are the only
+ * Pure segment-effort history aggregation shared by the `view-segment-progress`
+ * text summary and the `get-segment-progress-data` MCP App feed. Strava's
+ * segment *leaderboard* endpoints are dead at the API level, so the athlete's
+ * own repeated efforts are the only
  * progression signal available — this module turns them into a chronological
  * series plus the derived summary both surfaces render, so the chart and the
  * prose can never drift.

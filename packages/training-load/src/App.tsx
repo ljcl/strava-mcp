@@ -57,8 +57,8 @@ export function App({ app, data, mode = "desktop" }: AppProps) {
       {data.weeks.length > 0 && (
         <div className={styles.footer}>
           <Legend size={getChartTokens(mode).legendSize}>
-            {/* The bars are the chart's dominant mark and had no entry at all
-             * (#256), so nothing said what the blue meant — or that the red
+            {/* The bars are the chart's dominant mark, so they get an entry:
+             * without one nothing says what the blue means, or that the red
              * warning bars are the same measure. Static: there is nothing to
              * toggle, since hiding the volume would empty the chart. */}
             <LegendItem

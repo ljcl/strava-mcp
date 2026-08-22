@@ -7,7 +7,7 @@ import {
 } from "./types";
 
 /**
- * Screen-reader narration for the activity chart (#28). Recharts'
+ * Screen-reader narration for the activity chart. Recharts'
  * accessibilityLayer provides keyboard focus and arrow-key tooltip stepping,
  * but the SVG carries no accessible name or content summary of its own.
  * These strings feed the chart's `title`/`desc` props (rendered as SVG
@@ -23,7 +23,7 @@ export interface ChartA11yInput {
   lapCount?: number;
   smoothed?: boolean;
   /**
-   * Metrics the activity recorded but this layout does not draw (#256).
+   * Metrics the activity recorded but this layout does not draw.
    * Grade is dropped on mobile because it crowds the altitude axis, which
    * silently made the same activity look like it had different data
    * depending on device. Naming the omission costs no pixels.

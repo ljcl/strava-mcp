@@ -19,7 +19,7 @@ import { type RouteMapData, type ToolArgs } from "./types";
 import "./global.css";
 
 /**
- * Tools this view exposes to the host and model (#278). Declared at module
+ * Tools this view exposes to the host and model. Declared at module
  * scope because they are registered before `connect()`; `RouteMap` installs
  * the implementation once it is mounted and owns a viewBox.
  */

@@ -5,7 +5,7 @@ import { getTokenStatus } from "./tokenManager";
 import { SERVER_VERSION } from "./version";
 
 /**
- * Structured /health (#129). Everything here is served from local state —
+ * Structured /health. Everything here is served from local state —
  * stored tokens and the rate-limit snapshot captured off the most recent
  * Strava response — so the endpoint never spends a Strava request.
  *
@@ -30,7 +30,7 @@ export async function handleHealth(req: Request, url: URL): Promise<Response> {
     authenticated: tokenStatus.authenticated,
     token_expires_at: tokenStatus.expires_at ?? null,
     rate_limit: stravaApi.getRateLimitSnapshot(),
-    // Rolling per-tool counters since process start (#241): which tools are
+    // Rolling per-tool counters since process start: which tools are
     // used, how slow they are, and how often they fail. Behind the same secret
     // as the rate-limit detail, since it describes the athlete's usage.
     tools: toolCallStats(),

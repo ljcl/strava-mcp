@@ -1,5 +1,5 @@
 /**
- * Even-split math for `get-split-analysis` (#265). Pure functions over Strava
+ * Even-split math for `get-split-analysis`. Pure functions over Strava
  * streams, unit-tested next to `hillAnalysis.ts`.
  *
  * Answers the most common post-run question — "did I positive-split this, and
@@ -234,7 +234,7 @@ export function binByDistance(
     const hr = heartrate?.[i];
     const cad = cadence?.[i];
     // Run power of exactly 0 while moving is a stream dropout, not a real
-    // observation; including it drags the average toward zero (#213).
+    // observation; including it drags the average toward zero.
     const w = watts?.[i];
 
     for (const bin of bins) {
@@ -447,7 +447,7 @@ export function computeSplitAnalysis(
           : null,
       avgHr: bin.hrW > 0 ? Math.round(bin.hrSum / bin.hrW) : null,
       avgCadence: bin.cadW > 0 ? round(bin.cadSum / bin.cadW, 1) : null,
-      // Omit power when coverage is too thin to be meaningful (#213).
+      // Omit power when coverage is too thin to be meaningful.
       avgWatts:
         bin.wattsW > 0 &&
         bin.movingTimeS > 0 &&

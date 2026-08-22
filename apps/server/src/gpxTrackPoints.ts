@@ -1,5 +1,5 @@
 /**
- * Minimal GPX track-point reader, the counterpart to `gpxBuilder.ts` (#264).
+ * Minimal GPX track-point reader, the counterpart to `gpxBuilder.ts`.
  *
  * Only exists for one fallback: a saved route created before Strava stored a
  * profile answers `/routes/{id}/streams` with a 404, but its GPX export still

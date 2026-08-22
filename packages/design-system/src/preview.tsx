@@ -24,12 +24,11 @@ const ALL_HOST_KEYS = new Set(
 export default definePreview({
   addons: [addonA11y(), addonDocs()],
   parameters: {
-    // Per-story axe checks (#165): the addon panel reports violations in dev,
-    // and the vitest story tests run the same checks in CI. Gated at "error"
-    // repo-wide since #286 — every package is clean, so the ratchet that used
-    // to run per package (default "todo", pinned to "error" as each reached
-    // zero) has finished and a violation now fails the build wherever it
-    // appears. A new package inherits the gate rather than opting into it.
+    // Per-story axe checks: the addon panel reports violations in dev, and
+    // the vitest story tests run the same checks in CI. Gated at "error"
+    // repo-wide, so a violation fails the build wherever it appears and a new
+    // package inherits the gate rather than opting into it. Do not add a
+    // per-file `a11y` parameter to route a violation around this.
     a11y: { test: "error" },
     viewport: {
       options: {

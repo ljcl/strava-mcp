@@ -1,7 +1,7 @@
 import { type RouteMapSource } from "./types";
 
 /**
- * Screen-reader description of the rendered map (#62). Unlike the one-line
+ * Screen-reader description of the rendered map. Unlike the one-line
  * `buildRouteMapContextSummary` (which briefs the host's model), this narrates
  * the view for a non-visual user: what the route is, how far and how hilly,
  * its shape (loop vs point-to-point) and geographic extent, and which
@@ -23,7 +23,7 @@ export interface RouteMapA11yInput {
   colorMetric?: string | null;
   splitCount?: number;
   splitKind?: "laps" | "splits";
-  /** Segment halos actually drawn (the outlined subset), not every effort fetched (#328). */
+  /** Segment halos actually drawn (the outlined subset), not every effort fetched. */
   segmentCount?: number;
   prCount?: number;
   photoCount?: number;
@@ -140,7 +140,7 @@ function describeAltitude(altitude: number[] | undefined): string | null {
 }
 
 /**
- * Narration for the linked elevation strip below the track (#28). The strip
+ * Narration for the linked elevation strip below the track. The strip
  * is its own role="img" SVG, so it carries its own <desc> alongside the
  * existing name label.
  */

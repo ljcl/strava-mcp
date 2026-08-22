@@ -363,10 +363,11 @@ export const HillAnalysisOutputSchema = z.object({
   warnings: z.array(z.string()),
 });
 
-// ---------- segments, routes, zones, photos, writes (#243) ----------
+// ---------- segments, routes, zones, photos, writes ----------
 /**
- * These tools rendered ids into prose like `(ID: 123)`, so anything chaining
- * into `get-segment` or `list-segment-efforts` had to regex them back out.
+ * Publish ids as structured fields, never only as prose like `(ID: 123)`:
+ * a caller chaining into `get-segment` or `list-segment-efforts` should not
+ * have to regex them back out.
  * One summary schema per resource, plus a mapper, following the
  * `GradientProfileOutputSchema` precedent — the group schemas are shared by
  * the list and detail tools rather than redefined per file.
@@ -651,7 +652,7 @@ export const ActivityWriteOutputSchema = z.object({
 
 // ---------- export-route-gpx, export-route-tcx, export-activity-gpx ----------
 /**
- * One shape for all three exports (#243, #245). `mode` is what actually
+ * One shape for all three exports. `mode` is what actually
  * happened, not what was asked for: with no `output` argument the tool picks
  * by whether the server has an export directory, and a caller chaining on the
  * result needs to know which it got.
@@ -1000,8 +1001,8 @@ export const ActivityLapsOutputSchema = z.object({
 
 // ---------- shared gradient profile (get-segment-profile, get-route-preview) ----------
 // One schema for both because both answer the same question over the same
-// distance + altitude pair — a segment's stored streams and a saved route's
-// (#264, #266). Keeping the payload identical is what lets the two tools share
+// distance + altitude pair — a segment's stored streams and a saved route's.
+// Keeping the payload identical is what lets the two tools share
 // `gradientProfile.ts` and their text formatting.
 const GradientBandSchema = z.object({
   start_m: z.number(),

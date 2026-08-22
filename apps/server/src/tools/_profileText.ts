@@ -1,8 +1,8 @@
 /**
- * Text rendering shared by `get-segment-profile` and `get-route-preview`
- * (#264, #266). Both tools print the same profile from `gradientProfile.ts`,
- * so the prose lives here once — the same reason `formatters.ts` is the server's
- * single formatter home.
+ * Text rendering shared by `get-segment-profile` and `get-route-preview`.
+ * Both tools print the same profile from `gradientProfile.ts`, so the prose
+ * lives here once — the same reason `formatters.ts` is the server's single
+ * formatter home.
  */
 
 import { type GradientProfile, type ProfileShape } from "../gradientProfile";

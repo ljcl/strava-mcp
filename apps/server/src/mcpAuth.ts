@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
 /**
- * Optional bearer-token gate for the /mcp endpoint (#108).
+ * Optional bearer-token gate for the /mcp endpoint.
  *
  * The README instructs exposing port 3000 publicly (Tailscale Funnel,
  * Cloudflare Tunnel), and without a shared secret anyone who discovers the

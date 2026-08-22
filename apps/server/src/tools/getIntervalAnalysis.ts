@@ -77,7 +77,7 @@ async function fetchStreams(
     streams = await getActivityStreams(token, activityId, STREAM_TYPES);
   } catch (error) {
     // Only a genuinely sample-less activity degrades to the no-streams message
-    // below; auth and rate-limit failures propagate (#237).
+    // below; auth and rate-limit failures propagate.
     if (error instanceof StreamsUnavailableError) return {};
     throw error;
   }

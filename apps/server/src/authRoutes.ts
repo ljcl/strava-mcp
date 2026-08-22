@@ -3,7 +3,7 @@ import { consumeOAuthState, createOAuthState } from "./oauthState";
 import { exchangeCodeForTokens, getTokenStatus } from "./tokenManager";
 
 /**
- * OAuth web-flow routes (#109), extracted from index.ts so they are unit
+ * OAuth web-flow routes, extracted from index.ts so they are unit
  * testable. Hardening on top of the plain flow:
  *
  * - /auth/start mints a single-use `state` nonce; /auth/callback refuses to

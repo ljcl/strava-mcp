@@ -1,6 +1,6 @@
 /**
  * Pure training-load aggregation shared by the `get-training-load` text tool
- * and the `get-training-load-data` MCP App feed (#27). The injury-risk
+ * and the `get-training-load-data` MCP App feed. The injury-risk
  * warning rules live here once, so the chart's per-week flags can never
  * drift from the text tool's prose warnings.
  */

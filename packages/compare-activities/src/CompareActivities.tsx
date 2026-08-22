@@ -358,7 +358,7 @@ export function CompareActivities({
   const toggleLine = (side: "a" | "b") =>
     setHidden((prev) => ({ ...prev, [side]: !prev[side] }));
 
-  // Screen-reader narration (#28), computed outside the chart memo so the
+  // Screen-reader narration, computed outside the chart memo so the
   // memo's dependency is the resulting string.
   const a11yDescription = useMemo(
     () =>

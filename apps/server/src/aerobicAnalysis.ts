@@ -1,5 +1,5 @@
 /**
- * Aerobic decoupling and efficiency math for `get-aerobic-analysis` (#180).
+ * Aerobic decoupling and efficiency math for `get-aerobic-analysis`.
  * Pure functions over Strava streams, unit-tested next to `trainingLoad.ts`.
  *
  * Decoupling is the % drift in the output:HR ratio between the first and
@@ -88,7 +88,7 @@ export const MIN_MOVING_SECONDS = 600;
 /** Coggan normalized power rolling-window length. */
 const NP_WINDOW_SECONDS = 30;
 
-/** Interpretation bands for the decoupling headline (see #180). */
+/** Interpretation bands for the decoupling headline. */
 export function interpretDecoupling(pct: number): string {
   if (pct < 0) {
     return "negative — the second half was more efficient; typical of a gradual warm-up or a strong negative split";

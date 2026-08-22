@@ -23,11 +23,13 @@ export interface McpEndpoint {
  * revision per request (stateless, `_meta` envelope, `server/discover`) and
  * falls back to the established stateless idiom for 2025-era clients
  * (`legacy: "stateless"`), so one `createServer` factory backs both eras and
- * they can never drift apart. This replaced the session-id → transport map of
- * the 2025-only server: the 2026-07-28 revision removed protocol sessions and
- * the `Mcp-Session-Id` header outright, and the legacy fallback answers each
- * old-era request with a fresh instance instead of pinning one to a session
- * (GET/DELETE session operations answer 405, which the 2025 spec allows).
+ * they can never drift apart.
+ *
+ * There are no protocol sessions in either era: the 2026-07-28 revision
+ * removed them and the `Mcp-Session-Id` header outright, and the legacy
+ * fallback answers each old-era request with a fresh instance rather than
+ * pinning one to a session (GET/DELETE session operations answer 405, which
+ * the 2025 spec allows).
  *
  * POST bodies are parsed here with the large-int-preserving reviver and handed
  * to the SDK as `parsedBody`, never re-read from the request: a 64-bit Strava
@@ -48,9 +50,9 @@ export function createMcpEndpoint(createServer: () => Server): McpEndpoint {
     async handleRequest(req: Request): Promise<Response> {
       if (req.method !== "POST") return handler.fetch(req);
 
-      // A malformed body must surface as a JSON-RPC parse error rather than
-      // an unhandled rejection out of req.json() (which returned a bare 500
-      // before #115).
+      // A malformed body must surface as a JSON-RPC parse error. Letting
+      // req.json() reject unhandled instead answers a bare 500, which tells
+      // the client nothing about what it got wrong.
       let body: unknown;
       try {
         body = parseJsonWithLargeInts(await req.text());

@@ -1,5 +1,5 @@
 /**
- * Tool-call progress notifications (#279).
+ * Tool-call progress notifications.
  *
  * Three tools fan out over Strava: `get-best-efforts` reads up to 200 activity
  * details, `find-segments-on-route` explores up to a dozen map tiles, and the

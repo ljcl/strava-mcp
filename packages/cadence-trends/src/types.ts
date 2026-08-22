@@ -38,7 +38,7 @@ export interface OverlayPoint {
 }
 
 /**
- * One selected run's overlay stream and the state of its fetch (#250). The
+ * One selected run's overlay stream and the state of its fetch. The
  * overlay draws a run only once `points` arrives, and reports `error` with a
  * retry rather than dropping the run silently.
  */

@@ -58,7 +58,7 @@ interface OverlayTooltipProps {
 /**
  * Themed tooltip matching SharedTooltip in the Trend/Scatter views — the
  * default Recharts tooltip is a hardcoded white box, unreadable in dark
- * mode (#117). One entry per visible run at the hovered grid point.
+ * mode. One entry per visible run at the hovered grid point.
  */
 function OverlayTooltip({
   active,
@@ -111,7 +111,7 @@ export function OverlayView({
   const [hiddenRuns, setHiddenRuns] = useState<Set<number>>(new Set());
 
   // Request every selected run. The fetcher is idempotent per key and never
-  // re-fires a failed one, so this effect cannot loop on a failure (#250).
+  // re-fires a failed one, so this effect cannot loop on a failure.
   useEffect(() => {
     for (const id of selectedRunIds) requestStream(id);
   }, [selectedRunIds, requestStream]);

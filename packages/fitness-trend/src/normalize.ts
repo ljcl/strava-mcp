@@ -96,7 +96,7 @@ export function buildChartRows(data: FitnessTrendData): ChartRow[] {
 /**
  * Whether the window holds anything to chart. A zero-filled series is not
  * empty by row count but plots a flat line at zero, which is a worse answer
- * than saying so (#248).
+ * than saying so.
  */
 export function hasRecordedLoad(data: FitnessTrendData): boolean {
   return data.series.some((day) => day.load > 0);
@@ -165,7 +165,7 @@ export function buildSummaryStats(data: FitnessTrendData): SummaryStat[] {
 
 /**
  * "90 days · 2 May – 30 Jul", plus the taper target when one was solved —
- * the card is otherwise detached from the tool call that produced it (#247).
+ * the card is otherwise detached from the tool call that produced it.
  */
 export function buildTrendSubtitle(data: FitnessTrendData): string {
   const first = data.series[0];
