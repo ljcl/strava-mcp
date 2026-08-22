@@ -72,8 +72,9 @@ breaking them has shipped bugs — do not work around them locally.
   runtime, normalised to digit strings; handlers pass strings through without
   parsing back.
 - **Tools returning data publish `outputSchema` + matching
-  `structuredContent`** from `tools/outputs.ts` (grouped schemas + mapper
-  functions shared across text/app surfaces — e.g. `mapActivityZones`). Empty
+  `structuredContent`** from `tools/outputs.ts` (schemas grouped, not per
+  file). Text tools reuse the apps' mappers rather than re-deriving — e.g.
+  `get-activity-zones` calls `mapActivityZones` from `activityZones.ts`. Empty
   results emit a valid payload (`count: 0`). `warnOnSchemaDrift` keeps dev
   honest.
 - **Exports choose delivery via `_exportOutput.ts`**: omitting `output` picks
@@ -86,6 +87,8 @@ breaking them has shipped bugs — do not work around them locally.
   objects — they decide whether hosts grant reads durably or re-prompt forever.
   `READ_ONLY` states `destructiveHint: false` explicitly (its documented
   default is `true`). Nothing may set `_meta["anthropic/requiresUserInteraction"]`.
+  `server.annotations.test.ts` holds an exhaustive read/write classification
+  table — a new tool must be added to it.
 - **Tool identity is a published contract.**
   `tool-surface.lock.json` fingerprints `name + annotations + inputSchema +
   outputSchema + _meta`; `toolSurface.test.ts` fails on drift. Regenerate
@@ -96,7 +99,7 @@ breaking them has shipped bugs — do not work around them locally.
   (`server.integration.test.ts` under `describe.each(ERAS)` via
   `mcpTestClient.ts`): capabilities, object inputSchemas (no `$ref`), string
   ids, `structuredContent`, `isError` not JSON-RPC errors, app resources,
-  prompts. Extend the shared client, never a fourth bootstrap copy.
+  prompts. Extend the shared client, never a new bootstrap copy.
 
 ## Key Directories
 
@@ -183,10 +186,11 @@ Non-negotiables:
   needs, not just row count); layout comes from `mode` via `getChartTokens(mode)`.
 - Mobile detection: `useMobileMode(hostCtx)` only. Bias toward mobile — false positives are
   cosmetic, false negatives make charts unreadable.
-- New app checklist: one `APP_RESOURCES` table entry in `server.ts` (drives both resource
-  descriptor and content `_meta.ui`), one runner `COPY` line in the Dockerfile
-  (`dockerRuntime.test.ts` enforces coverage in both directions), stories with desktop +
-  `claudeIosCard` variants.
+- New app checklist: an `"./app.html": "./dist/app.html"` entry in the package's `exports`
+  (the server resolves resources through it at runtime and throws without one), one
+  `APP_RESOURCES` table entry in `server.ts` (drives both resource descriptor and content
+  `_meta.ui`), one runner `COPY` line in the Dockerfile (`dockerRuntime.test.ts` enforces
+  coverage in both directions), stories with desktop + `claudeIosCard` variants.
 
 ## Commands
 

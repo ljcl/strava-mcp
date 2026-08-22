@@ -198,7 +198,7 @@ Strava's official MCP connector handles activity discovery and basic reads. This
 | Activity photos | no | yes |
 | Athlete stats, per-activity zones, best efforts, running summary, training load, compare | no | yes |
 | Interval, hill, and aerobic analysis; fitness/fatigue/form (CTL/ATL/TSB) | no | yes |
-| Interactive apps: activity chart, cadence trends, route map, activity segments, training load, compare activities, activity zones, segment progress | no | yes |
+| Interactive apps: activity chart, cadence trends, route map, activity segments, training load, compare activities, activity zones, segment progress, fitness trend | no | yes |
 
 ### Caveats
 
@@ -264,7 +264,7 @@ PRs are squash-merged and the **PR title becomes the commit on `main`**, so writ
 
 **Is the server up and reachable?** — `curl https://your-public-url/health`. It answers without touching the Strava API, so it works even when your rate limit is exhausted.
 
-**Tokens don't survive a container restart (Docker)** — The container runs as non-root UID 65534, so the `./data` bind mount must be writable by that UID (`sudo chown -R 65534:65534 data`), or use a named volume instead. See [Quick Start step 3](#3-start-the-server).
+**Tokens don't survive a container restart (Docker)** — The container runs as non-root UID 65534, so the `./data` bind mount must be writable by that UID (`sudo chown -R 65534:65534 data`), or use a named volume instead. See [Quick Start step 2](#2-configure-environment) and [operations.md](docs/operations.md#docker-notes).
 
 **Client re-prompts for read tools after I granted them** — A release likely renamed a tool or changed its input schema; grants are stored per tool identity, so that drops the grant. Releases say so in the changelog. Otherwise persistence lives in the client — check both connector-level and per-tool settings. See [docs/tools.md](docs/tools.md#tool-permissions).
 

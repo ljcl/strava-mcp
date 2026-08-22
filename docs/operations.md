@@ -53,7 +53,7 @@ uses it.
 Unauthenticated callers get liveness only:
 
 ```json
-{ "status": "ok", "version": "2.8.0", "uptime_seconds": 5 }
+{ "status": "ok", "version": "<release>", "uptime_seconds": 5 }
 ```
 
 With `MCP_AUTH_TOKEN` (`Authorization: Bearer <token>` or `?token=<token>`) —
@@ -62,7 +62,7 @@ or on any server with no secret configured — it also reports auth and rate-lim
 ```json
 {
   "status": "ok",
-  "version": "2.8.0",
+  "version": "<release>",
   "uptime_seconds": 5,
   "authenticated": false,
   "token_expires_at": null,
@@ -70,10 +70,12 @@ or on any server with no secret configured — it also reports auth and rate-lim
 }
 ```
 
-`rate_limit` is a snapshot from the most recent Strava response, so it stays
-`null` until the server has made one. Wiring monitoring: point an uptime check
-at the unauthenticated shape; send the secret only when you want token and
-quota detail.
+`version` is `SERVER_VERSION`, resolved from the root `package.json` that
+release-please bumps, so it tracks the release you are running. `rate_limit` is
+a snapshot from the most recent Strava response, so it stays `null` until the
+server has made one. Wiring monitoring: point an uptime check at the
+unauthenticated shape; send the secret only when you want token and quota
+detail.
 
 ## Securing the endpoint
 
@@ -150,17 +152,6 @@ See [releasing.md](releasing.md) for how these attestations are produced.
 
 ## Troubleshooting
 
-**AI tool can't reach the server** — MCP requires an HTTPS URL. Use a tunnel
-(Tailscale Funnel or Cloudflare Tunnel).
-
-**OAuth callback fails** — Ensure `PUBLIC_URL` in `.env` matches the tunnel URL
-exactly, and that the same hostname is the "Authorization Callback Domain" in
-your [Strava API settings](https://www.strava.com/settings/api).
-
-**Token errors or expired tokens** — Check `/health`: `authenticated` and
-`token_expires_at` separate an auth problem from a reachability one. Then visit
-`/auth/start` to re-authorize. A full re-auth is needed if the refresh token
-was revoked.
-
-**Tokens don't survive a container restart** — The `./data` bind mount must be
-writable by UID 65534, or use a named volume (see [Docker notes](#docker-notes)).
+Symptom index lives in the [README](../README.md#troubleshooting); each entry
+links back into the section here that explains the mechanism. Kept in one place
+so a fix does not have to land twice.

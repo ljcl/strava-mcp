@@ -212,8 +212,8 @@ export function OverlayView({
           </div>
         </LoadingState>
       )}
-      {/* A failed run used to vanish from the overlay with only a
-          console.error behind it (#250). */}
+      {/* A failed run stays visible in the overlay: a console.error alone
+          leaves the athlete with no signal. */}
       {failed.length > 0 && (
         <ErrorState message={failureMessage} onRetry={retryFailed} />
       )}

@@ -41,7 +41,7 @@ directly via root `lint`; turbo dispatches it only through `bun run check` or
 inline PR annotations — turbo's task-name prefix breaks that parsing.
 
 `biome.json` sets `linter.rules.nursery.preset: "recommended"`, and **that
-grants no rules** on the pinned Biome (2.5.4) — nursery coverage is zero,
+grants no rules** on the pinned Biome (2.5.8) — nursery coverage is zero,
 however the key reads. Verified in-repo: `setTimeout("doSomething()", 100)`
 passes `biome check` silently yet `biome lint --only=lint/nursery/noImpliedEval`
 flags it, and the identical preset mechanism on a stable group does fire. The
@@ -153,6 +153,11 @@ silently stops fragment flattening).
 Storybook (`apps/storybook`) renders the UI packages. The `main` build publishes
 to GitHub Pages (`storybook.yml`); there is no per-PR hosted build, so review a
 branch's UI by checking it out and running `bun run storybook`.
+
+A running dev server also exposes an MCP endpoint (`@storybook/addon-mcp`) with
+story, docs, and test tools, pre-wired in `.mcp.json` as `storybook` at
+`http://localhost:6006/mcp`. The GitHub Pages build is static and has no
+endpoint.
 
 The automated UI gate: every story renders in real headless Chromium as a
 Vitest browser-mode smoke test and passes axe accessibility, on every PR and

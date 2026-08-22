@@ -768,8 +768,8 @@ export function ActivityChart({
             />
           )}
 
-          {/* X-axis zoom window (#35): drag the handles (touch works) to
-              zoom into a segment; overlays and the tooltip follow. */}
+          {/* X-axis zoom window: drag the handles (touch works) to zoom
+              into a segment; overlays and the tooltip follow. */}
           <Brush
             className={styles.brush}
             dataKey={meta.isSwimming ? "distance" : "time"}
@@ -870,8 +870,6 @@ export function ActivityChart({
               onClick={() => toggle(key)}
               onMouseEnter={() => setHoveredLegendKey(key)}
               onMouseLeave={() => setHoveredLegendKey(null)}
-              // Same setter on focus/blur: tabbing the legend isolates
-              // the series exactly as hovering it does.
               // Same setter on focus/blur: tabbing the legend isolates
               // the series exactly as hovering it does.
               onFocus={() => setHoveredLegendKey(key)}

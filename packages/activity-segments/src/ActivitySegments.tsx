@@ -85,8 +85,8 @@ export function ActivitySegments({ data, mode, app }: ActivitySegmentsProps) {
         compact={isMobile}
       />
 
-      {/* The list's shape in words (#253). Visually hidden: sighted users
-       * read it off the rows and the key below. */}
+      {/* The list's shape in words. Visually hidden: sighted users read it
+       * off the rows and the key below. */}
       <p className={styles.srOnly}>
         {buildSegmentsA11ySummary(data.segments, domain, activityType)}
       </p>

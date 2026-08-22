@@ -1,10 +1,10 @@
 /**
- * Aggregate per-package vitest coverage into one markdown table (#135).
+ * Aggregate per-package vitest coverage into one markdown table.
  * CI appends the output to $GITHUB_STEP_SUMMARY after `turbo run
  * test:coverage`, so coverage is visible at review time without
  * downloading artifacts. Packages without a coverage-summary.json (no
  * tests, or coverage not run) are simply absent from the table. The story
- * smoke tests contribute a separate render-path row (#197) from the
+ * smoke tests contribute a separate render-path row from the
  * root-level coverage-stories/ report — kept distinct from the unit rows
  * because it spans every packages/* source at once.
  *

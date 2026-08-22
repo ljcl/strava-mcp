@@ -102,7 +102,7 @@ server is connected. `annotate-last-run` and `segment-hunt` use write tools
 ## Tool permissions
 
 Every tool declares MCP annotations so a host can tell reads from writes. The
-35 read tools set `readOnlyHint: true` and `destructiveHint: false`, which is
+43 read tools set `readOnlyHint: true` and `destructiveHint: false`, which is
 the combination clients use to offer a durable "always allow". Six tools are
 writes and are expected to keep asking:
 
