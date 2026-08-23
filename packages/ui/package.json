@@ -21,10 +21,10 @@
     "@strava-mcp/tsconfig": "workspace:*",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.4",
-    "happy-dom": "20.11.2",
+    "happy-dom": "20.11.6",
     "react-dom": "19.2.8",
-    "storybook": "10.5.8",
+    "storybook": "10.5.10",
     "typescript": "7.0.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   }
 }
