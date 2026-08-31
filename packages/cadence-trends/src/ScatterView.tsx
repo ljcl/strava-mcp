@@ -180,7 +180,16 @@ export function ScatterView({
               strokeWidth={1.5}
             />
           )}
-          <Scatter data={chartData} fill="var(--chart-cadence)">
+          {/* Animation off: Recharts interpolates symbol size up from 0 and
+              rekeys each symbol per frame, so for the ~400ms after mount the
+              dots have no hit area and are remounted mid-click. Clicks in that
+              window are silently dropped — for real users and for the play
+              test alike. */}
+          <Scatter
+            data={chartData}
+            fill="var(--chart-cadence)"
+            isAnimationActive={false}
+          >
             {chartData.map((entry) => (
               <Cell
                 key={entry.id}
