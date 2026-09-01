@@ -168,10 +168,16 @@ export function TrendView({
             connectNulls
             strokeOpacity={0.5}
           />
+          {/* Animation off on both scatters: Recharts interpolates symbol
+              size up from 0 and rekeys each symbol per frame, so for the
+              ~400ms after mount the dots have no hit area and are remounted
+              mid-click. Clicks in that window are silently dropped — for real
+              users and for the play test alike. */}
           <Scatter
             yAxisId="cadence"
             dataKey="averageCadence"
             fill="var(--chart-cadence)"
+            isAnimationActive={false}
           >
             {chartData.map((entry) => (
               <Cell
@@ -193,6 +199,7 @@ export function TrendView({
             dataKey="averagePace"
             fill="var(--chart-pace)"
             fillOpacity={0.5}
+            isAnimationActive={false}
           >
             {chartData.map((entry) => (
               <Cell
