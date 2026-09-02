@@ -24,6 +24,18 @@
  * only because the Dockerfile copies *directories* — a package's entry can
  * pull in siblings and they ride along. Narrowing a COPY to a single file
  * would silently outrun this test.
+ *
+ * The second guard here is about the Bun the image runs rather than what it
+ * copies (#359). Root package.json's `packageManager` is the single source of
+ * truth: the CI setup action reads it via `bun-version-file`, so it is the
+ * Bun that resolves bun.lock. The Dockerfile's `FROM oven/bun:<tag>` lines
+ * are the Bun that installs that lockfile and runs the server. Dependabot
+ * bumps the base image and never the `packageManager` field, so the two move
+ * independently and the lockfile ends up resolved by one Bun and installed by
+ * another. A FROM tag cannot be derived from package.json at build time
+ * without an ARG threaded through every stage, so the guard pins the tags to
+ * `packageManager` instead: a base-image bump goes red until the field moves
+ * with it, and the two runtimes stay the same Bun.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -32,6 +44,7 @@ import { describe, expect, it } from "vitest";
 const SRC_DIR = new URL(".", import.meta.url);
 const REPO_ROOT = new URL("../../../", SRC_DIR);
 const DOCKERFILE_URL = new URL("../Dockerfile", SRC_DIR);
+const ROOT_PACKAGE_JSON_URL = new URL("package.json", REPO_ROOT);
 
 /**
  * Runner COPYs that carry no importable module, with the reason each is
@@ -222,5 +235,74 @@ describe("Dockerfile runner stage", () => {
         `${dir} is exempt but the runner does not copy it`,
       ).toContain(dir);
     }
+  });
+});
+
+/**
+ * The `packageManager` version. It must be a fully pinned `bun@x.y.z`: a
+ * range or a bare `bun` would let CI float while the FROM tags stay fixed,
+ * which is the drift this guard exists to stop.
+ */
+function packageManagerVersion(): string {
+  const manifest = JSON.parse(readFileSync(ROOT_PACKAGE_JSON_URL, "utf8")) as {
+    packageManager?: unknown;
+  };
+  const match = /^bun@(\d+\.\d+\.\d+)$/.exec(String(manifest.packageManager));
+  expect(
+    match,
+    `root package.json packageManager must be a pinned bun@x.y.z, got ${JSON.stringify(manifest.packageManager)}`,
+  ).not.toBeNull();
+  return match![1]!;
+}
+
+interface BunBaseImage {
+  line: number;
+  tag: string;
+  version: string;
+}
+
+/**
+ * Every `FROM oven/bun:<tag>` in the Dockerfile, across all stages, with the
+ * leading x.y.z of each tag. Tolerates the `-distroless` variant suffix and
+ * an `@sha256:...` digest, both of which a Dependabot bump may carry. A tag
+ * without a full x.y.z (`1.4`, `latest`) fails outright: it floats, so it can
+ * never be equal to a pinned packageManager.
+ */
+function bunBaseImages(): BunBaseImage[] {
+  const images: BunBaseImage[] = [];
+  const lines = readFileSync(DOCKERFILE_URL, "utf8").split(/\r?\n/);
+  lines.forEach((text, index) => {
+    const from = /^FROM\s+(?:--\S+\s+)*oven\/bun:(\S+)/.exec(text);
+    if (!from) return;
+    const tag = from[1]!;
+    const line = index + 1;
+    const version = /^(\d+\.\d+\.\d+)(?:-[\w.]+)?(?:@sha256:[0-9a-f]+)?$/.exec(
+      tag,
+    )?.[1];
+    expect(
+      version,
+      `Dockerfile line ${line}: oven/bun:${tag} carries no pinned x.y.z version`,
+    ).toBeDefined();
+    images.push({ line, tag, version: version! });
+  });
+  return images;
+}
+
+describe("Dockerfile base image", () => {
+  it("runs the Bun that resolved the lockfile (root packageManager)", () => {
+    const expected = packageManagerVersion();
+    const images = bunBaseImages();
+
+    // A regex miss must not pass vacuously: the Dockerfile has at least the
+    // shell base and the distroless runner.
+    expect(images.length).toBeGreaterThanOrEqual(2);
+
+    const skewed = images
+      .filter(({ version }) => version !== expected)
+      .map(
+        ({ line, tag, version }) =>
+          `Dockerfile line ${line}: FROM oven/bun:${tag} is Bun ${version}, root packageManager is bun@${expected}`,
+      );
+    expect(skewed).toEqual([]);
   });
 });
