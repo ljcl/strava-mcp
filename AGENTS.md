@@ -100,6 +100,33 @@ breaking them has shipped bugs — do not work around them locally.
   `mcpTestClient.ts`): capabilities, object inputSchemas (no `$ref`), string
   ids, `structuredContent`, `isError` not JSON-RPC errors, app resources,
   prompts. Extend the shared client, never a new bootstrap copy.
+- **Tool error text has one home: `toolErrorText` (`tools/_errors.ts`).** It
+  branches on `RateLimitError` / `HttpError.status` (404, 402), never on
+  message text; every `isError` text starts with `❌`. Catch blocks and the
+  dispatcher's final catch call it for the text and write the
+  `{ content, isError: true }` literal themselves. Tests reject with the
+  `__fixtures__/errors.ts` shapes (`handledRateLimit`, `handledNotFound`,
+  `handledSubscriptionRequired`), never a plain `Error("404 Not Found")`.
+- **The response cache never shares references and coalesces in-flight
+  GETs.** Every value `FetchClient` hands out (hit, populating miss, coalesced
+  awaiter) is a `structuredClone`; concurrent identical cacheable GETs share
+  one upstream promise (failures never cached, write invalidation drops
+  in-flight entries, `skipCache` bypasses both). Never return a cached object
+  by reference or add a per-tool in-flight map.
+- **Token status is served from memory.** `getTokenStatus` reads
+  `cachedTokens` before disk and never caches "no tokens": authed `/health`
+  and `/auth/status` polls cost no filesystem read and no repeated "Loaded
+  tokens" lines; a `tokens.json` replaced by hand needs a restart, exactly as
+  it does for tool calls.
+- **Auth pages escape at the sink.** `authRoutes.ts` entity-encodes every
+  reflected string inside `errorPage`/`successPage`, never at call sites:
+  `/auth/callback` is public and its `error` branch runs before the state
+  gate, so a new page helper must escape too.
+- **The Bun version has one home: root `packageManager`.** CI reads it via
+  `bun-version-file`; `dockerRuntime.test.ts` pins the Dockerfile's
+  `FROM oven/bun:<tag>` lines to the same x.y.z, because Dependabot bumps the
+  base image but never `packageManager`, and the lockfile must be resolved and
+  installed by the same Bun.
 
 ## Key Directories
 
