@@ -7,6 +7,7 @@ import {
   transformCadence,
 } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import { CompareActivitiesOutputSchema, warnOnSchemaDrift } from "./outputs";
 
@@ -290,18 +291,17 @@ export const compareActivitiesTool = {
         structuredContent: result,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(`Error comparing activities: ${errorMessage}`);
-
-      const userFriendlyMessage =
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-          ? `One or both activities not found. Please verify the activity IDs.`
-          : `An unexpected error occurred while comparing activities. Details: ${errorMessage}`;
-
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `compare activities ${activityId1} and ${activityId2}`,
+              notFound:
+                "One or both activities not found. Please verify the activity IDs.",
+            }),
+          },
+        ],
         isError: true,
       };
     }

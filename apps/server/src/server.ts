@@ -14,7 +14,7 @@ import { dominantBucket } from "@strava-mcp/data";
 import { z } from "zod";
 import { mapActivitySegments } from "./activitySegments";
 import { type ActivityZonesData, mapActivityZones } from "./activityZones";
-import { RateLimitError } from "./fetchClient";
+import { HttpError, RateLimitError } from "./fetchClient";
 import { buildFitnessTrend } from "./fitnessTrend";
 import {
   type FitnessTrendAppData,
@@ -62,6 +62,7 @@ import {
 } from "./telemetry";
 import { getStravaToken } from "./tokenManager";
 import { READ_ONLY } from "./tools/_annotations";
+import { toolErrorText } from "./tools/_errors";
 import { stravaIdInput, stravaIdJsonSchemaOverride } from "./tools/_ids";
 import {
   buildComparison,
@@ -1141,10 +1142,10 @@ async function loadSegmentProgressData(
       endDateLocal: args.end_date_local as string | undefined,
       perPage: SEGMENT_PROGRESS_MAX_EFFORTS,
     }).catch((error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
       // The effort-history endpoint is subscriber-only; say so plainly
-      // instead of surfacing Strava's raw sentinel.
-      if (message.startsWith("SUBSCRIPTION_REQUIRED:")) {
+      // instead of surfacing Strava's raw sentinel. Branch on the 402 that
+      // handleApiError kept on the error, never on its message.
+      if (error instanceof HttpError && error.response.status === 402) {
         throw new Error(
           "Segment effort history requires a Strava subscription — Strava restricts the segment-efforts endpoint to subscribers.",
         );
@@ -1895,12 +1896,19 @@ export async function dispatchToolCall(
     // counters would flatter the server if only throws counted.
     return finish(result.isError ? "error" : "ok", result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    // The app data handlers throw rather than return `isError`, so this is
+    // where their 404s and rate limits get the same typed treatment and
+    // prefix the text tools give themselves.
     return finish(
       "error",
       {
         isError: true,
-        content: [{ type: "text", text: `Tool error: ${message}` }],
+        content: [
+          {
+            type: "text",
+            text: toolErrorText(error, { context: `run ${name}` }),
+          },
+        ],
       },
       error instanceof Error ? error.constructor.name : undefined,
     );

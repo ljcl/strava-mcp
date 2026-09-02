@@ -53,10 +53,20 @@ board (see docs/project.md for labels and board fields).
      and append a dated footer explaining the change:
      `_Triage YYYY-MM-DD: <what changed and why>._` The footer is the audit
      trail; never silently rewrite someone else's issue.
-   - **Round-trip caution:** issue bodies fetched via API tooling may come back
-     HTML-entity-encoded (`&#34;`, `&#39;`) or truncated at inline HTML tags.
-     Decode entities before re-writing. If the full original body cannot be read
-     back faithfully, do **not** update it — leave a comment instead.
+   - **Round-trip caution:** every hosted-MCP read path (`issue_read`,
+     `list_issues`, `search_issues`) returns bodies through the same sanitizer.
+     It strips HTML-shaped tokens and can truncate the body at the first one,
+     even inside inline backticks (#351 came back cut mid-sentence from both
+     `issue_read` and `search_issues`); entities may also come back encoded
+     (`&#34;`, `&#39;`). Before any `issue_write` that resends a body, fetch
+     the rendered issue page (WebFetch on its `html_url`, or the browser) and
+     compare it with the API copy. If the API copy is shorter, or the page
+     holds any angle-bracketed text the API copy lacks, do **not** update it;
+     leave a comment carrying the change instead. Reading back after a write
+     does not catch damage, since both sides pass through the same sanitizer.
+     Decode entities before re-writing, and put HTML-shaped payloads in fenced
+     code blocks when filing (docs/project.md, "Reading issue bodies before
+     rewriting them").
    - **Close only with evidence.** Fully-delivered work closes as *completed*
      with a link to the PR/commit that shipped it. Obsolete work closes as
      *not planned* with a short rationale (see #25 for the shape). When in
@@ -81,10 +91,13 @@ board (see docs/project.md for labels and board fields).
    - **Cloud/iOS sessions** (no gh): the `github-projects` MCP server from
      `.mcp.json` (hosted GitHub MCP, projects toolset, auth via the
      `GH_MCP_PAT` env var in the cloud environment config). Hosted-build
-     caveats: pass numeric field ids via the `fields` param
-     (`field_names` is not deployed yet), and `update_project_item` needs the
-     numeric `item_id` plus the option **id** (not name) for single-select
-     values. Ids are discoverable at runtime via `list_project_fields`.
+     notes: `field_names` **is** deployed, so pass
+     `["Status","Priority","Effort"]` to `list_project_items` /
+     `get_project_item` instead of numeric ids, and `update_project_item`
+     accepts the by-name shape (`{"name":"Priority","value":"P1"}`, option
+     name not option id) resolved via `item_owner` + `item_repo` +
+     `issue_number`, so numeric item ids and option ids are no longer
+     required. Ids stay discoverable via `list_project_fields`.
 
    Constants for this board: project number 1, owner `ljcl`; field ids:
    Status 355919451, Priority 355919475, Effort 355919489; Status options:

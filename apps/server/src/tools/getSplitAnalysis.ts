@@ -174,7 +174,7 @@ export const getSplitAnalysisTool = {
           content: [
             {
               type: "text" as const,
-              text: `No data streams are available for "${activity.name}" — manual activities have no recorded samples to split.`,
+              text: `❌ No data streams are available for "${activity.name}" — manual activities have no recorded samples to split.`,
             },
           ],
           isError: true,
@@ -298,7 +298,7 @@ export const getSplitAnalysisTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to compute split analysis: ${message}`,
+            text: `❌ Failed to compute split analysis: ${message}`,
           },
         ],
         isError: true,

@@ -2,10 +2,10 @@ import { z } from "zod";
 import { formatDistance, formatDuration } from "../formatters";
 import {
   listSegmentEfforts as fetchSegmentEfforts,
-  // handleApiError, // Removed unused import
   type StravaDetailedSegmentEffort, // Type needed for formatter
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import {
   SegmentEffortsOutputSchema,
@@ -129,41 +129,20 @@ export const listSegmentEffortsTool = {
         structuredContent: structured,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `Error listing efforts for segment ${segmentId}: ${errorMessage}`,
-      );
-
-      let userFriendlyMessage: string;
-      if (errorMessage.startsWith("SUBSCRIPTION_REQUIRED:")) {
-        userFriendlyMessage =
-          "🔒 Accessing segment efforts requires a Strava subscription. Please check your subscription status.";
-      } else if (
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-      ) {
-        userFriendlyMessage = `Segment with ID ${segmentId} not found (when listing efforts).`;
-      } else {
-        userFriendlyMessage = `An unexpected error occurred while listing efforts for segment ${segmentId}. Details: ${errorMessage}`;
-      }
-
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `list efforts for segment ${segmentId}`,
+              notFound: `Segment with ID ${segmentId} not found (when listing efforts).`,
+              subscription:
+                "Accessing segment efforts requires a Strava subscription. Please check your subscription status.",
+            }),
+          },
+        ],
         isError: true,
       };
     }
   },
 };
-
-// Removed old registration function
-/*
-export function registerListSegmentEffortsTool(server: McpServer) {
-    server.tool(
-        listSegmentEfforts.name,
-        listSegmentEfforts.description,
-        listSegmentEfforts.inputSchema.shape,
-        listSegmentEfforts.execute
-    );
-}
-*/

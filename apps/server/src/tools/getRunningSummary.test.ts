@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { basicRunActivity, rideActivity } from "../__fixtures__";
+import {
+  basicRunActivity,
+  handledNotFound,
+  handledRateLimit,
+  rideActivity,
+} from "../__fixtures__";
 import {
   getActivityById,
   getActivityLaps,
@@ -127,7 +132,7 @@ describe("getRunningSummaryTool.execute", () => {
   });
 
   it("maps a not-found error to a friendly message", async () => {
-    mockedById.mockRejectedValueOnce(new Error("Record Not Found"));
+    mockedById.mockRejectedValueOnce(handledNotFound("getActivityById"));
 
     const result = await getRunningSummaryTool.execute(
       { activityId: "42" },
@@ -135,6 +140,35 @@ describe("getRunningSummaryTool.execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Activity with ID 42 not found");
+    expect(result.content[0]?.text).toBe("❌ Activity with ID 42 not found.");
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedById.mockRejectedValueOnce(handledRateLimit("getActivityById"));
+
+    const result = await getRunningSummaryTool.execute(
+      { activityId: "42" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
+  });
+
+  it("reports other failures with details", async () => {
+    mockedById.mockRejectedValueOnce(new Error("Bad Gateway"));
+
+    const result = await getRunningSummaryTool.execute(
+      { activityId: "42" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to summarise run 42: Bad Gateway",
+    );
   });
 });

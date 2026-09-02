@@ -503,10 +503,24 @@ export async function ensureValidToken(): Promise<void> {
 }
 
 /**
- * Gets the current token status for the /auth/status endpoint
+ * Gets the current token status for /auth/status and the authed half of
+ * /health.
+ *
+ * Served from the in-memory copy whenever one exists. Both endpoints are
+ * polled continuously (the container HEALTHCHECK, operator dashboards), and
+ * reading tokens.json on every poll re-emitted the "Loaded tokens" lines until
+ * they buried the real telemetry in `docker compose logs`. The copy is the
+ * token set the running server actually uses: refreshes rotate it and both
+ * OAuth exchanges write it via {@link saveTokens}, so the answer here matches
+ * what tool calls send. The trade-off is that a tokens.json replaced by hand
+ * underneath a running process is not picked up until restart, exactly as it
+ * is not picked up by tool calls.
+ *
+ * "No tokens" is never cached: an unauthenticated poll consults disk every
+ * time, so a freshly written tokens.json shows up on the next poll.
  */
 export async function getTokenStatus(): Promise<TokenStatus> {
-  const tokens = await loadTokens();
+  const tokens = cachedTokens ?? (await loadTokens());
 
   if (!tokens?.access_token) {
     return {
@@ -514,6 +528,10 @@ export async function getTokenStatus(): Promise<TokenStatus> {
       auth_url: "/auth/start",
     };
   }
+
+  // Mirror getStravaToken: keep what disk handed us so the next poll is
+  // answered from memory.
+  cachedTokens = tokens;
 
   const now = Math.floor(Date.now() / 1000);
   const expiresInSeconds = tokens.expires_at - now;

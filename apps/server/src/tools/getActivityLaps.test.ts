@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledNotFound, handledRateLimit } from "../__fixtures__";
 import {
   getActivityById,
   getActivityLaps,
@@ -167,7 +168,7 @@ describe("getActivityLapsTool.execute", () => {
   });
 
   it("returns a friendly error for a missing activity", async () => {
-    mockedById.mockRejectedValueOnce(new Error("Record Not Found"));
+    mockedById.mockRejectedValueOnce(handledNotFound("getActivityById"));
     mockedLaps.mockResolvedValueOnce([]);
 
     const result = await getActivityLapsTool.execute(
@@ -176,6 +177,39 @@ describe("getActivityLapsTool.execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("not found");
+    expect(result.content[0]?.text).toBe(
+      "❌ Activity with ID 404404 not found.",
+    );
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedById.mockRejectedValueOnce(handledRateLimit("getActivityById"));
+    mockedLaps.mockResolvedValueOnce([]);
+
+    const result = await getActivityLapsTool.execute(
+      { id: "123" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
+  });
+
+  it("reports other failures with details", async () => {
+    mockedById.mockRejectedValueOnce(new Error("Bad Gateway"));
+    mockedLaps.mockResolvedValueOnce([]);
+
+    const result = await getActivityLapsTool.execute(
+      { id: "123" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to fetch laps for activity 123: Bad Gateway",
+    );
   });
 });

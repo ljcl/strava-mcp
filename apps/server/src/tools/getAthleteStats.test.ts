@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledNotFound, handledRateLimit } from "../__fixtures__";
 import {
   getAthleteStats as getAthleteStatsClient,
   getAuthenticatedAthlete as getAuthenticatedAthleteClient,
@@ -89,7 +90,7 @@ describe("getAthleteStatsTool.execute", () => {
   });
 
   it("maps a not-found error for an explicit athleteId to a friendly message", async () => {
-    mockedStats.mockRejectedValue(new Error("Record Not Found"));
+    mockedStats.mockRejectedValue(handledNotFound("getAthleteStats"));
 
     const result = await getAthleteStatsTool.execute(
       { athleteId: "42" },
@@ -97,7 +98,9 @@ describe("getAthleteStatsTool.execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Athlete with ID 42 not found");
+    expect(result.content[0]?.text).toBe(
+      "❌ Athlete with ID 42 not found (when fetching stats).",
+    );
   });
 
   it("reports the authenticated athlete in error messages when id was omitted", async () => {
@@ -106,6 +109,23 @@ describe("getAthleteStatsTool.execute", () => {
     const result = await getAthleteStatsTool.execute({}, "test-token");
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("the authenticated athlete");
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to fetch stats for the authenticated athlete: network down",
+    );
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedStats.mockRejectedValue(handledRateLimit("getAthleteStats"));
+
+    const result = await getAthleteStatsTool.execute(
+      { athleteId: "42" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
   });
 });

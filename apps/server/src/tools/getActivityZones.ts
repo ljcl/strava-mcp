@@ -6,16 +6,16 @@ import {
   type StravaActivityZone,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import { ActivityZonesOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-activity-zones";
 
 const description = `
-Retrieves the time-in-zone distribution for a specific Strava activity.
-
-Unlike athlete zone *definitions*, this returns how
-long the given activity spent in each heart rate and/or power zone.
+Retrieves the time-in-zone distribution for a specific Strava activity: how
+long it spent in each heart rate and/or power zone, as opposed to the
+athlete's zone definitions.
 
 Use Cases:
 - See how a workout was distributed across HR or power zones
@@ -25,14 +25,9 @@ Use Cases:
 Parameters:
 - id (required): The unique identifier of the Strava activity.
 
-Output Format:
-A human-readable summary listing each zone band with the time spent and its
-percentage of the total, for heart rate and power when present, plus the
-complete raw JSON from the Strava API.
-
 Notes:
 - Requires activity:read scope for public/followers activities, activity:read_all for private activities
-- Not all activities have zone data (e.g. no HR/power sensor); a graceful message is returned in that case
+- Not all activities have zone data (e.g. no HR or power sensor); those return a message and an empty zone_sets list, not an error
 `;
 
 const inputSchema = z.object({
@@ -130,7 +125,6 @@ export const getActivityZonesTool = {
       }
 
       const summaryText = `**Activity Zones (ID: ${id}):**\n\n${formatActivityZones(zones)}`;
-      const rawDataText = `\n\nComplete Zone Data:\n${JSON.stringify(zones, null, 2)}`;
 
       console.error(
         `Successfully fetched ${zones.length} zone set(s) for activity ${id}`,
@@ -153,24 +147,24 @@ export const getActivityZonesTool = {
         structured,
       );
 
+      // The summary is the only text block: `structuredContent` is the
+      // machine-readable copy, and a pretty-printed dump of the raw response
+      // alongside it only cost the model tokens.
       return {
-        content: [
-          { type: "text" as const, text: summaryText },
-          { type: "text" as const, text: rawDataText },
-        ],
+        content: [{ type: "text" as const, text: summaryText }],
         structuredContent: structured,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(`Error fetching zones for activity ${id}: ${errorMessage}`);
-      const userFriendlyMessage =
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-          ? `Activity with ID ${id} not found.`
-          : `An unexpected error occurred while fetching zones for activity ${id}. Details: ${errorMessage}`;
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `fetch zones for activity ${id}`,
+              notFound: `Activity with ID ${id} not found.`,
+            }),
+          },
+        ],
         isError: true,
       };
     }

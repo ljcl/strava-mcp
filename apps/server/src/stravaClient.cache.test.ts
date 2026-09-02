@@ -57,6 +57,20 @@ describe("view/data tool pairs share one upstream fetch", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("collapses the pair's concurrent segment reads onto one upstream fetch (#355)", async () => {
+    const fetchMock = stubFetch(bodyByPath);
+
+    // An MCP App fires its `view-` and `get-…-data` calls together on open, so
+    // the second read arrives before the first has populated the cache.
+    const [a, b] = await Promise.all([
+      getSegmentById("token", "55"),
+      getSegmentById("token", "55"),
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(a).toEqual(b);
+  });
+
   it("keeps differently-parameterised effort queries distinct", async () => {
     const fetchMock = stubFetch(bodyByPath);
 

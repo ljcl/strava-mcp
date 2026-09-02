@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { detailedAthlete } from "../__fixtures__";
+import { detailedAthlete, handledRateLimit } from "../__fixtures__";
 import {
   exploreSegments as fetchExploreSegments,
   getAuthenticatedAthlete,
@@ -126,6 +126,20 @@ describe("exploreSegments.execute", () => {
     const result = await exploreSegments.execute({ bounds }, "test-token");
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("API Error: upstream 500");
+    expect(result.content[0]?.text).toBe(
+      `❌ Failed to explore segments within ${bounds}: upstream 500`,
+    );
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedExplore.mockRejectedValueOnce(handledRateLimit("exploreSegments"));
+
+    const result = await exploreSegments.execute({ bounds }, "test-token");
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
   });
 });

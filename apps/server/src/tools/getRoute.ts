@@ -1,7 +1,8 @@
 import { z } from "zod";
 import { formatRouteSummary } from "../formatters"; // Import shared formatter
-import { getRouteById /*, handleApiError */ } from "../stravaClient"; // Removed handleApiError import
+import { getRouteById } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import {
   RouteOutputSchema,
@@ -43,32 +44,18 @@ export const getRouteTool = {
         structuredContent: structured,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(`Error fetching route ${routeId}: ${errorMessage}`);
-      const userFriendlyMessage =
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-          ? `Route with ID ${routeId} not found.`
-          : `An unexpected error occurred while fetching route ${routeId}. Details: ${errorMessage}`;
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `fetch route ${routeId}`,
+              notFound: `Route with ID ${routeId} not found.`,
+            }),
+          },
+        ],
         isError: true,
       };
     }
   },
 };
-
-// Removed local formatRouteSummary function
-
-// Removed old registration function
-/*
-export function registerGetRouteTool(server: McpServer) {
-    server.tool(
-        getRoute.name,
-        getRoute.description,
-        getRoute.inputSchema.shape,
-        getRoute.execute
-    );
-}
-*/

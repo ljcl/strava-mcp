@@ -14,9 +14,30 @@ import { exchangeCodeForTokens, getTokenStatus } from "./tokenManager";
  *   secret (Authorization header, or ?token= for the browser). The callback
  *   stays open — Strava redirects there without credentials — and is
  *   protected by the state check instead.
+ * - Every reflected string is HTML-entity-encoded at the sink (inside the
+ *   page helpers, not at call sites). The callback is public and its
+ *   `error` branch runs before the state gate, because Strava's own denial
+ *   redirect is the legitimate case there: anyone can hand the athlete a
+ *   `/auth/callback?error=<markup>` link that renders on this origin. The
+ *   catch path echoes `err.message`, which can carry upstream response
+ *   bodies. Escaping in the helper covers both, and any call site added
+ *   later (#351).
  */
 
 // --- HTML Page Helpers ---
+
+/**
+ * Entity-encodes the characters that can end a text node or attribute
+ * value. `&` goes first so the entities this emits are not re-encoded.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 function successPage(athleteId?: number): string {
   return `<!DOCTYPE html>
@@ -36,7 +57,9 @@ function successPage(athleteId?: number): string {
   <div class="success">&#10003;</div>
   <h1>Authorization Successful</h1>
   <p>Your Strava account${
-    athleteId ? ` (Athlete ID: <code>${athleteId}</code>)` : ""
+    athleteId
+      ? ` (Athlete ID: <code>${escapeHtml(String(athleteId))}</code>)`
+      : ""
   } has been connected.</p>
   <p>Tokens have been saved and will refresh automatically.</p>
   <div class="next-steps">
@@ -50,7 +73,12 @@ function successPage(athleteId?: number): string {
 </html>`;
 }
 
-function errorPage(message: string): string {
+/**
+ * Error shell around body markup the caller has already escaped. Only
+ * `errorPage` and `unauthorizedPage` build that markup; everything reflected
+ * from a request goes through `errorPage`, which escapes it.
+ */
+function errorPageHtml(bodyHtml: string): string {
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -68,19 +96,28 @@ function errorPage(message: string): string {
   <div class="error">&#10007;</div>
   <h1>Authorization Failed</h1>
   <div class="error-box">
-    <p>${message}</p>
+    <p>${bodyHtml}</p>
   </div>
   <p><a href="/auth/start">Try again</a></p>
 </body>
 </html>`;
 }
 
+/** Error page for a plain-text message; the text is escaped here, always. */
+function errorPage(message: string): string {
+  return errorPageHtml(escapeHtml(message));
+}
+
 function unauthorizedPage(): Response {
+  // The <code> tags are real markup, so the body is assembled from escaped
+  // fragments rather than passed through errorPage() whole.
+  const startPath = escapeHtml("/auth/start?token=<MCP_AUTH_TOKEN>");
+  const header = escapeHtml("Authorization: Bearer");
   return new Response(
-    errorPage(
+    errorPageHtml(
       "Unauthorized: this server requires its auth secret. Open " +
-        "<code>/auth/start?token=&lt;MCP_AUTH_TOKEN&gt;</code> or send an " +
-        "<code>Authorization: Bearer</code> header.",
+        `<code>${startPath}</code> or send an ` +
+        `<code>${header}</code> header.`,
     ),
     { status: 401, headers: { "Content-Type": "text/html" } },
   );
@@ -122,6 +159,9 @@ export function handleAuthStart(req: Request, url: URL): Response {
 }
 
 export async function handleAuthCallback(url: URL): Promise<Response> {
+  // Strava's denial redirect carries no state, so this branch has to run
+  // before the state gate; that makes `error` attacker-choosable and is why
+  // errorPage() escapes it.
   const error = url.searchParams.get("error");
   if (error) {
     return new Response(errorPage(`Authorization denied: ${error}`), {

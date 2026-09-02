@@ -7,6 +7,7 @@ import {
 } from "../stravaClient";
 import { metersPerSecToPace } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import { ActivityLapsOutputSchema, warnOnSchemaDrift } from "./outputs";
 
@@ -191,16 +192,16 @@ export const getActivityLapsTool = {
         structuredContent: response,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(`Error fetching laps for activity ${id}: ${errorMessage}`);
-      const userFriendlyMessage =
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-          ? `Activity with ID ${id} not found.`
-          : `An unexpected error occurred while fetching laps for activity ${id}. Details: ${errorMessage}`;
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `fetch laps for activity ${id}`,
+              notFound: `Activity with ID ${id} not found.`,
+            }),
+          },
+        ],
         isError: true,
       };
     }

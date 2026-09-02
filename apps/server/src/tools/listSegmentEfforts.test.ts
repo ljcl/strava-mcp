@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  handledNotFound,
+  handledRateLimit,
+  handledSubscriptionRequired,
+} from "../__fixtures__";
+import {
   listSegmentEfforts as fetchSegmentEfforts,
   type StravaDetailedSegmentEffort,
 } from "../stravaClient";
@@ -66,9 +71,9 @@ describe("list-segment-efforts execute", () => {
     expect(result.content[0]?.text).toContain("No efforts found");
   });
 
-  it("maps SUBSCRIPTION_REQUIRED to the subscription message", async () => {
+  it("maps a 402 to the subscription message", async () => {
     mockedFetch.mockRejectedValueOnce(
-      new Error("SUBSCRIPTION_REQUIRED: payment needed"),
+      handledSubscriptionRequired("listSegmentEfforts"),
     );
 
     const result = await listSegmentEffortsTool.execute(
@@ -80,11 +85,13 @@ describe("list-segment-efforts execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("requires a Strava subscription");
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("requires a Strava subscription");
   });
 
   it("maps a 404 to a segment-not-found message", async () => {
-    mockedFetch.mockRejectedValueOnce(new Error("Record Not Found"));
+    mockedFetch.mockRejectedValueOnce(handledNotFound("listSegmentEfforts"));
 
     const result = await listSegmentEffortsTool.execute(
       {
@@ -95,6 +102,43 @@ describe("list-segment-efforts execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Segment with ID 789 not found");
+    expect(result.content[0]?.text).toBe(
+      "❌ Segment with ID 789 not found (when listing efforts).",
+    );
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedFetch.mockRejectedValueOnce(handledRateLimit("listSegmentEfforts"));
+
+    const result = await listSegmentEffortsTool.execute(
+      {
+        segmentId: "789",
+        perPage: 30,
+      },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
+  });
+
+  it("reports other failures with details", async () => {
+    mockedFetch.mockRejectedValueOnce(new Error("Bad Gateway"));
+
+    const result = await listSegmentEffortsTool.execute(
+      {
+        segmentId: "789",
+        perPage: 30,
+      },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to list efforts for segment 789: Bad Gateway",
+    );
   });
 });

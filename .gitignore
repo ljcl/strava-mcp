@@ -25,6 +25,8 @@ coverage-stories/
 
 # Environment variables
 .env
+.env.*
+!.env.example
 
 # Log files
 npm-debug.log*

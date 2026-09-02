@@ -50,6 +50,18 @@ never per-tool.
   on type or status — e.g. scan tools' `instanceof RateLimitError` abort and
   `loadRouteProfile`'s 404 GPX fallback. A caller may only degrade on a type
   or a status that is still there.
+- Tool-facing error text has one home: `toolErrorText` in
+  `tools/_errors.ts`. It maps `RateLimitError` to the window/reset line
+  (quoting `detail`), `HttpError.status` 404 to the tool's not-found sentence
+  and 402 to its subscription sentence, and everything else to
+  `❌ Failed to <context>: <message>`; every `isError` text on the surface
+  starts with `❌`. Tool catch blocks and the dispatcher's final catch call it
+  for the text and write the `{ content, isError: true }` literal themselves
+  (the helper's own comment explains why it is not the whole result). Never
+  string-match a message for
+  "Record Not Found", "404", or a `SUBSCRIPTION_REQUIRED:` prefix: the typed
+  errors survive `handleApiError` precisely so callers can branch on them,
+  and a message that merely mentions "404" is not a missing record.
 
 ## Response cache
 
@@ -80,6 +92,24 @@ per-tool.
   `/segments/{id}/starred` and flips `starred` on the parent.
 - `skipCache: true` bypasses entirely; the `update-activity` append read uses
   it so it never composes onto a stale description.
+- **The cache never shares references.** Every value it hands out (a hit, the
+  miss that populated it, a coalesced awaiter's copy) is a `structuredClone`,
+  so a consumer may sort, splice, or rename in place without rewriting the
+  entry for every later reader inside the TTL. Trade-off: one clone per read;
+  payloads are parsed JSON (oversized ids already arrive as digit strings from
+  `parseJsonWithLargeInts`), so the copy is lossless. Cloning was chosen over
+  deep-freezing because freezing would turn a caller's in-place mutation into
+  a strict-mode `TypeError` and change the plain-mutable-data contract every
+  handler has today.
+- **Concurrent identical cacheable GETs coalesce.** A private in-flight map,
+  keyed like the cache, holds the promise for a cacheable GET/HEAD until it
+  settles; an identical request arriving meanwhile awaits that promise instead
+  of going upstream, which is how an app's `view-`/`get-…-data` pair costs one
+  fetch even when both miss together. A rejection reaches every awaiter and
+  caches nothing, so the next call fetches again. A write's invalidation walk
+  drops matching in-flight entries too, and an entry that was dropped mid
+  flight never stores its (pre-write) result. `skipCache` reads bypass the map
+  as well as the cache; paths the policy declines are never coalesced.
 
 ## Streams
 

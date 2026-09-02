@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledSubscriptionRequired } from "../__fixtures__";
 import {
   getActivityStreams,
   getSegmentEffort,
@@ -233,7 +234,7 @@ describe("compare-segment-efforts execute", () => {
   it("points at compareToEffortId when the PR lookup is subscriber-gated", async () => {
     mockedEffort.mockResolvedValueOnce(effort());
     mockedEffortList.mockRejectedValueOnce(
-      new Error("SUBSCRIPTION_REQUIRED: segment efforts"),
+      handledSubscriptionRequired("listSegmentEfforts for segment 55"),
     );
 
     const result = await compareSegmentEffortsTool.execute(

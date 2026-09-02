@@ -1,4 +1,4 @@
-import { RateLimitError } from "../fetchClient";
+import { HttpError, RateLimitError } from "../fetchClient";
 
 /**
  * The rate-limit error a `stravaClient` call actually throws.
@@ -23,5 +23,49 @@ export function handledRateLimit(
     { observedAt: Date.now(), shortTerm: { limit: 100, usage: 100 } },
     60,
     detail,
+  );
+}
+
+/**
+ * Builds the `StravaApiError` shape `handleApiError` throws for a non-429
+ * HTTP failure: the interpreted message with the status still attached.
+ *
+ * The class itself lives in `stravaClient.ts`, which tool tests replace with
+ * bare factory mocks, so importing it here would leave the constructor
+ * `undefined` under those mocks. `HttpError` from the fetch layer is what the
+ * tools' error helper tests `instanceof` against, and it is the base
+ * `StravaApiError` extends, so the shape is faithful where it matters: the
+ * status is on `response`, not buried in the message.
+ */
+function handledHttpError(
+  message: string,
+  response: { status: number; statusText: string; data: string },
+): HttpError {
+  const error = new HttpError(message, response);
+  error.name = "StravaApiError";
+  return error;
+}
+
+/**
+ * The not-found error a `stravaClient` call actually throws. A plain
+ * `Error("404 Not Found")` is a shape only string matching could recognise,
+ * and string matching is what the typed rethrow exists to make unnecessary.
+ */
+export function handledNotFound(context: string): HttpError {
+  return handledHttpError(
+    `Strava API Error in ${context} (404): Record Not Found`,
+    {
+      status: 404,
+      statusText: "Not Found",
+      data: '{"message":"Record Not Found"}',
+    },
+  );
+}
+
+/** The subscription-gated error a `stravaClient` call actually throws. */
+export function handledSubscriptionRequired(context: string): HttpError {
+  return handledHttpError(
+    `SUBSCRIPTION_REQUIRED: Access to this feature requires a Strava subscription. Context: ${context}`,
+    { status: 402, statusText: "Payment Required", data: "" },
   );
 }

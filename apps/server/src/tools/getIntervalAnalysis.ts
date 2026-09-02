@@ -134,7 +134,7 @@ export const getIntervalAnalysisTool = {
           content: [
             {
               type: "text" as const,
-              text: `No data streams are available for "${activity.name}" — manual activities have no recorded samples to analyse.`,
+              text: `❌ No data streams are available for "${activity.name}" — manual activities have no recorded samples to analyse.`,
             },
           ],
           isError: true,
@@ -267,7 +267,7 @@ export const getIntervalAnalysisTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to compute interval analysis: ${message}`,
+            text: `❌ Failed to compute interval analysis: ${message}`,
           },
         ],
         isError: true,

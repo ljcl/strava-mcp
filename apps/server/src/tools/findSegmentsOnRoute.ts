@@ -146,7 +146,7 @@ export const findSegmentsOnRouteTool = {
           content: [
             {
               type: "text" as const,
-              text: `"${course.name}" has no GPS track, so there is no course to scan for segments.`,
+              text: `❌ "${course.name}" has no GPS track, so there is no course to scan for segments.`,
             },
           ],
           isError: true,
@@ -342,7 +342,7 @@ export const findSegmentsOnRouteTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to find segments on this course: ${message}`,
+            text: `❌ Failed to find segments on this course: ${message}`,
           },
         ],
         isError: true,

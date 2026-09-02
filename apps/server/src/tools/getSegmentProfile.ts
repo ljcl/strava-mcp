@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HttpError } from "../fetchClient";
 import {
   computeGradientProfile,
   GradientProfileError,
@@ -70,7 +71,7 @@ export const getSegmentProfileTool = {
           content: [
             {
               type: "text" as const,
-              text: `"${segment.name}" has no stored elevation profile, so its gradient cannot be broken down.`,
+              text: `❌ "${segment.name}" has no stored elevation profile, so its gradient cannot be broken down.`,
             },
           ],
           isError: true,
@@ -126,19 +127,20 @@ export const getSegmentProfileTool = {
           content: [
             {
               type: "text" as const,
-              text: `Segment ${segmentId} has no stored elevation streams, so its gradient cannot be broken down. Older or very short segments sometimes have none.`,
+              text: `❌ Segment ${segmentId} has no stored elevation streams, so its gradient cannot be broken down. Older or very short segments sometimes have none.`,
             },
           ],
           isError: true,
         };
       }
       const message = error instanceof Error ? error.message : String(error);
-      if (message.startsWith("SUBSCRIPTION_REQUIRED:")) {
+      // The 402 handleApiError kept on the error, not its message prefix.
+      if (error instanceof HttpError && error.response.status === 402) {
         return {
           content: [
             {
               type: "text" as const,
-              text: "Strava restricts segment stream data to subscribers, so this segment's gradient breakdown is unavailable on your account. get-segment still reports its average and maximum grade.",
+              text: "❌ Strava restricts segment stream data to subscribers, so this segment's gradient breakdown is unavailable on your account. get-segment still reports its average and maximum grade.",
             },
           ],
           isError: true,
@@ -155,7 +157,7 @@ export const getSegmentProfileTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to profile segment ${segmentId}: ${message}`,
+            text: `❌ Failed to profile segment ${segmentId}: ${message}`,
           },
         ],
         isError: true,

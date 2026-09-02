@@ -48,7 +48,9 @@ alongside the issue tools and none of the PR/actions ones. The path-scoped
 without issues. Watch for: the base endpoint initializes fine whatever the
 header says, so a toolset that failed to load does not announce itself — check
 the advertised tool names, not the handshake. Issue filing and edits go through
-the ordinary `issue_write` / `search_issues` tools.
+the ordinary issue tools (`issue_read`, `list_issues`, `search_issues`,
+`issue_write`); before any edit that resends a body, see
+[Reading issue bodies](#reading-issue-bodies-before-rewriting-them) below.
 
 If the `github-projects` entry is not connected, drive the endpoint directly
 over JSON-RPC with curl: POST `initialize`, capture the `Mcp-Session-Id`
@@ -99,14 +101,26 @@ Project number 1, owner `ljcl`.
 
 ## Reading issue bodies before rewriting them
 
-`issue_read` and `list_issues` return issue bodies through a sanitizer that
-strips anything shaped like an HTML tag. `Promise<string>` comes back as
-`Promise`, and a body containing an unclosed-looking construct can lose
-everything after it. Round-tripping a body read that way silently destroys
-content.
+Every hosted-MCP read path (`issue_read`, `list_issues`, `search_issues`)
+returns issue bodies through the same sanitizer. It strips anything shaped
+like an HTML tag, and it can cut the body off at the first such token,
+including one inside inline backticks. Two observed cases: `Promise<string>`
+comes back as `Promise`, and the 2026-09-02 sweep saw #351 truncated
+mid-sentence by both `issue_read` and `search_issues` while the web page
+showed the complete text (three acceptance criteria). No read tool is exempt.
 
-`search_issues` returns bodies **unsanitized**. Use it as the source whenever a
-body is going to be written back — appending a triage footer, editing an
-approach section, any `issue_write` update. Verifying by reading back afterwards
-does not catch this: both sides pass through the same sanitizer, so a damaged
-body compares equal to itself.
+Round-tripping a body read that way silently destroys content, and reading it
+back afterwards does not catch it: both sides pass through the same sanitizer,
+so a damaged body compares equal to itself.
+
+Before any `issue_write` that resends a body (appending a triage footer,
+editing an approach section, any update), fetch the rendered issue page
+(WebFetch on the issue's `html_url`, or the browser) and compare it with the
+API copy. If the API copy is shorter, or the page holds any angle-bracketed
+text the API copy lacks, do not rewrite: leave a comment carrying the change
+instead, the way the 2026-09-02 sweep did on #351.
+
+When filing or editing issues, put HTML-shaped payloads in fenced code blocks
+rather than inline backticks. The sanitizer's exact behaviour on fenced blocks
+is unverified, so the page comparison above is still the check that protects
+the body.

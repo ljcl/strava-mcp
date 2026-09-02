@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledNotFound, handledRateLimit } from "../__fixtures__";
 import { getActivityById, type StravaDetailedActivity } from "../stravaClient";
 import { buildComparison, compareActivitiesTool } from "./compareActivities";
 import { CompareActivitiesOutputSchema } from "./outputs";
@@ -128,7 +129,7 @@ describe("compare-activities execute", () => {
   });
 
   it("maps a 404 to a not-found message", async () => {
-    mockedById.mockRejectedValue(new Error("Record Not Found"));
+    mockedById.mockRejectedValue(handledNotFound("getActivityById"));
 
     const result = await compareActivitiesTool.execute(
       {
@@ -139,8 +140,43 @@ describe("compare-activities execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain(
-      "One or both activities not found",
+    expect(result.content[0]?.text).toBe(
+      "❌ One or both activities not found. Please verify the activity IDs.",
+    );
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedById.mockRejectedValue(handledRateLimit("getActivityById"));
+
+    const result = await compareActivitiesTool.execute(
+      {
+        activityId1: "100",
+        activityId2: "200",
+      },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
+  });
+
+  it("reports other failures with details", async () => {
+    mockedById.mockRejectedValue(new Error("Bad Gateway"));
+
+    const result = await compareActivitiesTool.execute(
+      {
+        activityId1: "100",
+        activityId2: "200",
+      },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to compare activities 100 and 200: Bad Gateway",
     );
   });
 });

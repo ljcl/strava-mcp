@@ -20,7 +20,7 @@ COPY . .
 RUN turbo prune @strava-mcp/server --docker
 
 # 2) Build: full deps then turbo build of the server's dependencies, which
-#    runs the activity-chart and cadence-trends vite builds (packages/*/dist/app.html).
+#    runs every MCP App package's vite build (packages/*/dist/app.html).
 FROM toolchain AS builder
 COPY --from=pruner /app/out/json/ ./
 COPY --from=pruner /app/out/bun.lock ./bun.lock
