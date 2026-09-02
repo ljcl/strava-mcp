@@ -339,6 +339,29 @@ export function parseJsonWithLargeInts(text: string): unknown {
   return JSON.parse(text, reviver as (key: string, value: unknown) => unknown);
 }
 
+/**
+ * Copies a value on its way out of the response cache so no two callers (and
+ * never the cache itself) share a reference. Without this, a consumer sorting
+ * or renaming fields in place on a cache hit would rewrite the entry for every
+ * later reader within the TTL — and the miss path has the same hazard, since
+ * the object stored is the one handed to the first caller.
+ *
+ * `structuredClone` is lossless here: cached payloads are parsed JSON (plain
+ * objects, arrays, strings, numbers, booleans, null), and
+ * {@link parseJsonWithLargeInts} keeps oversized ids as digit strings rather
+ * than BigInt — either would survive the clone, but strings are what we have.
+ * A `responseType: "text"` body is a primitive and clones trivially.
+ *
+ * Cloning was chosen over deep-freezing on purpose. Freezing would turn a
+ * future in-place sort into a strict-mode TypeError at the call site — louder
+ * than a corrupted cache, but it changes the contract every caller has today
+ * (plain, mutable data). One clone per read is the price; the hot path is a
+ * cache hit that already skipped a network round-trip.
+ */
+function cloneCached<T>(value: T): T {
+  return structuredClone(value);
+}
+
 export class FetchClient {
   private baseURL: string;
   private rateLimit: RateLimitSnapshot | null = null;
@@ -353,6 +376,15 @@ export class FetchClient {
   /** Response cache + its policy, or `null` when caching is disabled. */
   private readonly responseCache: TtlLruCache<unknown> | null;
   private readonly ttlForPath: ((path: string) => number | null) | null;
+  /**
+   * Cacheable GETs currently on the wire, keyed like the cache (full URL).
+   * A second identical cacheable GET arriving before the first settles joins
+   * this promise instead of paying Strava again — every MCP App fires its
+   * `view-` and `get-…-data` calls together on open, and both miss the cache
+   * when they race. Entries are removed on settle; only requests the cache
+   * would serve (cacheable path, GET/HEAD, not `skipCache`) ever go here.
+   */
+  private readonly inFlight = new Map<string, Promise<unknown>>();
 
   constructor(baseURL: string, options: RetryOptions = {}) {
     this.baseURL = baseURL;
@@ -451,25 +483,108 @@ export class FetchClient {
     // (query included, so different stream resolutions stay distinct); TTL and
     // write invalidation match on the query-stripped path.
     const cacheKey = requestConfig.url;
+    const cache = this.responseCache;
     let cacheTtl: number | null = null;
-    if (
-      this.responseCache &&
-      this.ttlForPath &&
-      isRetriable &&
-      !requestConfig.skipCache
-    ) {
+    if (cache && this.ttlForPath && isRetriable && !requestConfig.skipCache) {
       cacheTtl = this.ttlForPath(this.toPath(requestConfig.url));
-      if (cacheTtl !== null) {
-        const cached = this.responseCache.get(cacheKey);
-        if (cached !== undefined) {
-          return { data: cached as T };
-        }
-      }
     }
 
-    // Retry loop: transient (5xx / network / timeout) faults back off
-    // exponentially; a 429 honours Retry-After. All backoff lives here so every
-    // tool benefits.
+    if (cache === null || cacheTtl === null) {
+      // Uncacheable read, `skipCache` read, or a write: straight to the wire.
+      // A `skipCache` read deliberately ignores the in-flight map too — the
+      // update-activity append read must never compose onto a shared read that
+      // may already be stale by the time it lands.
+      const data = await this.fetchWithRetry<T>(
+        requestConfig.url,
+        fetchOptions,
+        requestConfig.responseType,
+        isRetriable,
+      );
+      if (cache && !isRetriable) this.invalidateWritten(requestConfig.url);
+      return { data };
+    }
+
+    const cached = cache.get(cacheKey);
+    if (cached !== undefined) {
+      return { data: cloneCached(cached) as T };
+    }
+
+    // Coalesce: an identical cacheable GET already on the wire serves this
+    // caller too. A rejection propagates to every awaiter; nothing is cached.
+    const shared = this.inFlight.get(cacheKey);
+    if (shared !== undefined) {
+      return { data: cloneCached(await shared) as T };
+    }
+
+    const ttl = cacheTtl;
+    const promise: Promise<unknown> = this.fetchWithRetry<unknown>(
+      requestConfig.url,
+      fetchOptions,
+      requestConfig.responseType,
+      isRetriable,
+    )
+      .then((data) => {
+        // Identity check: a write that invalidated this path while we were in
+        // flight has already dropped our entry, and our result predates that
+        // write — storing it would resurrect the stale read the invalidation
+        // just removed.
+        if (this.inFlight.get(cacheKey) === promise) {
+          cache.set(cacheKey, data, ttl);
+        }
+        return data;
+      })
+      .finally(() => {
+        // Same identity check: never delete a newer request's entry.
+        if (this.inFlight.get(cacheKey) === promise) {
+          this.inFlight.delete(cacheKey);
+        }
+      });
+    this.inFlight.set(cacheKey, promise);
+    // No bare `.catch` here: the creator awaits the shared promise itself, so a
+    // rejection is always observed and cannot become an unhandled rejection.
+    return { data: cloneCached(await promise) as T };
+  }
+
+  /**
+   * A successful write invalidates every cached read on the same branch of the
+   * resource tree — descendants and ancestors alike — and any identical read
+   * still in flight, so its (pre-write) result cannot be stored once it lands.
+   *
+   * Descendants: updating an activity drops its cached detail, streams, zones
+   * and laps so the next read re-fetches fresh.
+   *
+   * Ancestors: a write to a sub-resource changes how its parent reads.
+   * `PUT /segments/{id}/starred` is exactly that — it flips `segment.starred`,
+   * so a descendants-only rule would leave the cached `/segments/{id}`
+   * claiming the old value.
+   */
+  private invalidateWritten(url: string): void {
+    const writePath = this.toPath(url);
+    const onBranch = (key: string): boolean => {
+      const keyPath = this.toPath(key);
+      return (
+        keyPath === writePath ||
+        keyPath.startsWith(`${writePath}/`) ||
+        writePath.startsWith(`${keyPath}/`)
+      );
+    };
+    this.responseCache?.deleteMatching(onBranch);
+    for (const key of this.inFlight.keys()) {
+      if (onBranch(key)) this.inFlight.delete(key);
+    }
+  }
+
+  /**
+   * One request with retries, returning the parsed body. Transient (5xx /
+   * network / timeout) faults back off exponentially; a 429 honours
+   * Retry-After. All backoff lives here so every tool benefits.
+   */
+  private async fetchWithRetry<T>(
+    url: string,
+    fetchOptions: RequestInit,
+    responseType: FetchConfig["responseType"],
+    isRetriable: boolean,
+  ): Promise<T> {
     let attempt = 0;
     while (true) {
       let response: Response;
@@ -477,7 +592,7 @@ export class FetchClient {
         // A fresh signal per attempt: AbortSignal.timeout starts counting the
         // moment it is created, so a shared one would leave later retries with
         // whatever was left of the first attempt's budget.
-        response = await fetch(requestConfig.url, {
+        response = await fetch(url, {
           ...fetchOptions,
           signal: AbortSignal.timeout(this.timeoutMs),
         });
@@ -493,7 +608,7 @@ export class FetchClient {
         // mutated state on Strava's side. Surface it as a timeout so the caller
         // can say so rather than reporting an opaque failure.
         throw isAbortError(networkError)
-          ? new RequestTimeoutError(requestConfig.url, this.timeoutMs)
+          ? new RequestTimeoutError(url, this.timeoutMs)
           : networkError;
       }
 
@@ -551,48 +666,15 @@ export class FetchClient {
       }
 
       // Parse response
-      let data: T;
-      if (requestConfig.responseType === "text") {
-        data = (await response.text()) as T;
-      } else {
-        const contentType = response.headers.get("content-type");
-        if (contentType?.includes("application/json")) {
-          // Parse via text so oversized Strava ids survive without precision loss.
-          data = parseJsonWithLargeInts(await response.text()) as T;
-        } else {
-          data = (await response.text()) as T;
-        }
+      if (responseType === "text") {
+        return (await response.text()) as T;
       }
-
-      if (this.responseCache) {
-        // Cache a freshly-fetched cacheable GET.
-        if (cacheTtl !== null) {
-          this.responseCache.set(cacheKey, data, cacheTtl);
-        }
-        // A successful write invalidates every cached read on the same branch
-        // of the resource tree — descendants and ancestors alike.
-        //
-        // Descendants: updating an activity drops its cached detail, streams,
-        // zones and laps so the next read re-fetches fresh.
-        //
-        // Ancestors: a write to a sub-resource changes how its parent reads.
-        // `PUT /segments/{id}/starred` is exactly that — it flips
-        // `segment.starred`, so a descendants-only rule would leave the cached
-        // `/segments/{id}` claiming the old value.
-        if (!isRetriable) {
-          const writePath = this.toPath(requestConfig.url);
-          this.responseCache.deleteMatching((key) => {
-            const keyPath = this.toPath(key);
-            return (
-              keyPath === writePath ||
-              keyPath.startsWith(`${writePath}/`) ||
-              writePath.startsWith(`${keyPath}/`)
-            );
-          });
-        }
+      const contentType = response.headers.get("content-type");
+      if (contentType?.includes("application/json")) {
+        // Parse via text so oversized Strava ids survive without precision loss.
+        return parseJsonWithLargeInts(await response.text()) as T;
       }
-
-      return { data };
+      return (await response.text()) as T;
     }
   }
 

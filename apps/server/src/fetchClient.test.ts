@@ -729,3 +729,249 @@ describe("FetchClient response cache", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
+
+/** A fetch whose response the test releases by hand, to sequence races. */
+function deferredResponse(): {
+  promise: Promise<Response>;
+  resolve: (response: Response) => void;
+} {
+  let resolve!: (response: Response) => void;
+  const promise = new Promise<Response>((r) => {
+    resolve = r;
+  });
+  return { promise, resolve };
+}
+
+/** Lets already-started requests reach their `fetch` call before we continue. */
+const flushMicrotasks = () => new Promise<void>((r) => setTimeout(r, 0));
+
+type Payload = { id: number; tags: string[] };
+
+describe("FetchClient response cache hand-out immutability (#357)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const newCachingClient = () =>
+    new FetchClient("https://example.test", {
+      maxRetries: 0,
+      sleep: async () => {},
+      cache: {
+        ttlForPath: (path) => (path.startsWith("/activities/") ? 1000 : null),
+      },
+    });
+
+  it("hands out a clone on a hit, so mutating one result cannot poison the next", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"id":1,"tags":["a"]}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    await client.get<Payload>("/activities/1"); // miss: populates
+    const hit = await client.get<Payload>("/activities/1");
+    hit.data.tags.push("mutated");
+    hit.data.id = 999;
+
+    const next = await client.get<Payload>("/activities/1");
+    expect(next.data).toEqual({ id: 1, tags: ["a"] });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("hands out a clone on a miss, so the first caller cannot poison later hits", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"id":1,"tags":["a"]}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    const miss = await client.get<Payload>("/activities/1");
+    miss.data.tags.push("mutated");
+    miss.data.id = 999;
+
+    const hit = await client.get<Payload>("/activities/1");
+    expect(hit.data).toEqual({ id: 1, tags: ["a"] });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a text body intact across the clone", async () => {
+    const fetchMock = vi.fn().mockImplementation(
+      async () =>
+        new Response("<gpx/>", {
+          status: 200,
+          headers: { "content-type": "application/gpx+xml" },
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    const a = await client.get<string>("/activities/1", {
+      responseType: "text",
+    });
+    const b = await client.get<string>("/activities/1", {
+      responseType: "text",
+    });
+    expect(a.data).toBe("<gpx/>");
+    expect(b.data).toBe("<gpx/>");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("FetchClient in-flight GET coalescing (#355)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  const newCachingClient = () =>
+    new FetchClient("https://example.test", {
+      maxRetries: 0,
+      sleep: async () => {},
+      cache: {
+        ttlForPath: (path) => (path.startsWith("/activities/") ? 1000 : null),
+      },
+    });
+
+  it("collapses N concurrent identical cacheable GETs onto one upstream call", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse('{"id":1,"tags":["a"]}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => client.get<Payload>("/activities/1")),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    for (const result of results) {
+      expect(result.data).toEqual({ id: 1, tags: ["a"] });
+    }
+    // Coalesced awaiters are independent clones, not one shared object.
+    results[0]?.data.tags.push("mutated");
+    expect(results[1]?.data.tags).toEqual(["a"]);
+    expect(results[4]?.data.tags).toEqual(["a"]);
+    // ...and the cache entry itself is untouched.
+    const later = await client.get<Payload>("/activities/1");
+    expect(later.data.tags).toEqual(["a"]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not coalesce GETs on a path the cache policy declines", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async () => makeResponse("[]"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    await Promise.all(
+      Array.from({ length: 3 }, () => client.get("/athlete/activities")),
+    );
+
+    // Scope pinned: only cacheable reads share a wire call.
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects every awaiter with the same error, caches nothing, and refetches next time", async () => {
+    const failure = new Error("ECONNRESET");
+    const fetchMock = vi
+      .fn()
+      .mockRejectedValueOnce(failure)
+      .mockImplementation(async () => makeResponse('{"id":1,"tags":["a"]}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    const settled = await Promise.allSettled(
+      Array.from({ length: 3 }, () => client.get<Payload>("/activities/1")),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    for (const outcome of settled) {
+      expect(outcome.status).toBe("rejected");
+      expect((outcome as PromiseRejectedResult).reason).toBe(failure);
+    }
+
+    // The failed flight left no cache entry and no in-flight entry behind.
+    const recovered = await client.get<Payload>("/activities/1");
+    expect(recovered.data).toEqual({ id: 1, tags: ["a"] });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("lets a skipCache GET bypass an identical in-flight GET", async () => {
+    const deferred = deferredResponse();
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(deferred.promise)
+      .mockImplementation(async () => makeResponse('{"id":2}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    const shared = client.get<{ id: number }>("/activities/1");
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // The append-read shape: must be its own fetch, never the shared one.
+    const fresh = await client.get<{ id: number }>("/activities/1", {
+      skipCache: true,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fresh.data).toEqual({ id: 2 });
+
+    deferred.resolve(makeResponse('{"id":1}'));
+    expect((await shared).data).toEqual({ id: 1 });
+  });
+
+  it("drops an in-flight GET's result when a write invalidates its path mid-flight", async () => {
+    const deferred = deferredResponse();
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(deferred.promise)
+      .mockImplementation(async () => makeResponse('{"name":"after"}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    const inFlight = client.get<{ name: string }>("/activities/1");
+    await flushMicrotasks();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // The write lands while the GET is still on the wire.
+    await client.put("/activities/1", { name: "after" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    // The stale response arrives; its caller still gets it...
+    deferred.resolve(makeResponse('{"name":"before"}'));
+    expect((await inFlight).data).toEqual({ name: "before" });
+
+    // ...but it must not be stored: the next read goes upstream again.
+    const next = await client.get<{ name: string }>("/activities/1");
+    expect(next.data).toEqual({ name: "after" });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("never lets a write join an in-flight GET or populate the cache", async () => {
+    const deferred = deferredResponse();
+    const fetchMock = vi
+      .fn()
+      .mockReturnValueOnce(deferred.promise)
+      .mockImplementation(async () => makeResponse('{"ok":true}'));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = newCachingClient();
+    const inFlight = client.get("/activities/1");
+    await flushMicrotasks();
+
+    // A POST to the same URL is its own wire call, not a join.
+    await client.post("/activities/1", { name: "x" });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1]?.[1]?.method).toBe("POST");
+
+    deferred.resolve(makeResponse('{"ok":true}'));
+    await inFlight;
+
+    // The write invalidated the branch (and the flight); nothing it returned
+    // was cached, so the next GET fetches.
+    await client.get("/activities/1");
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+});
