@@ -77,6 +77,17 @@ server has made one. Wiring monitoring: point an uptime check at the
 unauthenticated shape; send the secret only when you want token and quota
 detail.
 
+`authenticated` and `token_expires_at` describe the token set the running
+server actually uses: the in-memory copy that refreshes rotate and both OAuth
+exchanges write. Once that copy exists a poll costs no disk read and adds no
+`Loaded tokens` lines to the logs, so polling `/health` (or `/auth/status`,
+which reports the same state) does not bury real telemetry in
+`docker compose logs`. The trade-off: a `tokens.json` replaced by hand
+underneath a running process is not picked up until restart, exactly as tool
+calls do not pick it up, so restart the server after replacing the file by
+hand. An unauthenticated server keeps checking the file on every poll, so a
+fresh authorization shows up on the next one.
+
 ## Securing the endpoint
 
 A tunnel makes `/mcp` reachable by anyone who discovers the URL — including

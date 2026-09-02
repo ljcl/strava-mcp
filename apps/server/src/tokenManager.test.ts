@@ -372,6 +372,20 @@ describe("getStravaToken (proactive refresh)", () => {
 });
 
 describe("getTokenStatus", () => {
+  /** A comfortably valid token set, 30 minutes out. */
+  const storedTokens = () => ({
+    access_token: "acc",
+    refresh_token: "ref",
+    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+    athlete_id: 7,
+  });
+
+  /** Counts the stderr line loadTokens emits each time it reads tokens.json. */
+  const countLoadedLines = (errorSpy: { mock: { calls: unknown[][] } }) =>
+    errorSpy.mock.calls.filter(([line]) =>
+      String(line).includes("Loaded tokens from"),
+    ).length;
+
   it("reports unauthenticated when no tokens exist", async () => {
     const { getTokenStatus } = await importTokenManager();
     const status = await getTokenStatus();
@@ -381,25 +395,136 @@ describe("getTokenStatus", () => {
   });
 
   it("reports authenticated with expiry details from the stored token", async () => {
-    const expiresAt = Math.floor(Date.now() / 1000) + 30 * 60; // 30 min out
-    fs.writeFileSync(
-      tokenFile,
-      JSON.stringify({
-        access_token: "acc",
-        refresh_token: "ref",
-        expires_at: expiresAt,
-        athlete_id: 7,
-      }),
-    );
+    const tokens = storedTokens();
+    fs.writeFileSync(tokenFile, JSON.stringify(tokens));
 
     const { getTokenStatus } = await importTokenManager();
     const status = await getTokenStatus();
 
     expect(status.authenticated).toBe(true);
     expect(status.athlete_id).toBe(7);
-    expect(status.expires_at).toBe(new Date(expiresAt * 1000).toISOString());
+    expect(status.expires_at).toBe(
+      new Date(tokens.expires_at * 1000).toISOString(),
+    );
     expect(status.expires_in_minutes).toBeGreaterThanOrEqual(29);
     expect(status.expires_in_minutes).toBeLessThanOrEqual(30);
+  });
+
+  it("serves repeated polls from memory: one disk read, one 'Loaded tokens' line", async () => {
+    fs.writeFileSync(tokenFile, JSON.stringify(storedTokens()));
+    const readSpy = vi.spyOn(fsp, "readFile");
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { getTokenStatus } = await importTokenManager();
+
+    // Nothing is cached yet, so the first poll must hit disk. This also proves
+    // the spy intercepts the module's readFile before the counts below mean
+    // anything.
+    expect((await getTokenStatus()).authenticated).toBe(true);
+    expect(readSpy).toHaveBeenCalledTimes(1);
+    expect(countLoadedLines(errorSpy)).toBe(1);
+
+    // /health backs the container HEALTHCHECK and operator dashboards, so it
+    // is polled continuously. Each poll used to re-read tokens.json and re-log
+    // the load, burying the real telemetry lines in docker compose logs.
+    expect((await getTokenStatus()).authenticated).toBe(true);
+    expect((await getTokenStatus()).authenticated).toBe(true);
+    expect(readSpy).toHaveBeenCalledTimes(1);
+    expect(countLoadedLines(errorSpy)).toBe(1);
+  });
+
+  it("reports tokens written by saveTokens without touching disk", async () => {
+    const readSpy = vi.spyOn(fsp, "readFile");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { saveTokens, getTokenStatus } = await importTokenManager();
+    const tokens = storedTokens();
+    await saveTokens(tokens);
+    const status = await getTokenStatus();
+
+    // Both OAuth exchanges land in saveTokens, which primes the cache, so the
+    // status right after an authorization is served from memory.
+    expect(status.authenticated).toBe(true);
+    expect(status.athlete_id).toBe(7);
+    expect(status.expires_at).toBe(
+      new Date(tokens.expires_at * 1000).toISOString(),
+    );
+    expect(readSpy).not.toHaveBeenCalled();
+  });
+
+  it("reflects a refresh that rotated the in-memory tokens", async () => {
+    const now = Math.floor(Date.now() / 1000);
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({
+        access_token: "stale-acc",
+        refresh_token: "ref",
+        expires_at: now - 10,
+        athlete_id: 7,
+      }),
+    );
+    const rotatedExpiry = now + 21600;
+    mockFetchOnceJson({
+      access_token: "fresh-acc",
+      refresh_token: "ref2",
+      expires_at: rotatedExpiry,
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { getStravaToken, getTokenStatus } = await importTokenManager();
+    expect(await getStravaToken()).toBe("fresh-acc");
+
+    // The status is the token set tool calls actually send: the refresh
+    // rotated the in-memory copy and the poll reads that, not the file.
+    const readSpy = vi.spyOn(fsp, "readFile");
+    const status = await getTokenStatus();
+    expect(status.expires_at).toBe(
+      new Date(rotatedExpiry * 1000).toISOString(),
+    );
+    expect(status.athlete_id).toBe(7);
+    expect(readSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not see a tokens.json replaced by hand once a copy is cached", async () => {
+    fs.writeFileSync(tokenFile, JSON.stringify(storedTokens()));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { getTokenStatus } = await importTokenManager();
+    expect((await getTokenStatus()).athlete_id).toBe(7);
+
+    // The documented trade-off (docs/operations.md, "Health check"): tool
+    // calls do not pick up a hand-replaced file until restart either, so the
+    // status agrees with them rather than with the file.
+    fs.writeFileSync(
+      tokenFile,
+      JSON.stringify({ ...storedTokens(), athlete_id: 8 }),
+    );
+    expect((await getTokenStatus()).athlete_id).toBe(7);
+  });
+
+  it("never caches 'no tokens': unauthenticated polls consult disk each time", async () => {
+    const readSpy = vi.spyOn(fsp, "readFile");
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { getTokenStatus } = await importTokenManager();
+    expect((await getTokenStatus()).authenticated).toBe(false);
+    expect((await getTokenStatus()).authenticated).toBe(false);
+
+    expect(readSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it("picks up a tokens.json written after an unauthenticated poll", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { getTokenStatus } = await importTokenManager();
+    expect((await getTokenStatus()).authenticated).toBe(false);
+
+    // A fresh authorization (or a file restored from backup) becomes visible
+    // on the next poll because "no tokens" was not cached.
+    fs.writeFileSync(tokenFile, JSON.stringify(storedTokens()));
+    const status = await getTokenStatus();
+    expect(status.authenticated).toBe(true);
+    expect(status.athlete_id).toBe(7);
   });
 });
 
