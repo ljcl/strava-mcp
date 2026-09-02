@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.0.1](https://github.com/ljcl/strava-mcp/compare/v3.0.0...v3.0.1) (2026-09-02)
+
+
+### Bug Fixes
+
+* **cadence-trends:** drop scatter mount animation so dot clicks land ([#377](https://github.com/ljcl/strava-mcp/issues/377)) ([6b9566a](https://github.com/ljcl/strava-mcp/commit/6b9566abbd9e894df86dd2373bf7b534e6696ba1))
+* **deps:** bump fast-uri, brace-expansion and nanoid past high advisories ([#375](https://github.com/ljcl/strava-mcp/issues/375)) ([6712a5a](https://github.com/ljcl/strava-mcp/commit/6712a5a512270c9af204eb78e64a10882dcf61c8))
+* **deps:** bump oven/bun from 1.3.14-distroless to 1.4.0-distroless in /apps/server in the docker-minor-patch group ([#370](https://github.com/ljcl/strava-mcp/issues/370)) ([b7f71b1](https://github.com/ljcl/strava-mcp/commit/b7f71b158393fd7fc177ccd1bb1afb95ff55ae93))
+* escape OAuth error pages, type tool errors, harden the cache path and pin the Bun image ([#379](https://github.com/ljcl/strava-mcp/issues/379)) ([7841b6b](https://github.com/ljcl/strava-mcp/commit/7841b6b646f24887e07b38849f5090fcab5ac2c6))
+
 ## [3.0.0](https://github.com/ljcl/strava-mcp/compare/v2.13.2...v3.0.0) (2026-08-22)
 
 
