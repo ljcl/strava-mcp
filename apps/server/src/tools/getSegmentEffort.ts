@@ -5,6 +5,7 @@ import {
   type StravaDetailedSegmentEffort,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import {
   SegmentEffortOutputSchema,
@@ -86,40 +87,19 @@ export const getSegmentEffortTool = {
         structuredContent: structured,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `Error fetching segment effort ${effortId}: ${errorMessage}`,
-      );
-
-      let userFriendlyMessage: string;
-      if (errorMessage.startsWith("SUBSCRIPTION_REQUIRED:")) {
-        userFriendlyMessage = `🔒 Accessing this segment effort (ID: ${effortId}) requires a Strava subscription. Please check your subscription status.`;
-      } else if (
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-      ) {
-        userFriendlyMessage = `Segment effort with ID ${effortId} not found.`;
-      } else {
-        userFriendlyMessage = `An unexpected error occurred while fetching segment effort ${effortId}. Details: ${errorMessage}`;
-      }
-
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `fetch segment effort ${effortId}`,
+              notFound: `Segment effort with ID ${effortId} not found.`,
+              subscription: `Accessing this segment effort (ID: ${effortId}) requires a Strava subscription. Please check your subscription status.`,
+            }),
+          },
+        ],
         isError: true,
       };
     }
   },
 };
-
-// Removed old registration function
-/*
-export function registerGetSegmentEffortTool(server: McpServer) {
-    server.tool(
-        getSegmentEffort.name,
-        getSegmentEffort.description,
-        getSegmentEffort.inputSchema.shape,
-        getSegmentEffort.execute
-    );
-}
-*/

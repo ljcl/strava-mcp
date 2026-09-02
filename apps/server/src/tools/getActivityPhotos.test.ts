@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledNotFound, handledRateLimit } from "../__fixtures__";
 import {
   getActivityPhotos as getActivityPhotosClient,
   type StravaPhoto,
@@ -26,7 +27,7 @@ describe("get-activity-photos execute", () => {
     mockedFetch.mockReset();
   });
 
-  it("summarises photos and appends the raw JSON payload", async () => {
+  it("summarises photos in a single text block without a raw JSON dump", async () => {
     mockedFetch.mockResolvedValueOnce([photo]);
 
     const result = await getActivityPhotosTool.execute(
@@ -39,14 +40,16 @@ describe("get-activity-photos execute", () => {
 
     expect(result.isError).toBeUndefined();
     expect(mockedFetch).toHaveBeenCalledWith("test-token", "123", 600);
+    expect(result.content).toHaveLength(1);
     const summary = result.content[0]?.text ?? "";
     expect(summary).toContain("Total Photos: 1");
     expect(summary).toContain("Source: Strava");
     expect(summary).toContain("Caption: Summit view");
     expect(summary).toContain("600: https://example.com/photo-600.jpg");
-    const raw = result.content[1]?.text ?? "";
-    expect(raw).toContain("Complete Photo Data");
-    expect(JSON.parse(raw.slice(raw.indexOf("[")))).toHaveLength(1);
+    expect(summary).not.toContain("Complete Photo Data");
+    expect(result.structuredContent?.photos[0]?.url).toBe(
+      "https://example.com/photo-600.jpg",
+    );
   });
 
   it("passes a 64-bit id through as digits rather than parsing it to a number", async () => {
@@ -88,7 +91,7 @@ describe("get-activity-photos execute", () => {
   });
 
   it("maps a 404 to an activity-not-found message", async () => {
-    mockedFetch.mockRejectedValueOnce(new Error("Record Not Found"));
+    mockedFetch.mockRejectedValueOnce(handledNotFound("getActivityPhotos"));
 
     const result = await getActivityPhotosTool.execute(
       { id: "123" },
@@ -96,6 +99,35 @@ describe("get-activity-photos execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Activity with ID 123 not found");
+    expect(result.content[0]?.text).toBe("❌ Activity with ID 123 not found.");
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedFetch.mockRejectedValueOnce(handledRateLimit("getActivityPhotos"));
+
+    const result = await getActivityPhotosTool.execute(
+      { id: "123" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
+  });
+
+  it("reports other failures with details", async () => {
+    mockedFetch.mockRejectedValueOnce(new Error("Bad Gateway"));
+
+    const result = await getActivityPhotosTool.execute(
+      { id: "123" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to fetch photos for activity 123: Bad Gateway",
+    );
   });
 });

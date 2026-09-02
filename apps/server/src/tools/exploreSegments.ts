@@ -5,6 +5,7 @@ import {
   type StravaExplorerResponse,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { SegmentListOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const ExploreSegmentsInputSchema = z.object({
@@ -164,12 +165,14 @@ export const exploreSegments = {
         structuredContent: structured,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : "An unknown error occurred";
-      console.error("Error in explore-segments tool:", errorMessage);
       return {
         content: [
-          { type: "text" as const, text: `❌ API Error: ${errorMessage}` },
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `explore segments within ${bounds}`,
+            }),
+          },
         ],
         isError: true,
       };

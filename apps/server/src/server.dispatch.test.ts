@@ -4,6 +4,7 @@
  * a structured error instead of flowing into Strava requests as NaN.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledNotFound, handledRateLimit } from "./__fixtures__";
 import {
   getActivityById,
   getAllActivities,
@@ -245,5 +246,45 @@ describe("dispatchToolCall input validation", () => {
 
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).toContain("Unknown tool: not-a-tool");
+  });
+
+  // The app data handlers throw rather than return `isError`, so the
+  // dispatcher's final catch is the only place their failures get the typed
+  // 404/429 treatment and the ❌ prefix the text tools give themselves.
+  it("renders a thrown RateLimitError with the rate-limit window", async () => {
+    mockedList.mockRejectedValueOnce(handledRateLimit("getAllActivities"));
+
+    const result = await dispatchToolCall("get-training-load-data", {});
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("get-training-load-data");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
+    expect(text).not.toContain("Tool error");
+  });
+
+  it("maps a thrown 404 to a not-found line", async () => {
+    mockedById.mockRejectedValue(handledNotFound("getActivityById"));
+
+    const result = await dispatchToolCall("get-compare-activities-data", {
+      activity_id_1: "1",
+      activity_id_2: "2",
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe("❌ Not found.");
+  });
+
+  it("reports other thrown failures with the tool name and message", async () => {
+    mockedList.mockRejectedValueOnce(new Error("boom"));
+
+    const result = await dispatchToolCall("get-training-load-data", {});
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to run get-training-load-data: boom",
+    );
   });
 });

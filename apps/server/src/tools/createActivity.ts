@@ -109,7 +109,7 @@ export const createActivityTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to create activity "${input.name}": ${message}.${hint}`,
+            text: `❌ Failed to create activity "${input.name}": ${message}.${hint}`,
           },
         ],
         isError: true,

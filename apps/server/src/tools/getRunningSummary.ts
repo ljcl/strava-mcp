@@ -16,6 +16,7 @@ import {
   type ZoneBoundary,
 } from "../utils/running";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import { RunningSummaryOutputSchema, warnOnSchemaDrift } from "./outputs";
 
@@ -312,20 +313,16 @@ export const getRunningSummaryTool = {
         structuredContent: summary,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `Error generating running summary for ${activityId}: ${errorMessage}`,
-      );
-
-      const userFriendlyMessage =
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-          ? `Activity with ID ${activityId} not found.`
-          : `An unexpected error occurred while generating running summary. Details: ${errorMessage}`;
-
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `summarise run ${activityId}`,
+              notFound: `Activity with ID ${activityId} not found.`,
+            }),
+          },
+        ],
         isError: true,
       };
     }

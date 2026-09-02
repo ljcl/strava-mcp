@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledRateLimit } from "../__fixtures__";
 import {
   listAthleteRoutes as fetchAthleteRoutes,
   type StravaRoute,
@@ -69,6 +70,26 @@ describe("list-athlete-routes execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Server error");
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to list athlete routes (page 1): Server error",
+    );
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedFetch.mockRejectedValueOnce(handledRateLimit("listAthleteRoutes"));
+
+    const result = await listAthleteRoutesTool.execute(
+      {
+        page: 1,
+        perPage: 20,
+      },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
   });
 });

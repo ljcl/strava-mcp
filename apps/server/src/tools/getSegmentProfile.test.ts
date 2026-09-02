@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { handledSubscriptionRequired } from "../__fixtures__";
 import {
   getSegmentById,
   getSegmentStreams,
@@ -116,9 +117,7 @@ describe("get-segment-profile execute", () => {
   it("explains a subscription block in plain English", async () => {
     mockedSegment.mockResolvedValueOnce(segment());
     mockedStreams.mockRejectedValueOnce(
-      new Error(
-        "SUBSCRIPTION_REQUIRED: Access to this feature requires a Strava subscription. Context: getSegmentStreams for ID 789",
-      ),
+      handledSubscriptionRequired("getSegmentStreams for ID 789"),
     );
 
     const result = await getSegmentProfileTool.execute(

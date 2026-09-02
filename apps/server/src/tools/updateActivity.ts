@@ -82,7 +82,7 @@ export const updateActivityTool = {
         content: [
           {
             type: "text" as const,
-            text: "Nothing to update: provide at least one of name, description, sportType, gearId, commute, trainer, or hideFromHome.",
+            text: "❌ Nothing to update: provide at least one of name, description, sportType, gearId, commute, trainer, or hideFromHome.",
           },
         ],
         isError: true,
@@ -163,7 +163,7 @@ export const updateActivityTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to update activity ${activityId}: ${message}.${hint}`,
+            text: `❌ Failed to update activity ${activityId}: ${message}.${hint}`,
           },
         ],
         isError: true,

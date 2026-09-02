@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { activityZones as activityZonesFixture } from "../__fixtures__";
+import {
+  activityZones as activityZonesFixture,
+  handledNotFound,
+  handledRateLimit,
+} from "../__fixtures__";
 import {
   getActivityZones as getActivityZonesClient,
   type StravaActivityZone,
@@ -48,7 +52,7 @@ describe("getActivityZonesTool.execute", () => {
     mockedClient.mockReset();
   });
 
-  it("returns a formatted summary plus raw data", async () => {
+  it("returns the formatted summary as the only text block", async () => {
     mockedClient.mockResolvedValue(activityZones);
 
     const result = await getActivityZonesTool.execute(
@@ -57,9 +61,11 @@ describe("getActivityZonesTool.execute", () => {
     );
 
     expect(result.isError).toBeUndefined();
+    expect(result.content).toHaveLength(1);
     expect(result.content[0]?.text).toContain("Activity Zones (ID: 12345)");
     expect(result.content[0]?.text).toContain("54.1%");
-    expect(result.content[1]?.text).toContain("Complete Zone Data:");
+    expect(result.content[0]?.text).not.toContain("Complete Zone Data");
+    expect(result.structuredContent?.zone_sets.length).toBeGreaterThan(0);
     expect(mockedClient).toHaveBeenCalledWith("test-token", "12345");
   });
 
@@ -89,7 +95,7 @@ describe("getActivityZonesTool.execute", () => {
   });
 
   it("maps a not-found error to a friendly message", async () => {
-    mockedClient.mockRejectedValue(new Error("Record Not Found"));
+    mockedClient.mockRejectedValue(handledNotFound("getActivityZones"));
 
     const result = await getActivityZonesTool.execute(
       { id: "42" },
@@ -97,6 +103,35 @@ describe("getActivityZonesTool.execute", () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0]?.text).toContain("Activity with ID 42 not found");
+    expect(result.content[0]?.text).toBe("❌ Activity with ID 42 not found.");
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedClient.mockRejectedValue(handledRateLimit("getActivityZones"));
+
+    const result = await getActivityZonesTool.execute(
+      { id: "42" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
+  });
+
+  it("reports other failures with details", async () => {
+    mockedClient.mockRejectedValue(new Error("Bad Gateway"));
+
+    const result = await getActivityZonesTool.execute(
+      { id: "42" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to fetch zones for activity 42: Bad Gateway",
+    );
   });
 });

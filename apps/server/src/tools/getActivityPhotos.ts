@@ -1,38 +1,28 @@
 import { z } from "zod";
 import { getActivityPhotos as getActivityPhotosClient } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import { ActivityPhotosOutputSchema, warnOnSchemaDrift } from "./outputs";
 
 const name = "get-activity-photos";
 
 const description = `
-Retrieves photos associated with a specific Strava activity.
+Retrieves the photos attached to a specific Strava activity.
 
 Use Cases:
-- Fetch all photos uploaded to an activity
+- Fetch the photos uploaded to an activity
 - Get photo URLs for display or download
-- Access photo metadata including location and timestamps
+- Access photo captions, locations, and timestamps
 
 Parameters:
 - id (required): The unique identifier of the Strava activity.
-- size (optional): Size of photos to return in pixels (e.g., 100, 600, 2048). If not specified, returns all available sizes.
-
-Output Format:
-Returns both a human-readable summary and complete JSON data for each photo, including:
-1. A text summary with photo count and URLs
-2. Raw photo data containing all fields from the Strava API:
-   - Photo ID and unique identifier
-   - URLs for different sizes
-   - Source (1 = Strava, 2 = Instagram)
-   - Timestamps (uploaded_at, created_at)
-   - Location coordinates if available
-   - Caption if provided
+- size (optional): Photo size in pixels (e.g., 100, 600, 2048). Strava keys each photo's URLs by size; when omitted it returns every available size. The structured payload carries the largest URL returned.
 
 Notes:
 - Requires activity:read scope for public/followers activities, activity:read_all for private activities
 - Photos may come from Strava uploads or linked Instagram posts
-- Returns empty array if activity has no photos
+- An activity with no photos returns a message and an empty photos list (count: 0), not an error
 `;
 
 const inputSchema = z.object({
@@ -129,9 +119,6 @@ export const getActivityPhotosTool = {
 
       const summaryText = `Activity Photos (ID: ${id})\nTotal Photos: ${photos.length}\n\n${photoSummaries.join("\n\n")}`;
 
-      // Add raw data section
-      const rawDataText = `\n\nComplete Photo Data:\n${JSON.stringify(photos, null, 2)}`;
-
       console.error(
         `Successfully fetched ${photos.length} photos for activity ${id}`,
       );
@@ -165,27 +152,23 @@ export const getActivityPhotosTool = {
         structured,
       );
 
+      // The summary is the only text block: the structured payload is the
+      // machine-readable copy, and a pretty-printed dump of the raw response
+      // alongside it only cost the model tokens.
       return {
-        content: [
-          { type: "text" as const, text: summaryText },
-          { type: "text" as const, text: rawDataText },
-        ],
+        content: [{ type: "text" as const, text: summaryText }],
         structuredContent: structured,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `Error fetching photos for activity ${id}: ${errorMessage}`,
-      );
-      const userFriendlyMessage =
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-          ? `Activity with ID ${id} not found.`
-          : `An unexpected error occurred while fetching photos for activity ${id}. Details: ${errorMessage}`;
       return {
         content: [
-          { type: "text" as const, text: `Error: ${userFriendlyMessage}` },
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `fetch photos for activity ${id}`,
+              notFound: `Activity with ID ${id} not found.`,
+            }),
+          },
         ],
         isError: true,
       };

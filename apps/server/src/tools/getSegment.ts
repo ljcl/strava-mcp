@@ -2,10 +2,10 @@ import { z } from "zod";
 import { formatDistance, formatElevation } from "../formatters";
 import {
   getSegmentById as fetchSegmentById,
-  // handleApiError, // Removed unused import
   type StravaDetailedSegment, // Type needed for formatter
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import {
   SegmentOutputSchema,
@@ -73,17 +73,16 @@ export const getSegmentTool = {
         structuredContent: structured,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(`Error fetching segment ${segmentId}: ${errorMessage}`);
-      // Removed call to handleApiError
-      const userFriendlyMessage =
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-          ? `Segment with ID ${segmentId} not found.`
-          : `An unexpected error occurred while fetching segment details for ID ${segmentId}. Details: ${errorMessage}`;
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `fetch segment ${segmentId}`,
+              notFound: `Segment with ID ${segmentId} not found.`,
+            }),
+          },
+        ],
         isError: true,
       };
     }

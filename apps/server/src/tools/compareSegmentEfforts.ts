@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { HttpError } from "../fetchClient";
 import {
   compareEffortSlices,
   type EffortSlice,
@@ -181,7 +182,7 @@ export const compareSegmentEffortsTool = {
           content: [
             {
               type: "text" as const,
-              text: `You have only one recorded effort on "${effort1.name}", so there is nothing to compare it against.`,
+              text: `❌ You have only one recorded effort on "${effort1.name}", so there is nothing to compare it against.`,
             },
           ],
           isError: true,
@@ -211,7 +212,7 @@ export const compareSegmentEffortsTool = {
           content: [
             {
               type: "text" as const,
-              text: `The ${which} effort has no usable recorded streams on this segment, so the two cannot be compared point by point. Manual activities record no samples, and some older activities have no stream indices.`,
+              text: `❌ The ${which} effort has no usable recorded streams on this segment, so the two cannot be compared point by point. Manual activities record no samples, and some older activities have no stream indices.`,
             },
           ],
           isError: true,
@@ -309,12 +310,13 @@ export const compareSegmentEffortsTool = {
         };
       }
       const message = error instanceof Error ? error.message : String(error);
-      if (message.startsWith("SUBSCRIPTION_REQUIRED:")) {
+      // The 402 handleApiError kept on the error, not its message prefix.
+      if (error instanceof HttpError && error.response.status === 402) {
         return {
           content: [
             {
               type: "text" as const,
-              text: "Strava restricts a segment's effort history to subscribers, so your PR on this segment cannot be looked up. Pass compareToEffortId with a second effort id instead.",
+              text: "❌ Strava restricts a segment's effort history to subscribers, so your PR on this segment cannot be looked up. Pass compareToEffortId with a second effort id instead.",
             },
           ],
           isError: true,
@@ -325,7 +327,7 @@ export const compareSegmentEffortsTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to compare these segment efforts: ${message}`,
+            text: `❌ Failed to compare these segment efforts: ${message}`,
           },
         ],
         isError: true,

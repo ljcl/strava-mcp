@@ -152,7 +152,7 @@ export const getHillAnalysisTool = {
           content: [
             {
               type: "text" as const,
-              text: `No data streams are available for "${activity.name}" — manual activities have no recorded samples to analyse.`,
+              text: `❌ No data streams are available for "${activity.name}" — manual activities have no recorded samples to analyse.`,
             },
           ],
           isError: true,
@@ -257,7 +257,7 @@ export const getHillAnalysisTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to compute hill analysis: ${message}`,
+            text: `❌ Failed to compute hill analysis: ${message}`,
           },
         ],
         isError: true,

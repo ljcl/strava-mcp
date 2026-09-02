@@ -64,7 +64,7 @@ export const getRoutePreviewTool = {
           content: [
             {
               type: "text" as const,
-              text: `"${route.name}" has no stored elevation profile and its GPX export carries no elevation, so its climbs cannot be previewed. get-route still reports its distance and total elevation gain.`,
+              text: `❌ "${route.name}" has no stored elevation profile and its GPX export carries no elevation, so its climbs cannot be previewed. get-route still reports its distance and total elevation gain.`,
             },
           ],
           isError: true,
@@ -132,7 +132,7 @@ export const getRoutePreviewTool = {
         content: [
           {
             type: "text" as const,
-            text: `Failed to preview route ${routeId}: ${message}`,
+            text: `❌ Failed to preview route ${routeId}: ${message}`,
           },
         ],
         isError: true,

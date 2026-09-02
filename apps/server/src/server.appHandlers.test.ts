@@ -5,7 +5,7 @@
  * those early returns lacked `isError: true` and surfaced as ordinary content.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { handledRateLimit } from "./__fixtures__";
+import { handledRateLimit, handledSubscriptionRequired } from "./__fixtures__";
 import { HttpError, RateLimitError, stravaApi } from "./fetchClient";
 import {
   exportRouteGpx,
@@ -597,7 +597,7 @@ describe("segment progress handlers", () => {
   it("explains the subscriber-only endpoint instead of leaking the sentinel", async () => {
     mockedSegment.mockResolvedValueOnce(detailedSegment());
     mockedSegmentEfforts.mockRejectedValueOnce(
-      new Error("SUBSCRIPTION_REQUIRED: segment efforts"),
+      handledSubscriptionRequired("listSegmentEfforts for segment 55"),
     );
 
     const result = await dispatchToolCall("view-segment-progress", {

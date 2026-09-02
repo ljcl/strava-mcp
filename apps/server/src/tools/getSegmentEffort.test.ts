@@ -1,5 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  handledNotFound,
+  handledRateLimit,
+  handledSubscriptionRequired,
+} from "../__fixtures__";
+import {
   getSegmentEffort as fetchSegmentEffort,
   type StravaDetailedSegmentEffort,
 } from "../stravaClient";
@@ -79,5 +84,64 @@ describe("get-segment-effort execute", () => {
     expect(result.isError).toBeUndefined();
     expect(mockedFetch).toHaveBeenCalledWith("test-token", bigEffortId);
     expect(result.content[0]?.text).toContain(bigEffortId);
+  });
+
+  it("maps a 404 to an effort-not-found message", async () => {
+    mockedFetch.mockRejectedValueOnce(handledNotFound("getSegmentEffort"));
+
+    const result = await getSegmentEffortTool.execute(
+      { effortId: "555" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Segment effort with ID 555 not found.",
+    );
+  });
+
+  it("maps a 402 to the subscription message", async () => {
+    mockedFetch.mockRejectedValueOnce(
+      handledSubscriptionRequired("getSegmentEffort"),
+    );
+
+    const result = await getSegmentEffortTool.execute(
+      { effortId: "555" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("(ID: 555) requires a Strava subscription");
+  });
+
+  it("renders the rate-limit window on a RateLimitError", async () => {
+    mockedFetch.mockRejectedValueOnce(handledRateLimit("getSegmentEffort"));
+
+    const result = await getSegmentEffortTool.execute(
+      { effortId: "555" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    const text = result.content[0]?.text ?? "";
+    expect(text.startsWith("❌")).toBe(true);
+    expect(text).toContain("rate limit");
+    expect(text).toContain("15-minute rate limit reached (100/100 requests).");
+  });
+
+  it("reports other failures with details", async () => {
+    mockedFetch.mockRejectedValueOnce(new Error("Bad Gateway"));
+
+    const result = await getSegmentEffortTool.execute(
+      { effortId: "555" },
+      "test-token",
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0]?.text).toBe(
+      "❌ Failed to fetch segment effort 555: Bad Gateway",
+    );
   });
 });

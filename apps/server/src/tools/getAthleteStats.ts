@@ -5,6 +5,7 @@ import {
   type StravaStats,
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import { stravaIdInput } from "./_ids";
 import { AthleteStatsOutputSchema, buildAthleteStatsOutput } from "./outputs";
 
@@ -171,35 +172,22 @@ export const getAthleteStatsTool = {
         structuredContent: buildAthleteStatsOutput(stats),
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `Error fetching stats for athlete ${resolvedAthleteId ?? "(authenticated)"}: ${errorMessage}`,
-      );
       const athleteLabel =
         resolvedAthleteId !== undefined
           ? `athlete ${resolvedAthleteId}`
           : "the authenticated athlete";
-      const userFriendlyMessage =
-        errorMessage.includes("Record Not Found") ||
-        errorMessage.includes("404")
-          ? `Athlete ${resolvedAthleteId !== undefined ? `with ID ${resolvedAthleteId} ` : ""}not found (when fetching stats).`
-          : `An unexpected error occurred while fetching stats for ${athleteLabel}. Details: ${errorMessage}`;
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `fetch stats for ${athleteLabel}`,
+              notFound: `Athlete ${resolvedAthleteId !== undefined ? `with ID ${resolvedAthleteId} ` : ""}not found (when fetching stats).`,
+            }),
+          },
+        ],
         isError: true,
       };
     }
   },
 };
-
-// Removed old registration function
-/*
-export function registerGetAthleteStatsTool(server: McpServer) {
-    server.tool(
-        getAthleteStats.name,
-        getAthleteStats.description,
-        getAthleteStats.execute // No input schema
-    );
-}
-*/

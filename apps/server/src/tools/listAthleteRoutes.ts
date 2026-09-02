@@ -5,14 +5,12 @@ import {
   // StravaRoute is needed for the formatter
 } from "../stravaClient";
 import { READ_ONLY } from "./_annotations";
+import { toolErrorText } from "./_errors";
 import {
   RoutesOutputSchema,
   toRouteSummary,
   warnOnSchemaDrift,
 } from "./outputs";
-
-// Remove the imported formatter since we're defining our own locally
-// import { formatRouteSummary } from "../formatters";
 
 // Define input schema with zod
 const ListAthleteRoutesInputSchema = z.object({
@@ -99,30 +97,17 @@ export const listAthleteRoutesTool = {
         structuredContent: structured,
       };
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
-      console.error(
-        `Error listing athlete routes (page ${page}, perPage: ${perPage}): ${errorMessage}`,
-      );
-      // Removed call to handleApiError and its retry logic
-      // Note: 404 is less likely for a list endpoint like this
-      const userFriendlyMessage = `An unexpected error occurred while listing athlete routes. Details: ${errorMessage}`;
       return {
-        content: [{ type: "text" as const, text: `❌ ${userFriendlyMessage}` }],
+        content: [
+          {
+            type: "text" as const,
+            text: toolErrorText(error, {
+              context: `list athlete routes (page ${page})`,
+            }),
+          },
+        ],
         isError: true,
       };
     }
   },
 };
-
-// Removed old registration function
-/*
-export function registerListAthleteRoutesTool(server: McpServer) {
-    server.tool(
-        listAthleteRoutes.name,
-        listAthleteRoutes.description,
-        listAthleteRoutes.inputSchema.shape,
-        listAthleteRoutes.execute
-    );
-}
-*/
