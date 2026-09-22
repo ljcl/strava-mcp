@@ -1781,9 +1781,16 @@ export async function getAthleteZones(
 // power), each carrying `distribution_buckets` describing how long was spent in
 // each zone band (the final bucket uses max: -1 for "and above").
 // Based on https://developers.strava.com/docs/reference/#api-models-ActivityZone
+//
+// `type` is a plain string, not an enum: the docs list only "heartrate" and
+// "power", but the live API sends more (a run returns a second set that the
+// docs do not mention). An enum here rejects the whole response and throws
+// away the heart rate set with it, because a bad enum value fails the
+// parse and `.passthrough()` only permits unknown keys, not unknown values.
+// Consumers filter on the two known values instead.
 export const ActivityZoneSchema = z
   .object({
-    type: z.enum(["heartrate", "power"]).optional(),
+    type: z.string().optional(),
     score: z.number().optional().nullable(),
     sensor_based: z.boolean().optional().nullable(),
     points: z.number().int().optional().nullable(),
@@ -1833,6 +1840,19 @@ export async function getActivityZones(
       );
       throw new Error(
         `Invalid data format received from Strava API: ${validationResult.error.message}`,
+      );
+    }
+
+    // Surface zone types Strava sends but does not document, so the set the
+    // tools drop is visible in the logs rather than silently missing.
+    const unknownTypes = validationResult.data
+      .map((zone) => zone.type)
+      .filter((type) => type !== "heartrate" && type !== "power");
+    if (unknownTypes.length > 0) {
+      console.error(
+        `Undocumented activity zone type(s) from Strava (getActivityZones: ${activityId}): ${unknownTypes
+          .map((type) => type ?? "(missing)")
+          .join(", ")}`,
       );
     }
 
