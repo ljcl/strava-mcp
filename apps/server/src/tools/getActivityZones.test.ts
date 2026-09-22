@@ -10,8 +10,17 @@ import {
 } from "../stravaClient";
 import { formatActivityZones, getActivityZonesTool } from "./getActivityZones";
 
-// The fixture's `type` field widens to `string`; assert the discriminated shape.
 const activityZones = activityZonesFixture as StravaActivityZone[];
+
+// A run returns a zone set of an undocumented type alongside heart rate.
+const paceZoneSet: StravaActivityZone = {
+  type: "pace",
+  sensor_based: false,
+  distribution_buckets: [
+    { min: 0, max: 3, time: 900 },
+    { min: 3, max: -1, time: 600 },
+  ],
+};
 
 vi.mock("../stravaClient", () => ({
   getActivityZones: vi.fn(),
@@ -37,6 +46,18 @@ describe("formatActivityZones", () => {
     // Power total = 2220s; zone 2 (1500s) = 67.6%.
     expect(text).toContain("Z2 (100–250 W): 25:00 (67.6%)");
     expect(text).toContain("Z3 (250+ W): 8:40 (23.4%)");
+  });
+
+  it("renders an undocumented zone type under a generic heading", () => {
+    const text = formatActivityZones([activityZones[0]!, paceZoneSet]);
+
+    // The known set keeps its labelled heading and unit.
+    expect(text).toContain("Heart Rate Zones");
+    // The unknown set names its raw type and carries no unit, because its
+    // bounds are in units the server cannot name.
+    expect(text).toContain("**Zones (pace)**");
+    expect(text).toContain("Z1 (0–3): 15:00 (60.0%)");
+    expect(text).toContain("Z2 (3+): 10:00 (40.0%)");
   });
 
   it("notes when a zone set has no distribution buckets", () => {
@@ -67,6 +88,24 @@ describe("getActivityZonesTool.execute", () => {
     expect(result.content[0]?.text).not.toContain("Complete Zone Data");
     expect(result.structuredContent?.zone_sets.length).toBeGreaterThan(0);
     expect(mockedClient).toHaveBeenCalledWith("test-token", "12345");
+  });
+
+  it("returns the known zone sets when Strava adds an unknown type", async () => {
+    mockedClient.mockResolvedValue([activityZones[0]!, paceZoneSet]);
+
+    const result = await getActivityZonesTool.execute(
+      { id: "20278545872" },
+      "test-token",
+    );
+
+    expect(result.isError).toBeUndefined();
+    const text = result.content[0]?.text ?? "";
+    expect(text).toContain("Heart Rate Zones");
+    expect(text).toContain("**Zones (pace)**");
+    // Only the sets the chart can plot reach `structuredContent`.
+    expect(result.structuredContent?.zone_sets.map((set) => set.type)).toEqual([
+      "heartrate",
+    ]);
   });
 
   it("returns a graceful message when there is no zone data", async () => {
