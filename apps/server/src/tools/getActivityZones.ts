@@ -49,14 +49,15 @@ function formatBuckets(
   unit: string,
 ): string {
   const total = buckets.reduce((sum, bucket) => sum + bucket.time, 0);
+  const suffix = unit ? ` ${unit}` : "";
 
   return buckets
     .map((bucket, index) => {
       // The final bucket uses max: -1 to mean "and above".
       const range =
         bucket.max === -1
-          ? `${bucket.min}+ ${unit}`
-          : `${bucket.min}–${bucket.max} ${unit}`;
+          ? `${bucket.min}+${suffix}`
+          : `${bucket.min}–${bucket.max}${suffix}`;
       const percentage =
         total > 0 ? ((bucket.time / total) * 100).toFixed(1) : "0.0";
       return `   Z${index + 1} (${range}): ${formatDuration(bucket.time)} (${percentage}%)`;
@@ -71,8 +72,15 @@ function formatBuckets(
 export function formatActivityZones(zones: StravaActivityZone[]): string {
   return zones
     .map((zone) => {
+      // Strava sends zone types beyond the documented heartrate/power pair, so
+      // an unrecognised set still renders — under a generic heading naming the
+      // raw type, and with no unit, since its bounds are in unknown units.
       const meta = zone.type ? ZONE_META[zone.type] : undefined;
-      const heading = meta ? `${meta.emoji} **${meta.label}**` : "**Zones**";
+      const heading = meta
+        ? `${meta.emoji} **${meta.label}**`
+        : zone.type
+          ? `**Zones (${zone.type})**`
+          : "**Zones**";
       const unit = meta?.unit ?? "";
 
       if (
