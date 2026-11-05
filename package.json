@@ -37,7 +37,7 @@
     "knip": "6.32.2",
     "playwright": "1.62.1",
     "turbo": "2.10.10",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   },
   "overrides": {
     "react-is": "19.2.8"
